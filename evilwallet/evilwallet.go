@@ -437,10 +437,10 @@ func printTransaction(tx *iotago.SignedTransaction) string {
 	}
 	txDetails += fmt.Sprintln("Allotments:")
 	for _, allotment := range tx.Transaction.Allotments {
-		txDetails += fmt.Sprintf("AllotmentID: %s, value: %d\n", allotment.AccountID, allotment.Value)
+		txDetails += fmt.Sprintf("AllotmentID: %s, value: %d\n", allotment.AccountID, allotment.Mana)
 	}
 	for _, allotment := range tx.Transaction.TransactionEssence.Allotments {
-		txDetails += fmt.Sprintf("al 2 AllotmentID: %s, value: %d\n", allotment.AccountID, allotment.Value)
+		txDetails += fmt.Sprintf("al 2 AllotmentID: %s, value: %d\n", allotment.AccountID, allotment.Mana)
 	}
 
 	return txDetails

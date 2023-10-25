@@ -315,13 +315,13 @@ func (o *OutputManager) AwaitTransactionToBeAccepted(txID iotago.TransactionID, 
 		if resp.BlockState == apimodels.BlockStateFailed.String() || resp.BlockState == apimodels.BlockStateRejected.String() {
 			failureReason, _, _ := apimodels.BlockFailureReasonFromBytes(lo.PanicOnErr(resp.BlockFailureReason.Bytes()))
 
-			return ierrors.Errorf("tx %s failed because block failure: %s", txID, failureReason)
+			return ierrors.Errorf("tx %s failed because block failure: %d", txID, failureReason)
 		}
 
 		if resp.TransactionState == apimodels.TransactionStateFailed.String() {
 			failureReason, _, _ := apimodels.TransactionFailureReasonFromBytes(lo.PanicOnErr(resp.TransactionFailureReason.Bytes()))
 
-			return ierrors.Errorf("transaction %s failed: %s", txID, failureReason)
+			return ierrors.Errorf("transaction %s failed: %d", txID, failureReason)
 		}
 
 		confirmationState := resp.TransactionState

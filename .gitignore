@@ -20,3 +20,8 @@ go.work.sum
 
 # OSX related files
 .DS_Store
+
+# configs
+*.json
+*.dat
+*.log

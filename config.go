@@ -22,7 +22,7 @@ var (
 		ClientURLs:            urls,
 		SpamTypes:             []string{spammer.TypeBlock},
 		Rates:                 []int{1},
-		Durations:             []time.Duration{time.Second * 20},
+		Durations:             []time.Duration{},
 		BlkToBeSent:           []int{0},
 		TimeUnit:              time.Second,
 		DelayBetweenConflicts: 0,

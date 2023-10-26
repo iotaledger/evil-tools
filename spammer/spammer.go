@@ -177,7 +177,12 @@ func (s *Spammer) Spam() {
 	s.log.Infof("Start spamming transactions with %d rate", s.SpamDetails.Rate)
 
 	s.State.spamStartTime = time.Now()
-	timeExceeded := time.After(s.SpamDetails.MaxDuration)
+
+	var timeExceeded <-chan time.Time
+	// if duration less than zero then spam infinitely
+	if s.SpamDetails.MaxDuration >= 0 {
+		timeExceeded = time.After(s.SpamDetails.MaxDuration)
+	}
 
 	go func() {
 		goroutineCount := atomic.NewInt32(0)

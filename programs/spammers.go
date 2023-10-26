@@ -20,7 +20,12 @@ func CustomSpam(params *CustomSpamParams, accWallet *accountwallet.AccountWallet
 	for i, sType := range params.SpamTypes {
 		log.Infof("Start spamming with rate: %d, time unit: %s, and spamming type: %s.", params.Rates[i], params.TimeUnit.String(), sType)
 
-		numOfBigWallets := spammer.BigWalletsNeeded(params.Rates[i], params.TimeUnit, params.Durations[i])
+		var duration time.Duration = -1
+		if len(params.Durations) > i {
+			duration = params.Durations[i]
+		}
+		// faucet funds preparation
+		numOfBigWallets := spammer.BigWalletsNeeded(params.Rates[i], params.TimeUnit, duration)
 		fmt.Println("numOfBigWallets: ", numOfBigWallets)
 		success := w.RequestFreshBigFaucetWallets(numOfBigWallets)
 		if !success {
@@ -37,7 +42,7 @@ func CustomSpam(params *CustomSpamParams, accWallet *accountwallet.AccountWallet
 			wg.Add(1)
 			go func(i int) {
 				defer wg.Done()
-				s := SpamBlocks(w, params.Rates[i], params.TimeUnit, params.Durations[i], params.BlkToBeSent[i], params.EnableRateSetter, params.AccountAlias)
+				s := SpamBlocks(w, params.Rates[i], params.TimeUnit, duration, params.BlkToBeSent[i], params.EnableRateSetter, params.AccountAlias)
 				if s == nil {
 					return
 				}
@@ -47,19 +52,19 @@ func CustomSpam(params *CustomSpamParams, accWallet *accountwallet.AccountWallet
 			wg.Add(1)
 			go func(i int) {
 				defer wg.Done()
-				SpamTransaction(w, params.Rates[i], params.TimeUnit, params.Durations[i], params.DeepSpam, params.EnableRateSetter, params.AccountAlias)
+				SpamTransaction(w, params.Rates[i], params.TimeUnit, duration, params.DeepSpam, params.EnableRateSetter, params.AccountAlias)
 			}(i)
 		case spammer.TypeDs:
 			wg.Add(1)
 			go func(i int) {
 				defer wg.Done()
-				SpamDoubleSpends(w, params.Rates[i], params.NSpend, params.TimeUnit, params.Durations[i], params.DelayBetweenConflicts, params.DeepSpam, params.EnableRateSetter, params.AccountAlias)
+				SpamDoubleSpends(w, params.Rates[i], params.NSpend, params.TimeUnit, duration, params.DelayBetweenConflicts, params.DeepSpam, params.EnableRateSetter, params.AccountAlias)
 			}(i)
 		case spammer.TypeCustom:
 			wg.Add(1)
 			go func(i int) {
 				defer wg.Done()
-				s := SpamNestedConflicts(w, params.Rates[i], params.TimeUnit, params.Durations[i], params.Scenario, params.DeepSpam, false, params.EnableRateSetter, params.AccountAlias)
+				s := SpamNestedConflicts(w, params.Rates[i], params.TimeUnit, duration, params.Scenario, params.DeepSpam, false, params.EnableRateSetter, params.AccountAlias)
 				if s == nil {
 					return
 				}
@@ -70,7 +75,7 @@ func CustomSpam(params *CustomSpamParams, accWallet *accountwallet.AccountWallet
 			go func(i int) {
 				defer wg.Done()
 
-				s := SpamAccounts(w, params.Rates[i], params.TimeUnit, params.Durations[i], params.EnableRateSetter, params.AccountAlias)
+				s := SpamAccounts(w, params.Rates[i], params.TimeUnit, duration, params.EnableRateSetter, params.AccountAlias)
 				if s == nil {
 					return
 				}

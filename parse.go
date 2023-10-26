@@ -34,10 +34,6 @@ func parseFlags() (help bool) {
 		splitedCmds := readSubcommandsAndFlagSets(subcommands)
 		accountsSubcommandsFlags = parseAccountTestFlags(splitedCmds)
 
-	case "quick":
-		parseQuickTestFlags()
-		// case SpammerTypeCommitments:
-		// 	parseCommitmentsSpamFlags()
 	}
 	if Script == "help" || Script == "-h" || Script == "--help" {
 		return true
@@ -76,7 +72,6 @@ func parseBasicSpamFlags() {
 
 	if *urls != "" {
 		parsedUrls := parseCommaSepString(*urls)
-		quickTestParams.ClientURLs = parsedUrls
 		customSpamParams.ClientURLs = parsedUrls
 	}
 	if *spamTypes != "" {
@@ -117,27 +112,6 @@ func parseBasicSpamFlags() {
 	if *blkNum == "" && *duration != "" {
 		customSpamParams.BlkToBeSent = make([]int, len(customSpamParams.Durations))
 	}
-}
-
-func parseQuickTestFlags() {
-	urls := optionFlagSet.String("urls", "", "API urls for clients used in test separated with commas")
-	rate := optionFlagSet.Int("rate", quickTestParams.Rate, "The spamming rate")
-	duration := optionFlagSet.Duration("duration", quickTestParams.Duration, "Duration of the spam. Format: decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
-	timeunit := optionFlagSet.Duration("tu", quickTestParams.TimeUnit, "Time unit for the spamming rate. Format: decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
-	delayBetweenConflicts := optionFlagSet.Duration("dbc", quickTestParams.DelayBetweenConflicts, "delayBetweenConflicts - Time delay between conflicts in double spend spamming")
-	verifyLedger := optionFlagSet.Bool("verify", quickTestParams.VerifyLedger, "Set to true if verify ledger script should be run at the end of the test")
-
-	parseOptionFlagSet(optionFlagSet)
-
-	if *urls != "" {
-		parsedUrls := parseCommaSepString(*urls)
-		quickTestParams.ClientURLs = parsedUrls
-	}
-	quickTestParams.Rate = *rate
-	quickTestParams.Duration = *duration
-	quickTestParams.TimeUnit = *timeunit
-	quickTestParams.DelayBetweenConflicts = *delayBetweenConflicts
-	quickTestParams.VerifyLedger = *verifyLedger
 }
 
 // readSubcommandsAndFlagSets splits the subcommands on multiple flag sets.
@@ -234,31 +208,31 @@ func parseAccountTestFlags(splitedCmds [][]string) []accountwallet.AccountSubcom
 func accountUsage() {
 	fmt.Println("Usage for accounts [COMMAND] [FLAGS], multiple commands can be chained together.")
 	fmt.Printf("COMMAND: %s\n", accountwallet.CmdNameCreateAccount)
-	parseCreateAccountFlags(nil)
+	_, _ = parseCreateAccountFlags(nil)
 
 	fmt.Printf("COMMAND: %s\n", accountwallet.CmdNameConvertAccount)
-	parseConvertAccountFlags(nil)
+	_, _ = parseConvertAccountFlags(nil)
 
 	fmt.Printf("COMMAND: %s\n", accountwallet.CmdNameDestroyAccount)
-	parseDestroyAccountFlags(nil)
+	_, _ = parseDestroyAccountFlags(nil)
 
 	fmt.Printf("COMMAND: %s\n", accountwallet.CmdNameAllotAccount)
-	parseAllotAccountFlags(nil)
+	_, _ = parseAllotAccountFlags(nil)
 
 	fmt.Printf("COMMAND: %s\n", accountwallet.CmdNameDelegateAccount)
-	parseDelegateAccountFlags(nil)
+	_, _ = parseDelegateAccountFlags(nil)
 
 	fmt.Printf("COMMAND: %s\n", accountwallet.CmdNameStakeAccount)
-	parseStakeAccountFlags(nil)
+	_, _ = parseStakeAccountFlags(nil)
 }
 
 func parseCreateAccountFlags(subcommands []string) (*accountwallet.CreateAccountParams, error) {
 	flagSet := flag.NewFlagSet("create", flag.ExitOnError)
 	alias := flagSet.String("alias", "", "The alias name of new created account")
-	amount := flagSet.Int64("amount", 1000, "The amount to be transfered to the new account")
+	amount := flagSet.Int64("amount", 1000, "The amount to be transferred to the new account")
 	noBif := flagSet.Bool("noBIF", false, "Create account without Block Issuer Feature, can only be set false no if implicit is false, as each account created implicitly needs to have BIF.")
 	implicit := flagSet.Bool("implicit", false, "Create an implicit account")
-	transition := flagSet.Bool("transition", true, "Indicates if account should be transitioned to full acount if created with implicit address.")
+	transition := flagSet.Bool("transition", true, "Indicates if account should be transitioned to full account if created with implicit address.")
 
 	if subcommands == nil {
 		flagSet.Usage()
@@ -282,7 +256,7 @@ func parseCreateAccountFlags(subcommands []string) (*accountwallet.CreateAccount
 	log.Infof("Parsed flags: alias: %s, amount: %d, BIF: %t, implicit: %t, transition: %t", *alias, *amount, *noBif, *implicit, *transition)
 
 	if !*implicit == *transition {
-		log.Info("WARN: Implict flag set to false, account will be created non-implicitly by Faucet, no need for transition, flag will be ignored")
+		log.Info("WARN: Implicit flag set to false, account will be created non-implicitly by Faucet, no need for transition, flag will be ignored")
 		*transition = false
 	}
 
@@ -458,28 +432,6 @@ func parseUpdateAccountFlags(subcommands []string) (*accountwallet.UpdateAccount
 		ExpirySlot:     uint64(*expirySlot),
 	}, nil
 }
-
-// func parseCommitmentsSpamFlags() {
-// 	commitmentType := optionFlagSet.String("type", commitmentsSpamParams.CommitmentType, "Type of commitment spam. Possible values: 'latest' - valid commitment spam, 'random' - completely new, invalid cahin, 'fork' - forked chain, combine with 'forkAfter' parameter.")
-// 	rate := optionFlagSet.Int("rate", commitmentsSpamParams.Rate, "Commitment spam rate")
-// 	duration := optionFlagSet.Duration("duration", commitmentsSpamParams.Duration, "Duration of the spam. Format: decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
-// 	timeUnit := optionFlagSet.Duration("tu", commitmentsSpamParams.TimeUnit, "Time unit for the spamming rate. Format: decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
-// 	networkAlias := optionFlagSet.String("network", commitmentsSpamParams.NetworkAlias, "Network alias for the test. Check your keys-config.json file for possible values.")
-// 	identityAlias := optionFlagSet.String("spammerAlias", commitmentsSpamParams.SpammerAlias, "Identity alias for the node identity and its private keys that will be used to spam. Check your keys-config.json file for possible values.")
-// 	validAlias := optionFlagSet.String("validAlias", commitmentsSpamParams.ValidAlias, "Identity alias for the honest node and its private keys, will be used to request valid commitment and block data. Check your keys-config.json file for possible values.")
-// 	forkAfter := optionFlagSet.Int("forkAfter", commitmentsSpamParams.Rate, "Indicates how many slots after spammer startup should fork be placed in the created commitment chain. Works only for 'fork' commitment spam type.")
-
-// 	parseOptionFlagSet(optionFlagSet)
-
-// 	commitmentsSpamParams.CommitmentType = *commitmentType
-// 	commitmentsSpamParams.Rate = *rate
-// 	commitmentsSpamParams.Duration = *duration
-// 	commitmentsSpamParams.TimeUnit = *timeUnit
-// 	commitmentsSpamParams.NetworkAlias = *networkAlias
-// 	commitmentsSpamParams.SpammerAlias = *identityAlias
-// 	commitmentsSpamParams.ValidAlias = *validAlias
-// 	commitmentsSpamParams.ForkAfter = *forkAfter
-// }
 
 func parseCommaSepString(urls string) []string {
 	split := strings.Split(urls, ",")

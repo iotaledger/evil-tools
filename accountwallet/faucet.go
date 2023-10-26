@@ -152,6 +152,7 @@ func newFaucet(clt models.Client, faucetParams *faucetParams) (*faucet, error) {
 		return nil, ierrors.Wrap(err, "failed to get faucet output from indexer")
 	}
 
+	//nolint:all,forcetypassert
 	f.unspentOutput = &models.Output{
 		Address:      faucetAddr.(*iotago.Ed25519Address),
 		AddressIndex: 0,
@@ -203,12 +204,12 @@ func (f *faucet) prepareFaucetRequest(receiveAddr iotago.Address, amount iotago.
 		return nil, err
 	}
 
-	rmcAllotedTxBuilder := txBuilder.Clone()
+	rmcAllottedTxBuilder := txBuilder.Clone()
 	// faucet will allot exact mana to be burnt, rest of the mana is alloted to faucet output remainder
-	rmcAllotedTxBuilder.AllotRequiredManaAndStoreRemainingManaInOutput(txBuilder.CreationSlot(), rmc, f.account.ID(), remainderIndex)
+	rmcAllottedTxBuilder.AllotRequiredManaAndStoreRemainingManaInOutput(txBuilder.CreationSlot(), rmc, f.account.ID(), remainderIndex)
 
 	var signedTx *iotago.SignedTransaction
-	signedTx, err = rmcAllotedTxBuilder.Build(f.genesisHdWallet.AddressSigner())
+	signedTx, err = rmcAllottedTxBuilder.Build(f.genesisHdWallet.AddressSigner())
 	if err != nil {
 		log.Infof("WARN: failed to build tx with min required mana allotted, genesis potential mana was not enough, fallback to faucet account")
 		txBuilder.AllotAllMana(txBuilder.CreationSlot(), f.account.ID())
@@ -218,6 +219,7 @@ func (f *faucet) prepareFaucetRequest(receiveAddr iotago.Address, amount iotago.
 	}
 
 	// set remainder output to be reused by the Faucet wallet
+	//nolint:all,forcetypassert
 	f.unspentOutput = &models.Output{
 		OutputID:     iotago.OutputIDFromTransactionIDAndIndex(lo.PanicOnErr(signedTx.Transaction.ID()), uint16(remainderIndex)),
 		Address:      f.genesisHdWallet.Address(iotago.AddressEd25519).(*iotago.Ed25519Address),
@@ -236,6 +238,7 @@ func (f *faucet) createFaucetTransactionNoManaHandling(receiveAddr iotago.Addres
 	apiForSlot := f.clt.APIForSlot(currentSlot)
 	txBuilder := builder.NewTransactionBuilder(apiForSlot)
 
+	//nolint:all,forcetypassert
 	txBuilder.AddInput(&builder.TxInput{
 		UnlockTarget: f.genesisHdWallet.Address(iotago.AddressEd25519).(*iotago.Ed25519Address),
 		InputID:      f.unspentOutput.OutputID,
@@ -244,7 +247,7 @@ func (f *faucet) createFaucetTransactionNoManaHandling(receiveAddr iotago.Addres
 
 	remainderAmount, err := safemath.SafeSub(f.unspentOutput.Balance, amount)
 	if err != nil {
-		panic(err)
+		return nil, 0, ierrors.Errorf("safeSub failed %d - %d: %s", f.unspentOutput.Balance, amount, err)
 	}
 
 	txBuilder.AddOutput(&iotago.BasicOutput{
@@ -257,6 +260,7 @@ func (f *faucet) createFaucetTransactionNoManaHandling(receiveAddr iotago.Addres
 
 	// remainder output
 	remainderIndex := 1
+	//nolint:all,forcetypassert
 	txBuilder.AddOutput(&iotago.BasicOutput{
 		Amount: remainderAmount,
 		Conditions: iotago.BasicOutputUnlockConditions{

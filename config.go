@@ -9,16 +9,14 @@ import (
 	"github.com/iotaledger/evil-tools/spammer"
 )
 
-// Nodes used during the test, use at least two nodes to be able to doublespend.
+// Nodes used during the test, use at least two nodes to be able to double spend.
 var (
 	// urls = []string{"http://bootstrap-01.feature.shimmer.iota.cafe:8080", "http://vanilla-01.feature.shimmer.iota.cafe:8080", "http://drng-01.feature.shimmer.iota.cafe:8080"}
 	urls = []string{"http://localhost:8080", "http://localhost:8090"} //, "http://localhost:8070", "http://localhost:8040"}
-	//urls = []string{}
 )
 
 var (
-	Script     = "basic"
-	Subcommand = ""
+	Script = ScriptSpammer
 
 	customSpamParams = programs.CustomSpamParams{
 		ClientURLs:            urls,
@@ -35,26 +33,5 @@ var (
 		AccountAlias:          accountwallet.FaucetAccountAlias,
 	}
 
-	quickTestParams = programs.QuickTestParams{
-		ClientURLs:            urls,
-		Rate:                  100,
-		Duration:              time.Second * 30,
-		TimeUnit:              time.Second,
-		DelayBetweenConflicts: 0,
-		EnableRateSetter:      false,
-	}
-
 	accountsSubcommandsFlags []accountwallet.AccountSubcommands
-
-	//nolint:godot
-	// commitmentsSpamParams = CommitmentsSpamParams{
-	// 	Rate:           1,
-	// 	Duration:       time.Second * 20,
-	// 	TimeUnit:       time.Second,
-	// 	NetworkAlias:   "docker",
-	// 	SpammerAlias:   "validator-1",
-	// 	ValidAlias:     accountwallet.FaucetAccountAlias,
-	// 	CommitmentType: "latest",
-	// 	ForkAfter:      10,
-	// }
 )

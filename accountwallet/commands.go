@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/iota.go/v4/builder"
 )
 
-// CreateAccount creates an implicit account and immediatelly transition it to a regular account.
+// CreateAccount creates an implicit account and immediately transition it to a regular account.
 func (a *AccountWallet) CreateAccount(params *CreateAccountParams) (iotago.AccountID, error) {
 	if params.Implicit {
 		return a.createAccountImplicitly(params)
@@ -23,7 +23,7 @@ func (a *AccountWallet) CreateAccount(params *CreateAccountParams) (iotago.Accou
 
 func (a *AccountWallet) createAccountImplicitly(params *CreateAccountParams) (iotago.AccountID, error) {
 	// An implicit account has an implicitly defined Block Issuer Key, corresponding to the address itself.
-	// Thus implicit accounts can issue blocks by signing them with the private key corresponding to the public key
+	// Thus, implicit accounts can issue blocks by signing them with the private key corresponding to the public key
 	// from which the Implicit Account Creation Address was derived.
 	implicitAccountOutput, privateKey, err := a.getFunds(params.Amount, iotago.AddressImplicitAccountCreation)
 	if err != nil {
@@ -39,7 +39,12 @@ func (a *AccountWallet) createAccountImplicitly(params *CreateAccountParams) (io
 
 	log.Debugf("Transitioning implicit account with implicitAccountID %s for alias %s to regular account", params.Alias, iotago.AccountIDFromOutputID(implicitAccountOutput.OutputID).ToHex())
 
-	implicitAccAddr := iotago.ImplicitAccountCreationAddressFromPubKey(privateKey.Public().(ed25519.PublicKey))
+	pubKey, isEd25519 := privateKey.Public().(ed25519.PublicKey)
+	if !isEd25519 {
+		return iotago.EmptyAccountID, ierrors.New("Failed to create account: only Ed25519 keys are supported")
+	}
+
+	implicitAccAddr := iotago.ImplicitAccountCreationAddressFromPubKey(pubKey)
 	addrKeys := iotago.NewAddressKeysForImplicitAccountCreationAddress(implicitAccAddr, privateKey)
 	implicitBlockIssuerKey := iotago.Ed25519PublicKeyHashBlockIssuerKeyFromImplicitAccountCreationAddress(implicitAccAddr)
 	blockIssuerKeys := iotago.NewBlockIssuerKeys(implicitBlockIssuerKey)
@@ -52,7 +57,7 @@ func (a *AccountWallet) transitionImplicitAccount(
 	implicitAccAddr *iotago.ImplicitAccountCreationAddress,
 	accAddr iotago.Address,
 	blockIssuerKeys iotago.BlockIssuerKeys,
-	privateKey ed25519.PrivateKey,
+	_ ed25519.PrivateKey,
 	params *CreateAccountParams,
 ) (iotago.AccountID, error) {
 	// transition from implicit to regular account
@@ -62,12 +67,10 @@ func (a *AccountWallet) transitionImplicitAccount(
 		BlockIssuer(blockIssuerKeys, iotago.MaxSlotIndex).MustBuild()
 
 	log.Infof("Created account %s with %d tokens\n", accountOutput.AccountID.ToHex(), params.Amount)
-	txBuilder, err := a.createTransactionBuilder(implicitAccountOutput, implicitAccAddr, accountOutput)
-	if err != nil {
-		return iotago.EmptyAccountID, ierrors.Wrap(err, "Failed to create account")
-	}
+	txBuilder := a.createTransactionBuilder(implicitAccountOutput, implicitAccAddr, accountOutput)
+
 	// TODO get congestionResponse from API
-	var rmc iotago.Mana = 0
+	var rmc iotago.Mana
 	var implicitAccountID iotago.AccountID
 	txBuilder.AllotRequiredManaAndStoreRemainingManaInOutput(txBuilder.CreationSlot(), rmc, implicitAccountID, 0)
 
@@ -79,7 +82,7 @@ func (a *AccountWallet) transitionImplicitAccount(
 	return iotago.EmptyAccountID, nil
 }
 
-func (a *AccountWallet) createAccountWithFaucet(params *CreateAccountParams) (iotago.AccountID, error) {
+func (a *AccountWallet) createAccountWithFaucet(_ *CreateAccountParams) (iotago.AccountID, error) {
 	log.Debug("Not implemented yet")
 	//faucetOutput := a.getFaucetOutput()
 	//
@@ -94,7 +97,7 @@ func (a *AccountWallet) createAccountWithFaucet(params *CreateAccountParams) (io
 	return iotago.EmptyAccountID, nil
 }
 
-func (a *AccountWallet) createTransactionBuilder(input *models.Output, address iotago.Address, accountOutput *iotago.AccountOutput) (*builder.TransactionBuilder, error) {
+func (a *AccountWallet) createTransactionBuilder(input *models.Output, address iotago.Address, accountOutput *iotago.AccountOutput) *builder.TransactionBuilder {
 	currentTime := time.Now()
 	currentSlot := a.client.LatestAPI().TimeProvider().SlotFromTime(currentTime)
 
@@ -109,7 +112,7 @@ func (a *AccountWallet) createTransactionBuilder(input *models.Output, address i
 	txBuilder.AddOutput(accountOutput)
 	txBuilder.SetCreationSlot(currentSlot)
 
-	return txBuilder, nil
+	return txBuilder
 }
 
 func (a *AccountWallet) getAddress(addressType iotago.AddressType) (iotago.DirectUnlockableAddress, ed25519.PrivateKey, uint64) {
@@ -139,6 +142,6 @@ func (a *AccountWallet) ListAccount() error {
 	return nil
 }
 
-func (a *AccountWallet) AllotToAccount(params *AllotAccountParams) error {
+func (a *AccountWallet) AllotToAccount(_ *AllotAccountParams) error {
 	return nil
 }

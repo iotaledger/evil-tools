@@ -40,7 +40,7 @@ var (
 	minSpamOutputs int
 )
 
-type InteractiveConfig struct {
+type Config struct {
 	//nolint:tagliatelle
 	WebAPI               []string `json:"webAPI"`
 	Rate                 int      `json:"rate"`
@@ -71,7 +71,7 @@ var configJSON = fmt.Sprintf(`{
 	"useRateSetter": true
 }`, spammer.TypeTx)
 
-var defaultConfig = InteractiveConfig{
+var defaultConfig = Config{
 	clientURLs: map[string]types.Empty{
 		"http://localhost:8080": types.Void,
 		"http://localhost:8090": types.Void,
@@ -202,7 +202,7 @@ type Mode struct {
 
 	preparingFunds bool
 
-	Config        InteractiveConfig
+	Config        Config
 	blkSent       *atomic.Uint64
 	txSent        *atomic.Uint64
 	scenariosSent *atomic.Uint64
@@ -821,7 +821,7 @@ var (
 )
 
 type SpammerLog struct {
-	spamDetails   []InteractiveConfig
+	spamDetails   []Config
 	spamStartTime []time.Time
 	spamStopTime  []time.Time
 	mu            syncutils.Mutex
@@ -829,13 +829,13 @@ type SpammerLog struct {
 
 func NewSpammerLog() *SpammerLog {
 	return &SpammerLog{
-		spamDetails:   make([]InteractiveConfig, 0),
+		spamDetails:   make([]Config, 0),
 		spamStartTime: make([]time.Time, 0),
 		spamStopTime:  make([]time.Time, 0),
 	}
 }
 
-func (s *SpammerLog) SpamDetails(spamID int) *InteractiveConfig {
+func (s *SpammerLog) SpamDetails(spamID int) *Config {
 	return &s.spamDetails[spamID]
 }
 
@@ -843,7 +843,7 @@ func (s *SpammerLog) StartTime(spamID int) time.Time {
 	return s.spamStartTime[spamID]
 }
 
-func (s *SpammerLog) AddSpam(config InteractiveConfig) (spamID int) {
+func (s *SpammerLog) AddSpam(config Config) (spamID int) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -870,13 +870,13 @@ func (s *SpammerLog) LogHistory(lastLines int, writer io.Writer) {
 	defer s.mu.Unlock()
 
 	w := newTabWriter(writer)
-	fmt.Fprintln(w, historyHeader)
+	_, _ = fmt.Fprintln(w, historyHeader)
 	idx := len(s.spamDetails) - lastLines + 1
 	if idx < 0 {
 		idx = 0
 	}
 	for i, spam := range s.spamDetails[idx:] {
-		fmt.Fprintf(w, historyLineFmt, spam.Scenario, s.spamStartTime[i].Format(timeFormat), s.spamStopTime[i].Format(timeFormat),
+		_, _ = fmt.Fprintf(w, historyLineFmt, spam.Scenario, s.spamStartTime[i].Format(timeFormat), s.spamStopTime[i].Format(timeFormat),
 			spam.Deep, spam.Deep, spam.Rate, int(spam.duration.Seconds()))
 	}
 	w.Flush()
@@ -887,10 +887,10 @@ func (s *SpammerLog) LogSelected(lines []int, writer io.Writer) {
 	defer s.mu.Unlock()
 
 	w := newTabWriter(writer)
-	fmt.Fprintln(w, historyHeader)
+	_, _ = fmt.Fprintln(w, historyHeader)
 	for _, idx := range lines {
 		spam := s.spamDetails[idx]
-		fmt.Fprintf(w, historyLineFmt, spam.Scenario, s.spamStartTime[idx].Format(timeFormat), s.spamStopTime[idx].Format(timeFormat),
+		_, _ = fmt.Fprintf(w, historyLineFmt, spam.Scenario, s.spamStartTime[idx].Format(timeFormat), s.spamStopTime[idx].Format(timeFormat),
 			spam.Deep, spam.Deep, spam.Rate, int(spam.duration.Seconds()))
 	}
 	w.Flush()

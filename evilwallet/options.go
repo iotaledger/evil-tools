@@ -1,8 +1,6 @@
 package evilwallet
 
 import (
-	"time"
-
 	"github.com/iotaledger/evil-tools/models"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/ierrors"
@@ -22,7 +20,6 @@ type Options struct {
 	outputWallet       *Wallet
 	outputBatchAliases map[string]types.Empty
 	reuse              bool
-	issuingTime        time.Time
 	allotmentStrategy  models.AllotmentStrategy
 	issuerAccountID    iotago.AccountID
 	// maps input alias to desired output type, used to create account output types
@@ -197,13 +194,6 @@ func WithOutputBatchAliases(outputAliases map[string]types.Empty) Option {
 func WithReuseOutputs() Option {
 	return func(options *Options) {
 		options.reuse = true
-	}
-}
-
-// WithIssuingTime returns a BlockOption that is used to set issuing time of the Block.
-func WithIssuingTime(issuingTime time.Time) Option {
-	return func(options *Options) {
-		options.issuingTime = issuingTime
 	}
 }
 

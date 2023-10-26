@@ -205,20 +205,6 @@ func (o *OutputManager) getOutputFromWallet(outputID iotago.OutputID) (output *m
 	return
 }
 
-// RequestOutputsByAddress finds the unspent outputs of a given address and updates the provided output status map.
-// func (o *OutputManager) RequestOutputsByAddress(address string) (outputIDs []iotago.OutputID) {
-// 	s := time.Now()
-// 	clt := o.connector.GetClient()
-// 	for ; time.Since(s) < awaitOutputsByAddress; time.Sleep(1 * time.Second) {
-// 		outputIDs, err := clt.GetAddressUnspentOutputs(address)
-// 		if err == nil && len(outputIDs) > 0 {
-// 			return outputIDs
-// 		}
-// 	}
-
-// 	return
-// }
-
 // RequestOutputsByTxID adds the outputs of a given transaction to the output status map.
 func (o *OutputManager) RequestOutputsByTxID(txID iotago.TransactionID) (outputIDs iotago.OutputIDs) {
 	clt := o.connector.GetClient()
@@ -339,54 +325,4 @@ func (o *OutputManager) AwaitTransactionToBeAccepted(txID iotago.TransactionID, 
 	o.log.Debugf("Transaction %s accepted", txID)
 
 	return nil
-}
-
-// AwaitOutputToBeSolid awaits for solidification of a single output by provided clt.
-func (o *OutputManager) AwaitOutputToBeSolid(outID iotago.OutputID, clt models.Client, waitFor time.Duration) error {
-	s := time.Now()
-	var solid bool
-
-	for ; time.Since(s) < waitFor; time.Sleep(awaitSolidificationSleep) {
-		solid = o.IssuerSolidOutIDMap(clt.URL(), outID)
-		if solid {
-			break
-		}
-		if output := clt.GetOutput(outID); output != nil {
-			o.SetOutputIDSolidForIssuer(outID, clt.URL())
-			solid = true
-
-			break
-		}
-	}
-	if !solid {
-		return ierrors.Errorf("output %s not solidified in time", outID)
-	}
-
-	return nil
-}
-
-// AwaitOutputsToBeSolid awaits for all provided outputs are solid for a provided client.
-func (o *OutputManager) AwaitOutputsToBeSolid(outputs iotago.OutputIDs, clt models.Client, maxGoroutines int) (allSolid bool) {
-	wg := sync.WaitGroup{}
-	semaphore := make(chan bool, maxGoroutines)
-	allSolid = true
-
-	for _, outID := range outputs {
-		wg.Add(1)
-		go func(outID iotago.OutputID) {
-			defer wg.Done()
-			semaphore <- true
-			defer func() {
-				<-semaphore
-			}()
-			err := o.AwaitOutputToBeSolid(outID, clt, waitForSolidification)
-			if err != nil {
-				allSolid = false
-				return
-			}
-		}(outID)
-	}
-	wg.Wait()
-
-	return
 }

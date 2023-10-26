@@ -65,14 +65,9 @@ func CustomSpam(params *CustomSpamParams, accWallet *accountwallet.AccountWallet
 				}
 				s.Spam()
 			}(i)
-		case spammer.TypeCommitments:
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-			}()
 		case spammer.TypeAccounts:
 			wg.Add(1)
-			go func() {
+			go func(i int) {
 				defer wg.Done()
 
 				s := SpamAccounts(w, params.Rates[i], params.TimeUnit, params.Durations[i], params.EnableRateSetter, params.AccountAlias)
@@ -80,7 +75,7 @@ func CustomSpam(params *CustomSpamParams, accWallet *accountwallet.AccountWallet
 					return
 				}
 				s.Spam()
-			}()
+			}(i)
 
 		default:
 			log.Warn("Spamming type not recognized. Try one of following: tx, ds, blk, custom, commitments")

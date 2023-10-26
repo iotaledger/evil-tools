@@ -18,18 +18,16 @@ import (
 )
 
 const (
-	TypeBlock       = "blk"
-	TypeTx          = "tx"
-	TypeDs          = "ds"
-	TypeCustom      = "custom"
-	TypeCommitments = "commitments"
-	TypeAccounts    = "accounts"
+	TypeBlock    = "blk"
+	TypeTx       = "tx"
+	TypeDs       = "ds"
+	TypeCustom   = "custom"
+	TypeAccounts = "accounts"
 )
 
 // region Spammer //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//nolint:revive
-type SpammerFunc func(*Spammer)
+type SpammingFunc func(*Spammer)
 
 type State struct {
 	spamTicker    *time.Ticker
@@ -46,7 +44,6 @@ type SpamType int
 
 const (
 	SpamEvilWallet SpamType = iota
-	SpamCommitments
 )
 
 // Spammer is a utility object for new spammer creations, can be modified by passing options.
@@ -69,9 +66,9 @@ type Spammer struct {
 	api iotago.API
 
 	// accessed from spamming functions
-	done     chan bool
-	shutdown chan types.Empty
-	spamFunc SpammerFunc
+	done         chan bool
+	shutdown     chan types.Empty
+	spammingFunc SpammingFunc
 
 	TimeDelayBetweenConflicts time.Duration
 	NumberOfSpends            int
@@ -89,7 +86,7 @@ func NewSpammer(options ...Options) *Spammer {
 	}
 	s := &Spammer{
 		SpamDetails:  &SpamDetails{},
-		spamFunc:     CustomConflictSpammingFunc,
+		spammingFunc: CustomConflictSpammingFunc,
 		State:        state,
 		SpamType:     SpamEvilWallet,
 		EvilScenario: evilwallet.NewEvilScenario(),
@@ -203,7 +200,7 @@ func (s *Spammer) Spam() {
 				go func() {
 					goroutineCount.Inc()
 					defer goroutineCount.Dec()
-					s.spamFunc(s)
+					s.spammingFunc(s)
 				}()
 			}
 		}
@@ -255,6 +252,7 @@ func (s *Spammer) PrepareAndPostBlock(txData *models.PayloadIssuanceData, issuer
 		return
 	}
 
+	//nolint:all,forcetypassert
 	signedTx := txData.Payload.(*iotago.SignedTransaction)
 
 	txID, err := signedTx.Transaction.ID()

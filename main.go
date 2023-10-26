@@ -15,22 +15,29 @@ var (
 	optionFlagSet = flag.NewFlagSet("script flag set", flag.ExitOnError)
 )
 
+const (
+	ScriptInteractive = "interactive"
+	ScriptSpammer     = "spammer"
+	ScriptAccounts    = "accounts"
+)
+
 func main() {
 	help := parseFlags()
 
 	if help {
-		fmt.Println("Usage of the Evil Spammer tool, provide the first argument for the selected mode:\n" +
-			"'interactive' - enters the interactive mode.\n" +
-			"'basic' - can be parametrized with additional flags to run one time spammer. Run 'evil-wallet basic -h' for the list of possible flags.\n" +
-			"'accounts' - tool for account creation and transition. Run 'evil-wallet accounts -h' for the list of possible flags.\n" +
-			"'quick' - runs simple stress test: tx spam -> blk spam -> ds spam. Run 'evil-wallet quick -h' for the list of possible flags.")
+		fmt.Printf("Usage of the Evil Spammer tool, provide the first argument for the selected mode:\n"+
+			"'%s' - enters the interactive mode.\n"+
+			"'%s' - can be parametrized with additional flags to run one time spammer. Run 'evil-wallet basic -h' for the list of possible flags.\n"+
+			"'%s' - tool for account creation and transition. Run 'evil-wallet accounts -h' for the list of possible flags.\n",
+			ScriptInteractive, ScriptSpammer, ScriptAccounts)
 
 		return
 	}
 	// init account wallet
 	var accWallet *accountwallet.AccountWallet
 	var err error
-	if Script == "basic" || Script == "accounts" {
+	//nolint:all,goconst
+	if Script == ScriptSpammer || Script == ScriptAccounts {
 		// read config here
 		config := accountwallet.LoadConfiguration()
 		// load wallet
@@ -54,16 +61,12 @@ func main() {
 	}
 	// run selected test scenario
 	switch Script {
-	case "interactive":
+	case ScriptInteractive:
 		interactive.Run()
-	case "basic":
+	case ScriptSpammer:
 		programs.CustomSpam(&customSpamParams, accWallet)
-	case "accounts":
+	case ScriptAccounts:
 		accountsSubcommands(accWallet, accountsSubcommandsFlags)
-	case "quick":
-		programs.QuickTest(&quickTestParams)
-	// case SpammerTypeCommitments:
-	// 	CommitmentsSpam(&commitmentsSpamParams)
 	default:
 		log.Warnf("Unknown parameter for script, possible values: interactive, basic, accounts, quick")
 	}
@@ -75,27 +78,43 @@ func accountsSubcommands(wallet *accountwallet.AccountWallet, subcommands []acco
 	}
 }
 
+//nolint:all,forcetypassert
 func accountsSubcommand(wallet *accountwallet.AccountWallet, sub accountwallet.AccountSubcommands) {
 	switch sub.Type() {
 	case accountwallet.OperationCreateAccount:
 		log.Infof("Run subcommand: %s, with parametetr set: %v", accountwallet.OperationCreateAccount.String(), sub)
-		params := sub.(*accountwallet.CreateAccountParams)
-		accountID, err := wallet.CreateAccount(params)
-		if err != nil {
-			log.Errorf("Error creating account: %v", err)
+		params, ok := sub.(*accountwallet.CreateAccountParams)
+		if !ok {
+			log.Errorf("Type assertion error: casting subcommand: %v", sub)
 
 			return
 		}
+
+		accountID, err := wallet.CreateAccount(params)
+		if err != nil {
+			log.Errorf("Type assertion error: creating account: %v", err)
+
+			return
+		}
+
 		log.Infof("Created account %s with %d tokens", accountID, params.Amount)
-	case accountwallet.OperationDestroyAccound:
-		log.Infof("Run subcommand: %s, with parametetr set: %v", accountwallet.OperationDestroyAccound, sub)
-		params := sub.(*accountwallet.DestroyAccountParams)
+
+	case accountwallet.OperationDestroyAccount:
+		log.Infof("Run subcommand: %s, with parametetr set: %v", accountwallet.OperationDestroyAccount, sub)
+		params, ok := sub.(*accountwallet.DestroyAccountParams)
+		if !ok {
+			log.Errorf("Type assertion error: casting subcommand: %v", sub)
+
+			return
+		}
+
 		err := wallet.DestroyAccount(params)
 		if err != nil {
 			log.Errorf("Error destroying account: %v", err)
 
 			return
 		}
+
 	case accountwallet.OperationListAccounts:
 		err := wallet.ListAccount()
 		if err != nil {
@@ -103,9 +122,16 @@ func accountsSubcommand(wallet *accountwallet.AccountWallet, sub accountwallet.A
 
 			return
 		}
+
 	case accountwallet.OperationAllotAccount:
 		log.Infof("Run subcommand: %s, with parametetr set: %v", accountwallet.OperationAllotAccount, sub)
-		params := sub.(*accountwallet.AllotAccountParams)
+		params, ok := sub.(*accountwallet.AllotAccountParams)
+		if !ok {
+			log.Errorf("Type assertion error: casting subcommand: %v", sub)
+
+			return
+		}
+
 		err := wallet.AllotToAccount(params)
 		if err != nil {
 			log.Errorf("Error allotting account: %v", err)

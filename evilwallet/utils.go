@@ -2,8 +2,6 @@ package evilwallet
 
 import iotago "github.com/iotaledger/iota.go/v4"
 
-// region utxo/tx realted functions ////////////////////////////////////////////////////////////////////////////////////////////
-
 // SplitBalanceEqually splits the balance equally between `splitNumber` outputs.
 func SplitBalanceEqually(splitNumber int, balance iotago.BaseToken) []iotago.BaseToken {
 	outputBalances := make([]iotago.BaseToken, 0)

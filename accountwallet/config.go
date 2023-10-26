@@ -15,7 +15,7 @@ type AccountOperation int
 const (
 	OperationCreateAccount AccountOperation = iota
 	OperationConvertAccount
-	OperationDestroyAccound
+	OperationDestroyAccount
 	OperationAllotAccount
 	OperationDelegateAccount
 	OperationStakeAccount
@@ -58,6 +58,7 @@ func AvailableCommands(cmd string) bool {
 	}
 
 	_, ok := availableCommands[cmd]
+
 	return ok
 }
 
@@ -66,7 +67,7 @@ type Configuration struct {
 	AccountStatesFile     string `json:"accountStatesFile,omitempty"`
 	GenesisSeed           string `json:"genesisSeed,omitempty"`
 	BlockIssuerPrivateKey string `json:"blockIssuerPrivateKey,omitempty"`
-	AccountID             string `json:"accountID,omitempty"`
+	AccountID             string `json:"accountId,omitempty"`
 }
 
 var accountConfigFile = "config.json"
@@ -150,7 +151,7 @@ type DestroyAccountParams struct {
 }
 
 func (d *DestroyAccountParams) Type() AccountOperation {
-	return OperationDestroyAccound
+	return OperationDestroyAccount
 }
 
 type AllotAccountParams struct {

@@ -30,6 +30,7 @@ func main() {
 	// init account wallet
 	var accWallet *accountwallet.AccountWallet
 	var err error
+	//nolint:all,goconst
 	if Script == "basic" || Script == "accounts" {
 		// read config here
 		config := accountwallet.LoadConfiguration()
@@ -75,6 +76,7 @@ func accountsSubcommands(wallet *accountwallet.AccountWallet, subcommands []acco
 	}
 }
 
+//nolint:all,forcetypassert
 func accountsSubcommand(wallet *accountwallet.AccountWallet, sub accountwallet.AccountSubcommands) {
 	switch sub.Type() {
 	case accountwallet.OperationCreateAccount:

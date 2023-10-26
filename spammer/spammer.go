@@ -255,6 +255,7 @@ func (s *Spammer) PrepareAndPostBlock(txData *models.PayloadIssuanceData, issuer
 		return
 	}
 
+	//nolint:all,forcetypassert
 	signedTx := txData.Payload.(*iotago.SignedTransaction)
 
 	txID, err := signedTx.Transaction.ID()

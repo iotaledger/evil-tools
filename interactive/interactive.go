@@ -870,13 +870,13 @@ func (s *SpammerLog) LogHistory(lastLines int, writer io.Writer) {
 	defer s.mu.Unlock()
 
 	w := newTabWriter(writer)
-	fmt.Fprintln(w, historyHeader)
+	_, _ = fmt.Fprintln(w, historyHeader)
 	idx := len(s.spamDetails) - lastLines + 1
 	if idx < 0 {
 		idx = 0
 	}
 	for i, spam := range s.spamDetails[idx:] {
-		fmt.Fprintf(w, historyLineFmt, spam.Scenario, s.spamStartTime[i].Format(timeFormat), s.spamStopTime[i].Format(timeFormat),
+		_, _ = fmt.Fprintf(w, historyLineFmt, spam.Scenario, s.spamStartTime[i].Format(timeFormat), s.spamStopTime[i].Format(timeFormat),
 			spam.Deep, spam.Deep, spam.Rate, int(spam.duration.Seconds()))
 	}
 	w.Flush()
@@ -887,10 +887,10 @@ func (s *SpammerLog) LogSelected(lines []int, writer io.Writer) {
 	defer s.mu.Unlock()
 
 	w := newTabWriter(writer)
-	fmt.Fprintln(w, historyHeader)
+	_, _ = fmt.Fprintln(w, historyHeader)
 	for _, idx := range lines {
 		spam := s.spamDetails[idx]
-		fmt.Fprintf(w, historyLineFmt, spam.Scenario, s.spamStartTime[idx].Format(timeFormat), s.spamStopTime[idx].Format(timeFormat),
+		_, _ = fmt.Fprintf(w, historyLineFmt, spam.Scenario, s.spamStartTime[idx].Format(timeFormat), s.spamStopTime[idx].Format(timeFormat),
 			spam.Deep, spam.Deep, spam.Rate, int(spam.duration.Seconds()))
 	}
 	w.Flush()

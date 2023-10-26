@@ -69,12 +69,12 @@ func NewEvilScenario(options ...ScenarioOption) *EvilScenario {
 		option(scenario)
 	}
 	scenario.ID = base58.Encode([]byte(fmt.Sprintf("%v%v%v", scenario.ConflictBatch, scenario.Reuse, scenario.OutputWallet.ID)))[:11]
-	scenario.NumOfClientsNeeded = calculateNumofClientsNeeded(scenario)
+	scenario.NumOfClientsNeeded = calculateNumOfClientsNeeded(scenario)
 
 	return scenario
 }
 
-func calculateNumofClientsNeeded(scenario *EvilScenario) (counter int) {
+func calculateNumOfClientsNeeded(scenario *EvilScenario) (counter int) {
 	for _, conflictMap := range scenario.ConflictBatch {
 		if len(conflictMap) > counter {
 			counter = len(conflictMap)

@@ -204,12 +204,12 @@ func (f *faucet) prepareFaucetRequest(receiveAddr iotago.Address, amount iotago.
 		return nil, err
 	}
 
-	rmcAllotedTxBuilder := txBuilder.Clone()
+	rmcAllottedTxBuilder := txBuilder.Clone()
 	// faucet will allot exact mana to be burnt, rest of the mana is alloted to faucet output remainder
-	rmcAllotedTxBuilder.AllotRequiredManaAndStoreRemainingManaInOutput(txBuilder.CreationSlot(), rmc, f.account.ID(), remainderIndex)
+	rmcAllottedTxBuilder.AllotRequiredManaAndStoreRemainingManaInOutput(txBuilder.CreationSlot(), rmc, f.account.ID(), remainderIndex)
 
 	var signedTx *iotago.SignedTransaction
-	signedTx, err = rmcAllotedTxBuilder.Build(f.genesisHdWallet.AddressSigner())
+	signedTx, err = rmcAllottedTxBuilder.Build(f.genesisHdWallet.AddressSigner())
 	if err != nil {
 		log.Infof("WARN: failed to build tx with min required mana allotted, genesis potential mana was not enough, fallback to faucet account")
 		txBuilder.AllotAllMana(txBuilder.CreationSlot(), f.account.ID())

@@ -83,23 +83,38 @@ func accountsSubcommand(wallet *accountwallet.AccountWallet, sub accountwallet.A
 	switch sub.Type() {
 	case accountwallet.OperationCreateAccount:
 		log.Infof("Run subcommand: %s, with parametetr set: %v", accountwallet.OperationCreateAccount.String(), sub)
-		params := sub.(*accountwallet.CreateAccountParams)
-		accountID, err := wallet.CreateAccount(params)
-		if err != nil {
-			log.Errorf("Error creating account: %v", err)
+		params, ok := sub.(*accountwallet.CreateAccountParams)
+		if !ok {
+			log.Errorf("Type assertion error: casting subcommand: %v", sub)
 
 			return
 		}
+
+		accountID, err := wallet.CreateAccount(params)
+		if err != nil {
+			log.Errorf("Type assertion error: creating account: %v", err)
+
+			return
+		}
+
 		log.Infof("Created account %s with %d tokens", accountID, params.Amount)
-	case accountwallet.OperationDestroyAccound:
-		log.Infof("Run subcommand: %s, with parametetr set: %v", accountwallet.OperationDestroyAccound, sub)
-		params := sub.(*accountwallet.DestroyAccountParams)
+
+	case accountwallet.OperationDestroyAccount:
+		log.Infof("Run subcommand: %s, with parametetr set: %v", accountwallet.OperationDestroyAccount, sub)
+		params, ok := sub.(*accountwallet.DestroyAccountParams)
+		if !ok {
+			log.Errorf("Type assertion error: casting subcommand: %v", sub)
+
+			return
+		}
+
 		err := wallet.DestroyAccount(params)
 		if err != nil {
 			log.Errorf("Error destroying account: %v", err)
 
 			return
 		}
+
 	case accountwallet.OperationListAccounts:
 		err := wallet.ListAccount()
 		if err != nil {
@@ -107,9 +122,16 @@ func accountsSubcommand(wallet *accountwallet.AccountWallet, sub accountwallet.A
 
 			return
 		}
+
 	case accountwallet.OperationAllotAccount:
 		log.Infof("Run subcommand: %s, with parametetr set: %v", accountwallet.OperationAllotAccount, sub)
-		params := sub.(*accountwallet.AllotAccountParams)
+		params, ok := sub.(*accountwallet.AllotAccountParams)
+		if !ok {
+			log.Errorf("Type assertion error: casting subcommand: %v", sub)
+
+			return
+		}
+
 		err := wallet.AllotToAccount(params)
 		if err != nil {
 			log.Errorf("Error allotting account: %v", err)

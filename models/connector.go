@@ -180,7 +180,7 @@ type Client interface {
 	PostBlock(block *iotago.ProtocolBlock) (iotago.BlockID, error)
 	// PostData sends the given data (payload) by creating a block in the backend.
 	PostData(data []byte) (blkID string, err error)
-	// GetTransactionState returns the AcceptanceState of a given transaction ID.
+	// GetBlockState returns the AcceptanceState of a given transaction ID.
 	GetBlockState(txID iotago.TransactionID) (resp *apimodels.BlockMetadataResponse, err error)
 	// GetOutput gets the output of a given outputID.
 	GetOutput(outputID iotago.OutputID) iotago.Output

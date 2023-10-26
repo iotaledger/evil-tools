@@ -23,7 +23,7 @@ func (a *AccountWallet) CreateAccount(params *CreateAccountParams) (iotago.Accou
 
 func (a *AccountWallet) createAccountImplicitly(params *CreateAccountParams) (iotago.AccountID, error) {
 	// An implicit account has an implicitly defined Block Issuer Key, corresponding to the address itself.
-	// Thus implicit accounts can issue blocks by signing them with the private key corresponding to the public key
+	// Thus, implicit accounts can issue blocks by signing them with the private key corresponding to the public key
 	// from which the Implicit Account Creation Address was derived.
 	implicitAccountOutput, privateKey, err := a.getFunds(params.Amount, iotago.AddressImplicitAccountCreation)
 	if err != nil {

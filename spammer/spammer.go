@@ -18,18 +18,16 @@ import (
 )
 
 const (
-	TypeBlock       = "blk"
-	TypeTx          = "tx"
-	TypeDs          = "ds"
-	TypeCustom      = "custom"
-	TypeCommitments = "commitments"
-	TypeAccounts    = "accounts"
+	TypeBlock    = "blk"
+	TypeTx       = "tx"
+	TypeDs       = "ds"
+	TypeCustom   = "custom"
+	TypeAccounts = "accounts"
 )
 
 // region Spammer //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-//nolint:revive
-type SpammerFunc func(*Spammer)
+type SpammingFunc func(*Spammer)
 
 type State struct {
 	spamTicker    *time.Ticker
@@ -68,9 +66,9 @@ type Spammer struct {
 	api iotago.API
 
 	// accessed from spamming functions
-	done     chan bool
-	shutdown chan types.Empty
-	spamFunc SpammerFunc
+	done         chan bool
+	shutdown     chan types.Empty
+	spammingFunc SpammingFunc
 
 	TimeDelayBetweenConflicts time.Duration
 	NumberOfSpends            int
@@ -88,7 +86,7 @@ func NewSpammer(options ...Options) *Spammer {
 	}
 	s := &Spammer{
 		SpamDetails:  &SpamDetails{},
-		spamFunc:     CustomConflictSpammingFunc,
+		spammingFunc: CustomConflictSpammingFunc,
 		State:        state,
 		SpamType:     SpamEvilWallet,
 		EvilScenario: evilwallet.NewEvilScenario(),
@@ -202,7 +200,7 @@ func (s *Spammer) Spam() {
 				go func() {
 					goroutineCount.Inc()
 					defer goroutineCount.Dec()
-					s.spamFunc(s)
+					s.spammingFunc(s)
 				}()
 			}
 		}

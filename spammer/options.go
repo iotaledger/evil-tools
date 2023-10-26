@@ -42,7 +42,7 @@ func WithSpamDuration(maxDuration time.Duration) Options {
 // end of spamming and errors. Default one is the CustomConflictSpammingFunc.
 func WithSpammingFunc(spammerFunc func(s *Spammer)) Options {
 	return func(s *Spammer) {
-		s.spamFunc = spammerFunc
+		s.spammingFunc = spammerFunc
 	}
 }
 

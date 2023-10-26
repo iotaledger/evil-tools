@@ -205,26 +205,25 @@ func parseAccountTestFlags(splitedCmds [][]string) []accountwallet.AccountSubcom
 	return parsedCmds
 }
 
-//nolint:all,errcheck
 func accountUsage() {
 	fmt.Println("Usage for accounts [COMMAND] [FLAGS], multiple commands can be chained together.")
 	fmt.Printf("COMMAND: %s\n", accountwallet.CmdNameCreateAccount)
-	parseCreateAccountFlags(nil)
+	_, _ = parseCreateAccountFlags(nil)
 
 	fmt.Printf("COMMAND: %s\n", accountwallet.CmdNameConvertAccount)
-	parseConvertAccountFlags(nil)
+	_, _ = parseConvertAccountFlags(nil)
 
 	fmt.Printf("COMMAND: %s\n", accountwallet.CmdNameDestroyAccount)
-	parseDestroyAccountFlags(nil)
+	_, _ = parseDestroyAccountFlags(nil)
 
 	fmt.Printf("COMMAND: %s\n", accountwallet.CmdNameAllotAccount)
-	parseAllotAccountFlags(nil)
+	_, _ = parseAllotAccountFlags(nil)
 
 	fmt.Printf("COMMAND: %s\n", accountwallet.CmdNameDelegateAccount)
-	parseDelegateAccountFlags(nil)
+	_, _ = parseDelegateAccountFlags(nil)
 
 	fmt.Printf("COMMAND: %s\n", accountwallet.CmdNameStakeAccount)
-	parseStakeAccountFlags(nil)
+	_, _ = parseStakeAccountFlags(nil)
 }
 
 func parseCreateAccountFlags(subcommands []string) (*accountwallet.CreateAccountParams, error) {
@@ -233,7 +232,7 @@ func parseCreateAccountFlags(subcommands []string) (*accountwallet.CreateAccount
 	amount := flagSet.Int64("amount", 1000, "The amount to be transferred to the new account")
 	noBif := flagSet.Bool("noBIF", false, "Create account without Block Issuer Feature, can only be set false no if implicit is false, as each account created implicitly needs to have BIF.")
 	implicit := flagSet.Bool("implicit", false, "Create an implicit account")
-	transition := flagSet.Bool("transition", true, "Indicates if account should be transitioned to full acount if created with implicit address.")
+	transition := flagSet.Bool("transition", true, "Indicates if account should be transitioned to full account if created with implicit address.")
 
 	if subcommands == nil {
 		flagSet.Usage()

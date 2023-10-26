@@ -26,10 +26,7 @@ const (
 	faucetTokensPerRequest   iotago.BaseToken = 432_000_000
 
 	waitForAcceptance     = 20 * time.Second
-	waitForSolidification = 10 * time.Second
-
-	awaitAcceptationSleep    = 1 * time.Second
-	awaitSolidificationSleep = time.Millisecond * 500
+	awaitAcceptationSleep = 1 * time.Second
 )
 
 var (
@@ -99,8 +96,8 @@ func (e *EvilWallet) UnspentOutputsLeft(walletType WalletType) int {
 }
 
 func (e *EvilWallet) NumOfClient() int {
-	clts := e.connector.Clients()
-	return len(clts)
+	clients := e.connector.Clients()
+	return len(clients)
 }
 
 func (e *EvilWallet) AddClient(clientURL string) {
@@ -169,6 +166,7 @@ func (e *EvilWallet) RequestFreshBigFaucetWallets(numberOfWallets int) bool {
 
 	for reqNum := 0; reqNum < numberOfWallets; reqNum++ {
 		wg.Add(1)
+
 		// block if full
 		semaphore <- true
 		go func() {
@@ -203,11 +201,12 @@ func (e *EvilWallet) RequestFreshBigFaucetWallet() error {
 	if err != nil {
 		return ierrors.Wrap(err, "failed to request big funds from faucet")
 	}
-	e.log.Debug("First level of splitting finished, now split each outut once again")
+
+	e.log.Debug("First level of splitting finished, now split each output once again")
 	bigOutputWallet := e.NewWallet(Fresh)
 	_, err = e.splitOutputs(receiveWallet, bigOutputWallet)
 	if err != nil {
-		return ierrors.Wrap(err, "failed to split splitted outputs for the big wallet")
+		return ierrors.Wrap(err, "failed to again split outputs for the big wallet")
 	}
 
 	e.wallets.SetWalletReady(bigOutputWallet)
@@ -288,14 +287,18 @@ func (e *EvilWallet) splitOutput(splitOutput *models.Output, inputWallet, output
 	if txData.Payload.PayloadType() != iotago.PayloadSignedTransaction {
 		return iotago.EmptyTransactionID, ierrors.New("payload type is not signed transaction")
 	}
-	//nolint:all,forcetypassert
-	txID := lo.PanicOnErr(txData.Payload.(*iotago.SignedTransaction).Transaction.ID())
+
+	signedTx, ok := txData.Payload.(*iotago.SignedTransaction)
+	if !ok {
+		return iotago.EmptyTransactionID, ierrors.New("type assertion error: payload is not a signed transaction")
+	}
+	txID := lo.PanicOnErr(signedTx.Transaction.ID())
 	e.log.Debugf("Splitting output %s finished with tx: %s", splitOutput.OutputID.ToHex(), txID.ToHex())
 
 	return txID, nil
 }
 
-// splitOutputs splits all outputs from the provided imput wallet, outputs are saved to the outputWallet.
+// splitOutputs splits all outputs from the provided input wallet, outputs are saved to the outputWallet.
 func (e *EvilWallet) splitOutputs(inputWallet, outputWallet *Wallet) ([]iotago.TransactionID, error) {
 	if inputWallet.IsEmpty() {
 		return nil, ierrors.New("failed to split outputs, inputWallet is empty")
@@ -375,8 +378,8 @@ func (e *EvilWallet) PrepareCustomConflicts(conflictsMaps []ConflictSlice) (conf
 
 // CreateTransaction creates a transaction based on provided options. If no input wallet is provided, the next non-empty faucet wallet is used.
 // Inputs of the transaction are determined in three ways:
-// 1 - inputs are provided directly without associated alias, 2- alias is provided, and input is already stored in an alias manager,
-// 3 - alias is provided, and there are no inputs assigned in Alias manager, so aliases are assigned to next ready inputs from input wallet.
+// 1 - inputs are provided directly without associated alias, 2- provided only an alias, but inputs are stored in an alias manager,
+// 3 - provided alias, but there are no inputs assigned in Alias manager, so aliases will be assigned to next ready inputs from input wallet.
 func (e *EvilWallet) CreateTransaction(options ...Option) (*models.PayloadIssuanceData, error) {
 	buildOptions, err := NewOptions(options...)
 	if err != nil {
@@ -417,10 +420,11 @@ func (e *EvilWallet) CreateTransaction(options ...Option) (*models.PayloadIssuan
 		}
 	}
 
-	signedTx, err := e.makeTransaction(inputs, outputs, buildOptions.inputWallet, congestionResp, buildOptions.allotmentStrategy, buildOptions.issuerAccountID)
+	signedTx, err := e.makeTransaction(inputs, outputs, buildOptions.inputWallet, congestionResp, buildOptions.issuerAccountID)
 	if err != nil {
 		return nil, err
 	}
+
 	txData := &models.PayloadIssuanceData{
 		Payload:            signedTx,
 		CongestionResponse: congestionResp,
@@ -484,6 +488,7 @@ func (e *EvilWallet) updateInputWallet(buildOptions *Options) error {
 		if ok {
 			// leave nil, wallet will be selected based on OutputIDWalletMap
 			buildOptions.inputWallet = nil
+
 			return nil
 		}
 
@@ -494,6 +499,7 @@ func (e *EvilWallet) updateInputWallet(buildOptions *Options) error {
 	if err != nil {
 		return err
 	}
+
 	buildOptions.inputWallet = wallet
 
 	return nil
@@ -530,6 +536,7 @@ func (e *EvilWallet) prepareInputs(buildOptions *Options) (inputs []*models.Outp
 	if err != nil {
 		return nil, err
 	}
+
 	inputs = append(inputs, aliasInputs...)
 
 	return inputs, nil
@@ -561,11 +568,13 @@ func (e *EvilWallet) matchInputsWithAliases(buildOptions *Options) (inputs []*mo
 				err = err2
 				return
 			}
+
 			// No output found for given alias, use internal Fresh output if wallets are non-empty.
 			in = e.wallets.GetUnspentOutput(wallet)
 			if in == nil {
 				return nil, ierrors.New("could not get unspent output")
 			}
+
 			e.aliasManager.AddInputAlias(in, inputAlias)
 		}
 		inputs = append(inputs, in)
@@ -599,7 +608,7 @@ func (e *EvilWallet) useFreshIfInputWalletNotProvided(buildOptions *Options) (*W
 // matchOutputsWithAliases creates outputs based on balances provided via options.
 // Outputs are not yet added to the Alias Manager, as they have no ID before the transaction is created.
 // Thus, they are tracker in address to alias map. If the scenario is used, the outputBatchAliases map is provided
-// that indicates which outputs should be saved to the outputWallet.All other outputs are created with temporary wallet,
+// that indicates which outputs should be saved to the outputWallet. All other outputs are created with temporary wallet,
 // and their addresses are stored in tempAddresses.
 func (e *EvilWallet) matchOutputsWithAliases(buildOptions *Options, tempWallet *Wallet) (outputs []iotago.Output,
 	addrAliasMap map[string]string, tempAddresses map[string]types.Empty, err error,
@@ -721,7 +730,7 @@ func (e *EvilWallet) updateOutputBalances(buildOptions *Options) (err error) {
 	return
 }
 
-func (e *EvilWallet) makeTransaction(inputs []*models.Output, outputs iotago.Outputs[iotago.Output], w *Wallet, congestionResponse *apimodels.CongestionResponse, _ models.AllotmentStrategy, issuerAccountID iotago.AccountID) (tx *iotago.SignedTransaction, err error) {
+func (e *EvilWallet) makeTransaction(inputs []*models.Output, outputs iotago.Outputs[iotago.Output], w *Wallet, congestionResponse *apimodels.CongestionResponse, issuerAccountID iotago.AccountID) (tx *iotago.SignedTransaction, err error) {
 	e.log.Debugf("makeTransaction len(outputs): %d", len(outputs))
 	clt := e.Connector().GetClient()
 	currentTime := time.Now()
@@ -789,6 +798,7 @@ func (e *EvilWallet) evaluateIssuanceStrategy(strategy *models.IssuancePaymentSt
 		if err != nil {
 			panic("could not get issuer accountID while preparing conflicts")
 		}
+
 		issuerAccountID = accData.Account.ID()
 	}
 

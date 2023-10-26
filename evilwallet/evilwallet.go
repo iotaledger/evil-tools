@@ -121,10 +121,12 @@ func (e *EvilWallet) GetAccount(alias string) (blockhandler.Account, error) {
 }
 
 func (e *EvilWallet) PrepareAndPostBlock(clt models.Client, payload iotago.Payload, congestionResp *apimodels.CongestionResponse, issuer blockhandler.Account) (iotago.BlockID, error) {
-	congestionResp, issuerResp, version, err := e.accWallet.RequestBlockBuiltData(clt.Client(), issuer.ID())
+	issuerResp, err := clt.GetBlockIssuance(congestionResp.Slot)
 	if err != nil {
-		return iotago.EmptyBlockID, ierrors.Wrapf(err, "failed to get block built data for issuer %s", issuer.ID().ToHex())
+		return iotago.EmptyBlockID, ierrors.Wrap(err, "failed to get block issuance data")
 	}
+
+	version := clt.APIForSlot(congestionResp.Slot).Version()
 	blockID, err := e.accWallet.PostWithBlock(clt, payload, issuer, congestionResp, issuerResp, version)
 	if err != nil {
 		return iotago.EmptyBlockID, err

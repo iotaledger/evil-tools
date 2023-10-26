@@ -859,33 +859,12 @@ func (e *EvilWallet) prepareFlatOptionsForAccountScenario(scenario *EvilScenario
 	}, allAliases
 }
 
-// AwaitInputsSolidity waits for all inputs to be solid for client clt.
-// func (e *EvilWallet) AwaitInputsSolidity(inputs devnetvm.Inputs, clt Client) (allSolid bool) {
-// 	awaitSolid := make([]string, 0)
-// 	for _, in := range inputs {
-// 		awaitSolid = append(awaitSolid, in.Base58())
-// 	}
-// 	allSolid = e.outputManager.AwaitOutputsToBeSolid(awaitSolid, clt, maxGoroutines)
-// 	return
-// }
-
 // SetTxOutputsSolid marks all outputs as solid in OutputManager for clientID.
 func (e *EvilWallet) SetTxOutputsSolid(outputs iotago.OutputIDs, clientID string) {
 	for _, out := range outputs {
 		e.outputManager.SetOutputIDSolidForIssuer(out, clientID)
 	}
 }
-
-// AddReuseOutputsToThePool adds all addresses corresponding to provided outputs to the reuse pool.
-// func (e *EvilWallet) AddReuseOutputsToThePool(outputs devnetvm.Outputs) {
-// 	for _, out := range outputs {
-// 		evilOutput := e.outputManager.GetOutput(out.ID())
-// 		if evilOutput != nil {
-// 			wallet := e.outputManager.OutputIDWalletMap(out.ID().Base58())
-// 			wallet.AddReuseAddress(evilOutput.Address.Base58())
-// 		}
-// 	}
-// }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

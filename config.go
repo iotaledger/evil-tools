@@ -35,26 +35,5 @@ var (
 		AccountAlias:          accountwallet.FaucetAccountAlias,
 	}
 
-	quickTestParams = programs.QuickTestParams{
-		ClientURLs:            urls,
-		Rate:                  100,
-		Duration:              time.Second * 30,
-		TimeUnit:              time.Second,
-		DelayBetweenConflicts: 0,
-		EnableRateSetter:      false,
-	}
-
 	accountsSubcommandsFlags []accountwallet.AccountSubcommands
-
-	//nolint:godot
-	// commitmentsSpamParams = CommitmentsSpamParams{
-	// 	Rate:           1,
-	// 	Duration:       time.Second * 20,
-	// 	TimeUnit:       time.Second,
-	// 	NetworkAlias:   "docker",
-	// 	SpammerAlias:   "validator-1",
-	// 	ValidAlias:     accountwallet.FaucetAccountAlias,
-	// 	CommitmentType: "latest",
-	// 	ForkAfter:      10,
-	// }
 )

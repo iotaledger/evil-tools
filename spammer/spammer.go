@@ -46,7 +46,6 @@ type SpamType int
 
 const (
 	SpamEvilWallet SpamType = iota
-	SpamCommitments
 )
 
 // Spammer is a utility object for new spammer creations, can be modified by passing options.

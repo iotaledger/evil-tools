@@ -94,6 +94,7 @@ func parseBasicSpamFlags() {
 		conflictBatch, ok := evilwallet.GetScenario(*scenario)
 		if ok {
 			customSpamParams.Scenario = conflictBatch
+			customSpamParams.ScenarioName = *scenario
 		}
 	}
 

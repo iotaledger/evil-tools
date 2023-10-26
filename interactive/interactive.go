@@ -729,11 +729,11 @@ func (m *Mode) loadConfig() {
 		m.evilWallet.AddClient(url)
 	}
 	// parse duration
-	d, err := time.ParseDuration(m.Config.DurationStr)
+	d, err := time.ParseDuration(m.Config.Duration)
 	if err != nil {
 		d = time.Minute
 	}
-	u, err := time.ParseDuration(m.Config.TimeUnitStr)
+	u, err := time.ParseDuration(m.Config.TimeUnit)
 	if err != nil {
 		u = time.Second
 	}
@@ -756,10 +756,10 @@ func (m *Mode) saveConfigsToFile() {
 	}
 
 	// update duration
-	m.Config.DurationStr = m.innerConfig.duration.String()
+	m.Config.Duration = m.innerConfig.duration.String()
 
 	// update time unit
-	m.Config.TimeUnitStr = m.innerConfig.timeUnit.String()
+	m.Config.TimeUnit = m.innerConfig.timeUnit.String()
 
 	jsonConfigs, err := json.MarshalIndent(m.Config, "", "    ")
 	if err != nil {

@@ -64,7 +64,8 @@ func main() {
 	case ScriptInteractive:
 		interactive.Run()
 	case ScriptSpammer:
-		programs.CustomSpam(&customSpamParams, accWallet)
+		dispatcher := programs.NewDispatcher(accWallet)
+		dispatcher.RunSpam(&customSpamParams)
 	case ScriptAccounts:
 		accountsSubcommands(accWallet, accountsSubcommandsFlags)
 	default:

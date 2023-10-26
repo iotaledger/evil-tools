@@ -1,15 +1,14 @@
 package models
 
 type Config struct {
-	//nolint:tagliatelle
-	WebAPI               []string `json:"webAPI"`
+	WebAPI               []string `json:"webAPI"` //nolint:tagliatelle
 	Rate                 int      `json:"rate"`
-	DurationStr          string   `json:"duration"`
-	TimeUnitStr          string   `json:"timeUnit"`
+	Duration             string   `json:"duration"`
+	TimeUnit             string   `json:"timeUnit"`
 	Deep                 bool     `json:"deepEnabled"`
-	Reuse                bool     `json:"reuseEnabled"`
+	Reuse                bool     `json:"reuseEnabled,omitempty"`
 	Scenario             string   `json:"scenario"`
-	AutoRequesting       bool     `json:"autoRequestingEnabled"`
-	AutoRequestingAmount string   `json:"autoRequestingAmount"`
-	UseRateSetter        bool     `json:"useRateSetter"`
+	AutoRequesting       bool     `json:"autoRequestingEnabled,omitempty"`
+	AutoRequestingAmount string   `json:"autoRequestingAmount,omitempty"`
+	UseRateSetter        bool     `json:"useRateSetter,omitempty"`
 }

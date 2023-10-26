@@ -28,6 +28,7 @@ var (
 		DelayBetweenConflicts: 0,
 		NSpend:                2,
 		Scenario:              evilwallet.Scenario1(),
+		ScenarioName:          "guava",
 		DeepSpam:              false,
 		EnableRateSetter:      false,
 		AccountAlias:          accountwallet.FaucetAccountAlias,

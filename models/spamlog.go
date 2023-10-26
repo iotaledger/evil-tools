@@ -75,7 +75,7 @@ func (s *SpammerLog) LogHistory(lastLines int, writer io.Writer) {
 	}
 	for i, spam := range s.spamDetails[idx:] {
 		_, _ = fmt.Fprintf(w, historyLineFmt, spam.Scenario, s.spamStartTime[i].Format(timeFormat), s.spamStopTime[i].Format(timeFormat),
-			spam.Deep, spam.Deep, spam.Rate, spam.DurationStr)
+			spam.Deep, spam.Deep, spam.Rate, spam.Duration)
 	}
 	w.Flush()
 }
@@ -89,7 +89,7 @@ func (s *SpammerLog) LogSelected(lines []int, writer io.Writer) {
 	for _, idx := range lines {
 		spam := s.spamDetails[idx]
 		_, _ = fmt.Fprintf(w, historyLineFmt, spam.Scenario, s.spamStartTime[idx].Format(timeFormat), s.spamStopTime[idx].Format(timeFormat),
-			spam.Deep, spam.Deep, spam.Rate, spam.DurationStr)
+			spam.Deep, spam.Deep, spam.Rate, spam.Duration)
 	}
 	w.Flush()
 }

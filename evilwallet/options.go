@@ -1,8 +1,6 @@
 package evilwallet
 
 import (
-	"time"
-
 	"github.com/iotaledger/evil-tools/models"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/ierrors"

@@ -12,9 +12,8 @@ type walletID int
 
 type (
 	// WalletType is the type of the wallet.
-	//nolint:revive
 	WalletType int8
-	//nolint:revive
+
 	WalletStatus int8
 )
 

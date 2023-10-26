@@ -205,20 +205,6 @@ func (o *OutputManager) getOutputFromWallet(outputID iotago.OutputID) (output *m
 	return
 }
 
-// RequestOutputsByAddress finds the unspent outputs of a given address and updates the provided output status map.
-// func (o *OutputManager) RequestOutputsByAddress(address string) (outputIDs []iotago.OutputID) {
-// 	s := time.Now()
-// 	clt := o.connector.GetClient()
-// 	for ; time.Since(s) < awaitOutputsByAddress; time.Sleep(1 * time.Second) {
-// 		outputIDs, err := clt.GetAddressUnspentOutputs(address)
-// 		if err == nil && len(outputIDs) > 0 {
-// 			return outputIDs
-// 		}
-// 	}
-
-// 	return
-// }
-
 // RequestOutputsByTxID adds the outputs of a given transaction to the output status map.
 func (o *OutputManager) RequestOutputsByTxID(txID iotago.TransactionID) (outputIDs iotago.OutputIDs) {
 	clt := o.connector.GetClient()

@@ -144,6 +144,7 @@ func (a *AccountWallet) fromAccountStateFile() error {
 		if !os.IsNotExist(err) {
 			return ierrors.Wrap(err, "failed to read file")
 		}
+
 		return nil
 	}
 
@@ -174,6 +175,7 @@ func (a *AccountWallet) fromAccountStateFile() error {
 	return nil
 }
 
+//nolint:all,unused
 func (a *AccountWallet) registerAccount(alias string, outputID iotago.OutputID, index uint64, privKey ed25519.PrivateKey) iotago.AccountID {
 	a.accountAliasesMutex.Lock()
 	defer a.accountAliasesMutex.Unlock()
@@ -259,7 +261,7 @@ func (a *AccountWallet) isAccountReady(accData *models.AccountData) bool {
 		}
 
 		if resp.Commitment.Slot >= creationSlot {
-			log.Infof("Slot %d commited, account %s is ready to use", creationSlot, accData.Alias)
+			log.Infof("Slot %d committed, account %s is ready to use", creationSlot, accData.Alias)
 			return true, nil
 		}
 
@@ -311,6 +313,7 @@ func (a *AccountWallet) destroyAccount(alias string) error {
 	})
 
 	// send all tokens to faucet
+	//nolint:all,forcetypassert
 	txBuilder.AddOutput(&iotago.BasicOutput{
 		Amount: accountOutput.BaseTokenAmount(),
 		Conditions: iotago.BasicOutputUnlockConditions{
@@ -337,6 +340,7 @@ func (a *AccountWallet) destroyAccount(alias string) error {
 	delete(a.accountsAliases, alias)
 
 	log.Infof("Account %s has been destroyed", alias)
+
 	return nil
 }
 

@@ -154,7 +154,7 @@ func (e *EvilWallet) RequestFundsFromFaucet(options ...FaucetRequestOption) (ini
 		e.aliasManager.AddInputAlias(output, buildOptions.outputAliasName)
 	}
 
-	e.log.Debug("Funds requested succesfully")
+	e.log.Debug("Funds requested successfully")
 
 	return
 }
@@ -190,6 +190,7 @@ func (e *EvilWallet) RequestFreshBigFaucetWallets(numberOfWallets int) bool {
 	wg.Wait()
 
 	e.log.Debugf("Finished requesting %d wallets from faucet", numberOfWallets)
+
 	return success
 }
 
@@ -287,6 +288,7 @@ func (e *EvilWallet) splitOutput(splitOutput *models.Output, inputWallet, output
 	if txData.Payload.PayloadType() != iotago.PayloadSignedTransaction {
 		return iotago.EmptyTransactionID, ierrors.New("payload type is not signed transaction")
 	}
+	//nolint:all,forcetypassert
 	txID := lo.PanicOnErr(txData.Payload.(*iotago.SignedTransaction).Transaction.ID())
 	e.log.Debugf("Splitting output %s finished with tx: %s", splitOutput.OutputID.ToHex(), txID.ToHex())
 
@@ -428,6 +430,7 @@ func (e *EvilWallet) CreateTransaction(options ...Option) (*models.PayloadIssuan
 	e.registerOutputAliases(signedTx, addrAliasMap)
 
 	e.log.Debugf("\n %s", printTransaction(signedTx))
+
 	return txData, nil
 }
 
@@ -718,7 +721,7 @@ func (e *EvilWallet) updateOutputBalances(buildOptions *Options) (err error) {
 	return
 }
 
-func (e *EvilWallet) makeTransaction(inputs []*models.Output, outputs iotago.Outputs[iotago.Output], w *Wallet, congestionResponse *apimodels.CongestionResponse, allotmentStrategy models.AllotmentStrategy, issuerAccountID iotago.AccountID) (tx *iotago.SignedTransaction, err error) {
+func (e *EvilWallet) makeTransaction(inputs []*models.Output, outputs iotago.Outputs[iotago.Output], w *Wallet, congestionResponse *apimodels.CongestionResponse, _ models.AllotmentStrategy, issuerAccountID iotago.AccountID) (tx *iotago.SignedTransaction, err error) {
 	e.log.Debugf("makeTransaction len(outputs): %d", len(outputs))
 	clt := e.Connector().GetClient()
 	currentTime := time.Now()
@@ -788,6 +791,7 @@ func (e *EvilWallet) evaluateIssuanceStrategy(strategy *models.IssuancePaymentSt
 		}
 		issuerAccountID = accData.Account.ID()
 	}
+
 	return strategy.AllotmentStrategy, issuerAccountID
 }
 

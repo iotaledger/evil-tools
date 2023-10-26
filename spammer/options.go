@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/iotaledger/evil-tools/evilwallet"
-	"github.com/iotaledger/evil-tools/models"
 )
 
 type Options func(*Spammer)

@@ -30,6 +30,7 @@ func main() {
 	// init account wallet
 	var accWallet *accountwallet.AccountWallet
 	var err error
+	//nolint:all,goconst
 	if Script == "basic" || Script == "accounts" {
 		// read config here
 		config := accountwallet.LoadConfiguration()
@@ -60,10 +61,6 @@ func main() {
 		programs.CustomSpam(&customSpamParams, accWallet)
 	case "accounts":
 		accountsSubcommands(accWallet, accountsSubcommandsFlags)
-	case "quick":
-		programs.QuickTest(&quickTestParams)
-	// case SpammerTypeCommitments:
-	// 	CommitmentsSpam(&commitmentsSpamParams)
 	default:
 		log.Warnf("Unknown parameter for script, possible values: interactive, basic, accounts, quick")
 	}
@@ -75,6 +72,7 @@ func accountsSubcommands(wallet *accountwallet.AccountWallet, subcommands []acco
 	}
 }
 
+//nolint:all,forcetypassert
 func accountsSubcommand(wallet *accountwallet.AccountWallet, sub accountwallet.AccountSubcommands) {
 	switch sub.Type() {
 	case accountwallet.OperationCreateAccount:

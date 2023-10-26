@@ -23,9 +23,9 @@ func parseFlags() (help bool) {
 	log.Infof("script %s", Script)
 
 	switch Script {
-	case "basic":
+	case ScriptSpammer:
 		parseBasicSpamFlags()
-	case "accounts":
+	case ScriptAccounts:
 		// pass subcommands
 		subcommands := make([]string, 0)
 		if len(os.Args) > 2 {

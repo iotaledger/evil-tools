@@ -15,15 +15,21 @@ var (
 	optionFlagSet = flag.NewFlagSet("script flag set", flag.ExitOnError)
 )
 
+const (
+	ScriptInteractive = "interactive"
+	ScriptSpammer     = "spammer"
+	ScriptAccounts    = "accounts"
+)
+
 func main() {
 	help := parseFlags()
 
 	if help {
-		fmt.Println("Usage of the Evil Spammer tool, provide the first argument for the selected mode:\n" +
-			"'interactive' - enters the interactive mode.\n" +
-			"'basic' - can be parametrized with additional flags to run one time spammer. Run 'evil-wallet basic -h' for the list of possible flags.\n" +
-			"'accounts' - tool for account creation and transition. Run 'evil-wallet accounts -h' for the list of possible flags.\n" +
-			"'quick' - runs simple stress test: tx spam -> blk spam -> ds spam. Run 'evil-wallet quick -h' for the list of possible flags.")
+		fmt.Printf("Usage of the Evil Spammer tool, provide the first argument for the selected mode:\n"+
+			"'%s' - enters the interactive mode.\n"+
+			"'%s' - can be parametrized with additional flags to run one time spammer. Run 'evil-wallet basic -h' for the list of possible flags.\n"+
+			"'%s' - tool for account creation and transition. Run 'evil-wallet accounts -h' for the list of possible flags.\n",
+			ScriptInteractive, ScriptSpammer, ScriptAccounts)
 
 		return
 	}
@@ -31,7 +37,7 @@ func main() {
 	var accWallet *accountwallet.AccountWallet
 	var err error
 	//nolint:all,goconst
-	if Script == "basic" || Script == "accounts" {
+	if Script == ScriptSpammer || Script == ScriptAccounts {
 		// read config here
 		config := accountwallet.LoadConfiguration()
 		// load wallet
@@ -55,11 +61,11 @@ func main() {
 	}
 	// run selected test scenario
 	switch Script {
-	case "interactive":
+	case ScriptInteractive:
 		interactive.Run()
-	case "basic":
+	case ScriptSpammer:
 		programs.CustomSpam(&customSpamParams, accWallet)
-	case "accounts":
+	case ScriptAccounts:
 		accountsSubcommands(accWallet, accountsSubcommandsFlags)
 	default:
 		log.Warnf("Unknown parameter for script, possible values: interactive, basic, accounts, quick")

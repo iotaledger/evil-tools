@@ -16,8 +16,7 @@ var (
 )
 
 var (
-	Script     = "basic"
-	Subcommand = ""
+	Script = ScriptSpammer
 
 	customSpamParams = programs.CustomSpamParams{
 		ClientURLs:            urls,

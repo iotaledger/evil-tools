@@ -19,4 +19,5 @@ type CustomSpamParams struct {
 	DeepSpam              bool
 	EnableRateSetter      bool
 	AccountAlias          string
+	BlowballSize          int
 }

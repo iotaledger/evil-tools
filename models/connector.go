@@ -180,6 +180,8 @@ type Client interface {
 	PostBlock(block *iotago.ProtocolBlock) (iotago.BlockID, error)
 	// PostData sends the given data (payload) by creating a block in the backend.
 	PostData(data []byte) (blkID string, err error)
+	// GetBlockConfirmationState returns the AcceptanceState of a given block ID.
+	GetBlockConfirmationState(blkID iotago.BlockID) string
 	// GetBlockState returns the AcceptanceState of a given transaction ID.
 	GetBlockState(txID iotago.TransactionID) (resp *apimodels.BlockMetadataResponse, err error)
 	// GetOutput gets the output of a given outputID.
@@ -294,6 +296,16 @@ func (c *WebClient) GetOutput(outputID iotago.OutputID) iotago.Output {
 	}
 
 	return res
+}
+
+// GetBlockConfirmationState returns the AcceptanceState of a given block ID.
+func (c *WebClient) GetBlockConfirmationState(blkID iotago.BlockID) string {
+	resp, err := c.client.BlockMetadataByBlockID(context.Background(), blkID)
+	if err != nil {
+		return ""
+	}
+
+	return resp.BlockState
 }
 
 // GetBlockState returns the AcceptanceState of a given transaction ID.

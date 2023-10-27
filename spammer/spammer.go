@@ -23,6 +23,7 @@ const (
 	TypeDs       = "ds"
 	TypeCustom   = "custom"
 	TypeAccounts = "accounts"
+	TypeBlowball = "bb"
 )
 
 // region Spammer //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -226,30 +227,55 @@ func (s *Spammer) StopSpamming() {
 	s.shutdown <- types.Void
 }
 
-func (s *Spammer) PrepareAndPostBlock(txData *models.PayloadIssuanceData, issuerAlias string, clt models.Client) {
+func (s *Spammer) PrepareBlock(txData *models.PayloadIssuanceData, issuerAlias string, clt models.Client, strongParents ...iotago.BlockID) *iotago.ProtocolBlock {
 	if txData.Payload == nil {
 		s.log.Debug(ErrPayloadIsNil)
 		s.ErrCounter.CountError(ErrPayloadIsNil)
 
-		return
+		return nil
 	}
 	issuerAccount, err := s.EvilWallet.GetAccount(issuerAlias)
 	if err != nil {
 		s.log.Debug(ierrors.Wrapf(ErrFailGetAccount, err.Error()))
 		s.ErrCounter.CountError(ierrors.Wrapf(ErrFailGetAccount, err.Error()))
 
-		return
+		return nil
+	}
+	block, err := s.EvilWallet.CreateBlock(clt, txData.Payload, txData.CongestionResponse, issuerAccount, strongParents...)
+	if err != nil {
+		s.log.Debug(ierrors.Wrapf(ErrFailPostBlock, err.Error()))
+		s.ErrCounter.CountError(ierrors.Wrapf(ErrFailPostBlock, err.Error()))
+
+		return nil
+	}
+
+	return block
+}
+
+func (s *Spammer) PrepareAndPostBlock(txData *models.PayloadIssuanceData, issuerAlias string, clt models.Client) iotago.BlockID {
+	if txData.Payload == nil {
+		s.log.Debug(ErrPayloadIsNil)
+		s.ErrCounter.CountError(ErrPayloadIsNil)
+
+		return iotago.EmptyBlockID
+	}
+	issuerAccount, err := s.EvilWallet.GetAccount(issuerAlias)
+	if err != nil {
+		s.log.Debug(ierrors.Wrapf(ErrFailGetAccount, err.Error()))
+		s.ErrCounter.CountError(ierrors.Wrapf(ErrFailGetAccount, err.Error()))
+
+		return iotago.EmptyBlockID
 	}
 	blockID, err := s.EvilWallet.PrepareAndPostBlock(clt, txData.Payload, txData.CongestionResponse, issuerAccount)
 	if err != nil {
 		s.log.Debug(ierrors.Wrapf(ErrFailPostBlock, err.Error()))
 		s.ErrCounter.CountError(ierrors.Wrapf(ErrFailPostBlock, err.Error()))
 
-		return
+		return iotago.EmptyBlockID
 	}
 
 	if txData.Payload.PayloadType() != iotago.PayloadSignedTransaction {
-		return
+		return blockID
 	}
 
 	//nolint:all,forcetypassert
@@ -260,7 +286,7 @@ func (s *Spammer) PrepareAndPostBlock(txData *models.PayloadIssuanceData, issuer
 		s.log.Debug(ierrors.Wrapf(ErrTransactionInvalid, err.Error()))
 		s.ErrCounter.CountError(ierrors.Wrapf(ErrTransactionInvalid, err.Error()))
 
-		return
+		return blockID
 	}
 
 	// reuse outputs
@@ -275,6 +301,8 @@ func (s *Spammer) PrepareAndPostBlock(txData *models.PayloadIssuanceData, issuer
 	}
 	count := s.State.txSent.Add(1)
 	s.log.Debugf("Last block sent, ID: %s, txCount: %d", blockID.ToHex(), count)
+
+	return blockID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

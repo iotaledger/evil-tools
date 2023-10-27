@@ -31,6 +31,7 @@ var (
 		DeepSpam:              false,
 		EnableRateSetter:      false,
 		AccountAlias:          accountwallet.FaucetAccountAlias,
+		BlowballSize:          30,
 	}
 
 	accountsSubcommandsFlags []accountwallet.AccountSubcommands

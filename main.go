@@ -69,7 +69,7 @@ func main() {
 	case ScriptAccounts:
 		accountsSubcommands(accWallet, accountsSubcommandsFlags)
 	default:
-		log.Warnf("Unknown parameter for script, possible values: interactive, basic, accounts, quick")
+		log.Warnf("Unknown parameter for script, possible values: interactive, spammer, accounts")
 	}
 }
 

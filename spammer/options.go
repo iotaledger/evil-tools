@@ -84,6 +84,19 @@ func WithTimeDelayForDoubleSpend(timeDelay time.Duration) Options {
 	}
 }
 
+// WithBlowballSize provides spammer with options regarding blowball size.
+func WithBlowballSize(size int) Options {
+	return func(s *Spammer) {
+		if s.SpamDetails == nil {
+			s.SpamDetails = &SpamDetails{
+				BlowballSize: size,
+			}
+		} else {
+			s.SpamDetails.BlowballSize = size
+		}
+	}
+}
+
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type SpamDetails struct {
@@ -92,4 +105,5 @@ type SpamDetails struct {
 	MaxDuration time.Duration
 	// calculated based on duration, 0 for infinite spamming
 	MaxBatchesSent int
+	BlowballSize   int
 }

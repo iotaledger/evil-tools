@@ -20,6 +20,7 @@ type CustomSpamParams struct {
 	DeepSpam              bool
 	EnableRateSetter      bool
 	AccountAlias          string
+	BlowballSize          int
 }
 
 func ConfigFromCustomSpamParams(params *CustomSpamParams) *models.Config {

@@ -117,13 +117,40 @@ func (e *EvilWallet) GetAccount(alias string) (blockhandler.Account, error) {
 	return account.Account, nil
 }
 
+func (e *EvilWallet) CreateBlock(clt models.Client, payload iotago.Payload, congestionResp *apimodels.CongestionResponse, issuer blockhandler.Account, strongParents ...iotago.BlockID) (*iotago.ProtocolBlock, error) {
+	var congestionSlot iotago.SlotIndex
+	version := clt.CommittedAPI().Version()
+	if congestionResp != nil {
+		congestionSlot = congestionResp.Slot
+		version = clt.APIForSlot(congestionSlot).Version()
+	}
+
+	issuerResp, err := clt.GetBlockIssuance(congestionSlot)
+	if err != nil {
+		return nil, ierrors.Wrap(err, "failed to get block issuance data")
+	}
+
+	block, err := e.accWallet.CreateBlock(payload, issuer, congestionResp, issuerResp, version, strongParents...)
+	if err != nil {
+		return nil, err
+	}
+
+	return block, nil
+}
+
 func (e *EvilWallet) PrepareAndPostBlock(clt models.Client, payload iotago.Payload, congestionResp *apimodels.CongestionResponse, issuer blockhandler.Account) (iotago.BlockID, error) {
-	issuerResp, err := clt.GetBlockIssuance(congestionResp.Slot)
+	var congestionSlot iotago.SlotIndex
+	version := clt.CommittedAPI().Version()
+	if congestionResp != nil {
+		congestionSlot = congestionResp.Slot
+		version = clt.APIForSlot(congestionSlot).Version()
+	}
+
+	issuerResp, err := clt.GetBlockIssuance(congestionSlot)
 	if err != nil {
 		return iotago.EmptyBlockID, ierrors.Wrap(err, "failed to get block issuance data")
 	}
 
-	version := clt.APIForSlot(congestionResp.Slot).Version()
 	blockID, err := e.accWallet.PostWithBlock(clt, payload, issuer, congestionResp, issuerResp, version)
 	if err != nil {
 		return iotago.EmptyBlockID, err

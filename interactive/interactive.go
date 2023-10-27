@@ -128,7 +128,7 @@ const (
 )
 
 var (
-	scenarios     = []string{spammer.TypeBlock, spammer.TypeTx, spammer.TypeDs, "conflict-circle", "guava", "orange", "mango", "pear", "lemon", "banana", "kiwi", "peace"}
+	scenarios     = []string{spammer.TypeBlock, spammer.TypeTx, spammer.TypeDs, spammer.TypeBlowball, "conflict-circle", "guava", "orange", "mango", "pear", "lemon", "banana", "kiwi", "peace"}
 	confirms      = []string{AnswerEnable, AnswerDisable}
 	outputNumbers = []string{"100", "1000", "5000", "cancel"}
 	timeUnits     = []string{mpm, mps}

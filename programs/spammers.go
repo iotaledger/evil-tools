@@ -30,12 +30,19 @@ func CustomSpam(params *CustomSpamParams, accWallet *accountwallet.AccountWallet
 		success := w.RequestFreshBigFaucetWallets(numOfBigWallets)
 		if !success {
 			log.Errorf("Failed to request faucet wallet")
-
-			return
 		}
+		if sType != spammer.TypeBlock && sType != spammer.TypeBlowball {
+			numOfBigWallets := spammer.BigWalletsNeeded(params.Rates[i], params.TimeUnit, params.Durations[i])
+			fmt.Println("numOfBigWallets: ", numOfBigWallets)
+			success := w.RequestFreshBigFaucetWallets(numOfBigWallets)
+			if !success {
+				log.Errorf("Failed to request faucet wallet")
+				return
+			}
 
-		unspentOutputsLeft := w.UnspentOutputsLeft(evilwallet.Fresh)
-		log.Debugf("Prepared %d unspent outputs for spamming.", unspentOutputsLeft)
+			unspentOutputsLeft := w.UnspentOutputsLeft(evilwallet.Fresh)
+			log.Debugf("Prepared %d unspent outputs for spamming.", unspentOutputsLeft)
+		}
 
 		switch sType {
 		case spammer.TypeBlock:
@@ -43,6 +50,17 @@ func CustomSpam(params *CustomSpamParams, accWallet *accountwallet.AccountWallet
 			go func(i int) {
 				defer wg.Done()
 				s := SpamBlocks(w, params.Rates[i], params.TimeUnit, duration, params.EnableRateSetter, params.AccountAlias)
+				if s == nil {
+					return
+				}
+				s.Spam()
+			}(i)
+		case spammer.TypeBlowball:
+			wg.Add(1)
+			go func(i int) {
+				defer wg.Done()
+
+				s := SpamBlowball(w, params.Rates[i], params.TimeUnit, params.Durations[i], params.BlowballSize, params.EnableRateSetter, params.AccountAlias)
 				if s == nil {
 					return
 				}
@@ -221,6 +239,29 @@ func SpamAccounts(w *evilwallet.EvilWallet, rate int, timeUnit, duration time.Du
 		spammer.WithEvilWallet(w),
 		spammer.WithSpammingFunc(spammer.AccountSpammingFunction),
 		spammer.WithEvilScenario(scenarioAccount),
+		spammer.WithAccountAlias(accountAlias),
+	}
+
+	return spammer.NewSpammer(options...)
+}
+
+func SpamBlowball(w *evilwallet.EvilWallet, rate int, timeUnit, duration time.Duration, blowballSize int, enableRateSetter bool, accountAlias string) *spammer.Spammer {
+	if w.NumOfClient() < 1 {
+		log.Infof("Warning: At least one client is needed to spam.")
+	}
+
+	// blowball spammer needs at least 40 seconds to finish
+	if duration < 40*time.Second {
+		duration = 40 * time.Second
+	}
+
+	options := []spammer.Options{
+		spammer.WithSpamRate(rate, timeUnit),
+		spammer.WithSpamDuration(duration),
+		spammer.WithBlowballSize(blowballSize),
+		spammer.WithRateSetter(enableRateSetter),
+		spammer.WithEvilWallet(w),
+		spammer.WithSpammingFunc(spammer.BlowballSpammingFunction),
 		spammer.WithAccountAlias(accountAlias),
 	}
 

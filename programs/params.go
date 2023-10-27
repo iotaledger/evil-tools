@@ -12,7 +12,6 @@ type CustomSpamParams struct {
 	SpamTypes             []string
 	Rates                 []int
 	Durations             []time.Duration
-	BlkToBeSent           []int
 	TimeUnit              time.Duration
 	DelayBetweenConflicts time.Duration
 	NSpend                int

@@ -42,7 +42,7 @@ func CustomSpam(params *CustomSpamParams, accWallet *accountwallet.AccountWallet
 			wg.Add(1)
 			go func(i int) {
 				defer wg.Done()
-				s := SpamBlocks(w, params.Rates[i], params.TimeUnit, duration, params.BlkToBeSent[i], params.EnableRateSetter, params.AccountAlias)
+				s := SpamBlocks(w, params.Rates[i], params.TimeUnit, duration, params.EnableRateSetter, params.AccountAlias)
 				if s == nil {
 					return
 				}
@@ -186,7 +186,7 @@ func SpamNestedConflicts(w *evilwallet.EvilWallet, rate int, timeUnit, duration 
 	return spammer.NewSpammer(options...)
 }
 
-func SpamBlocks(w *evilwallet.EvilWallet, rate int, timeUnit, duration time.Duration, numBlkToSend int, enableRateSetter bool, accountAlias string) *spammer.Spammer {
+func SpamBlocks(w *evilwallet.EvilWallet, rate int, timeUnit, duration time.Duration, enableRateSetter bool, accountAlias string) *spammer.Spammer {
 	if w.NumOfClient() < 1 {
 		log.Infof("Warning: At least one client is needed to spam.")
 	}
@@ -194,7 +194,6 @@ func SpamBlocks(w *evilwallet.EvilWallet, rate int, timeUnit, duration time.Dura
 	options := []spammer.Options{
 		spammer.WithSpamRate(rate, timeUnit),
 		spammer.WithSpamDuration(duration),
-		spammer.WithBatchesSent(numBlkToSend),
 		spammer.WithRateSetter(enableRateSetter),
 		spammer.WithEvilWallet(w),
 		spammer.WithSpammingFunc(spammer.DataSpammingFunction),

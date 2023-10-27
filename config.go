@@ -23,7 +23,6 @@ var (
 		SpamTypes:             []string{spammer.TypeBlock},
 		Rates:                 []int{1},
 		Durations:             []time.Duration{},
-		BlkToBeSent:           []int{0},
 		TimeUnit:              time.Second,
 		DelayBetweenConflicts: 0,
 		NSpend:                2,

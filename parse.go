@@ -59,8 +59,7 @@ func parseBasicSpamFlags() {
 	spamTypes := optionFlagSet.String("spammer", "", "Spammers used during test. Format: strings separated with comma, available options: 'blk' - block,"+
 		" 'tx' - transaction, 'ds' - double spends spammers, 'nds' - n-spends spammer, 'custom' - spams with provided scenario")
 	rate := optionFlagSet.String("rate", "", "Spamming rate for provided 'spammer'. Format: numbers separated with comma, e.g. 10,100,1 if three spammers were provided for 'spammer' parameter.")
-	duration := optionFlagSet.String("duration", "", "Spam duration. Cannot be combined with flag 'blkNum'. Format: separated by commas list of decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
-	blkNum := optionFlagSet.String("blkNum", "", "Spam duration in seconds. Cannot be combined with flag 'duration'. Format: numbers separated with comma, e.g. 10,100,1 if three spammers were provided for 'spammer' parameter.")
+	duration := optionFlagSet.String("duration", "", "Spam duration. If not provided spam will lats infinitely. Format: separated by commas list of decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
 	timeunit := optionFlagSet.Duration("tu", customSpamParams.TimeUnit, "Time unit for the spamming rate. Format: decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
 	delayBetweenConflicts := optionFlagSet.Duration("dbc", customSpamParams.DelayBetweenConflicts, "delayBetweenConflicts - Time delay between conflicts in double spend spamming")
 	scenario := optionFlagSet.String("scenario", "", "Name of the EvilBatch that should be used for the spam. By default uses Scenario1. Possible scenarios can be found in evilwallet/customscenarion.go.")
@@ -86,10 +85,6 @@ func parseBasicSpamFlags() {
 		parsedDurations := parseDurations(*duration)
 		customSpamParams.Durations = parsedDurations
 	}
-	if *blkNum != "" {
-		parsedBlkNums := parseCommaSepInt(*blkNum)
-		customSpamParams.BlkToBeSent = parsedBlkNums
-	}
 	if *scenario != "" {
 		conflictBatch, ok := evilwallet.GetScenario(*scenario)
 		if ok {
@@ -104,14 +99,6 @@ func parseBasicSpamFlags() {
 	customSpamParams.DelayBetweenConflicts = *delayBetweenConflicts
 	if *account != "" {
 		customSpamParams.AccountAlias = *account
-	}
-
-	// fill in unused parameter: blkNum or duration with zeros
-	if *duration == "" && *blkNum != "" {
-		customSpamParams.Durations = make([]time.Duration, len(customSpamParams.BlkToBeSent))
-	}
-	if *blkNum == "" && *duration != "" {
-		customSpamParams.BlkToBeSent = make([]int, len(customSpamParams.Durations))
 	}
 }
 

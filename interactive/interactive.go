@@ -437,7 +437,7 @@ func (m *Mode) startSpam() {
 
 	var s *spammer.Spammer
 	if m.Config.Scenario == spammer.TypeBlock {
-		s = programs.SpamBlocks(m.evilWallet, m.Config.Rate, time.Second, m.innerConfig.duration, 0, m.Config.UseRateSetter, "")
+		s = programs.SpamBlocks(m.evilWallet, m.Config.Rate, time.Second, m.innerConfig.duration, m.Config.UseRateSetter, "")
 	} else {
 		scenario, _ := evilwallet.GetScenario(m.Config.Scenario)
 		s = programs.SpamNestedConflicts(m.evilWallet, m.Config.Rate, time.Second, m.innerConfig.duration, scenario, m.Config.Deep, m.Config.Reuse, m.Config.UseRateSetter, "")

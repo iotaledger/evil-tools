@@ -118,12 +118,18 @@ func (e *EvilWallet) GetAccount(alias string) (blockhandler.Account, error) {
 }
 
 func (e *EvilWallet) PrepareAndPostBlock(clt models.Client, payload iotago.Payload, congestionResp *apimodels.CongestionResponse, issuer blockhandler.Account) (iotago.BlockID, error) {
-	issuerResp, err := clt.GetBlockIssuance(congestionResp.Slot)
+	var congestionSlot iotago.SlotIndex
+	version := clt.CommittedAPI().Version()
+	if congestionResp != nil {
+		congestionSlot = congestionResp.Slot
+		version = clt.APIForSlot(congestionSlot).Version()
+	}
+
+	issuerResp, err := clt.GetBlockIssuance(congestionSlot)
 	if err != nil {
 		return iotago.EmptyBlockID, ierrors.Wrap(err, "failed to get block issuance data")
 	}
 
-	version := clt.APIForSlot(congestionResp.Slot).Version()
 	blockID, err := e.accWallet.PostWithBlock(clt, payload, issuer, congestionResp, issuerResp, version)
 	if err != nil {
 		return iotago.EmptyBlockID, err

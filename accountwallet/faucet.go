@@ -90,6 +90,13 @@ func (a *AccountWallet) CreateBlock(payload iotago.Payload, issuer blockhandler.
 	issuingTime := time.Now()
 	issuingSlot := a.client.LatestAPI().TimeProvider().SlotFromTime(issuingTime)
 	apiForSlot := a.client.APIForSlot(issuingSlot)
+	if congestionResp == nil {
+		var err error
+		congestionResp, err = a.client.GetCongestion(issuer.ID())
+		if err != nil {
+			return nil, ierrors.Wrap(err, "failed to get congestion data")
+		}
+	}
 
 	blockBuilder := builder.NewBasicBlockBuilder(apiForSlot)
 

@@ -13,6 +13,7 @@ import (
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
+	"github.com/iotaledger/inx-faucet/pkg/faucet"
 	"github.com/iotaledger/iota-core/pkg/model"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/builder"
@@ -264,12 +265,9 @@ func NewWebClient(url, faucetURL string, opts ...options.Option[WebClient]) (*We
 
 func (c *WebClient) RequestFaucetFunds(address *iotago.Ed25519Address) (err error) {
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, c.faucetURL+"/api/enqueue", func() io.Reader {
-		type reqJSON struct {
-			Address string `json:"address"`
-		}
-
-		addrJSON := &reqJSON{Address: address.Bech32(c.client.CommittedAPI().ProtocolParameters().Bech32HRP())}
-		jsonData, _ := json.Marshal(addrJSON)
+		jsonData, _ := json.Marshal(&faucet.EnqueueRequest{
+			Address: address.Bech32(c.client.CommittedAPI().ProtocolParameters().Bech32HRP()),
+		})
 
 		return bytes.NewReader(jsonData)
 	}())
@@ -285,7 +283,7 @@ func (c *WebClient) RequestFaucetFunds(address *iotago.Ed25519Address) (err erro
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusAccepted {
+	if res.StatusCode != http.StatusAccepted {
 		return ierrors.Errorf("faucet request failed: %s", res.Body)
 	}
 

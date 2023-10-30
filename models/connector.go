@@ -43,13 +43,16 @@ type Connector interface {
 	RemoveClient(url string)
 	// GetClient returns the client instance that was used the longest time ago.
 	GetClient() Client
+	// GetIndexerClient returns the indexer client instance.
+	GetIndexerClient() Client
 }
 
 // WebClients is responsible for handling connections via GoShimmerAPI.
 type WebClients struct {
-	clients   []*WebClient
-	urls      []string
-	faucetURL string
+	clients        []*WebClient
+	indexerClients []*WebClient
+	urls           []string
+	faucetURL      string
 
 	// helper variable indicating which clt was recently used, useful for double, triple,... spends
 	lastUsed int
@@ -60,6 +63,7 @@ type WebClients struct {
 // NewWebClients creates Connector from provided GoShimmerAPI urls.
 func NewWebClients(urls []string, faucetURL string, setters ...options.Option[WebClient]) *WebClients {
 	clients := make([]*WebClient, len(urls))
+	indexers := make([]*WebClient, 0)
 	var err error
 	for i, url := range urls {
 		clients[i], err = NewWebClient(url, faucetURL, setters...)
@@ -68,13 +72,18 @@ func NewWebClients(urls []string, faucetURL string, setters ...options.Option[We
 
 			return nil
 		}
+
+		if _, err := clients[i].client.Indexer(context.Background()); err == nil {
+			indexers = append(indexers, clients[i])
+		}
 	}
 
 	return &WebClients{
-		clients:   clients,
-		urls:      urls,
-		faucetURL: faucetURL,
-		lastUsed:  -1,
+		clients:        clients,
+		indexerClients: indexers,
+		urls:           urls,
+		faucetURL:      faucetURL,
+		lastUsed:       -1,
 	}
 }
 
@@ -124,6 +133,13 @@ func (c *WebClients) GetClients(numOfClt int) []Client {
 	}
 
 	return clts
+}
+
+func (c *WebClients) GetIndexerClient() Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return c.indexerClients[0]
 }
 
 // getClient returns the client instance that was used the longest time ago, not protected by mutex.

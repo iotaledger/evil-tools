@@ -1,11 +1,16 @@
 package models
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"io"
+	"net/http"
 	"time"
 
 	"github.com/google/martian/log"
 
+	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/iota-core/pkg/model"
@@ -41,8 +46,9 @@ type Connector interface {
 
 // WebClients is responsible for handling connections via GoShimmerAPI.
 type WebClients struct {
-	clients []*WebClient
-	urls    []string
+	clients   []*WebClient
+	urls      []string
+	faucetURL string
 
 	// helper variable indicating which clt was recently used, useful for double, triple,... spends
 	lastUsed int
@@ -51,11 +57,11 @@ type WebClients struct {
 }
 
 // NewWebClients creates Connector from provided GoShimmerAPI urls.
-func NewWebClients(urls []string, setters ...options.Option[WebClient]) *WebClients {
+func NewWebClients(urls []string, faucetURL string, setters ...options.Option[WebClient]) *WebClients {
 	clients := make([]*WebClient, len(urls))
 	var err error
 	for i, url := range urls {
-		clients[i], err = NewWebClient(url, setters...)
+		clients[i], err = NewWebClient(url, faucetURL, setters...)
 		if err != nil {
 			log.Errorf("failed to create client for url %s: %s", url, err)
 
@@ -64,9 +70,10 @@ func NewWebClients(urls []string, setters ...options.Option[WebClient]) *WebClie
 	}
 
 	return &WebClients{
-		clients:  clients,
-		urls:     urls,
-		lastUsed: -1,
+		clients:   clients,
+		urls:      urls,
+		faucetURL: faucetURL,
+		lastUsed:  -1,
 	}
 }
 
@@ -142,7 +149,7 @@ func (c *WebClients) AddClient(url string, setters ...options.Option[WebClient])
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	clt, err := NewWebClient(url, setters...)
+	clt, err := NewWebClient(url, c.faucetURL, setters...)
 	if err != nil {
 		log.Errorf("failed to create client for url %s: %s", url, err)
 
@@ -194,14 +201,17 @@ type Client interface {
 	GetBlockIssuance(...iotago.SlotIndex) (resp *apimodels.IssuanceBlockHeaderResponse, err error)
 	// GetCongestion returns congestion data such as rmc or issuing readiness.
 	GetCongestion(id iotago.AccountID) (resp *apimodels.CongestionResponse, err error)
+	// RequestFaucetFunds
+	RequestFaucetFunds(address *iotago.Ed25519Address) (err error)
 
 	iotago.APIProvider
 }
 
 // WebClient contains a GoShimmer web API to interact with a node.
 type WebClient struct {
-	client *nodeclient.Client
-	url    string
+	client    *nodeclient.Client
+	url       string
+	faucetURL string
 }
 
 func (c *WebClient) Client() *nodeclient.Client {
@@ -242,13 +252,44 @@ func (c *WebClient) URL() string {
 }
 
 // NewWebClient creates Connector from provided iota-core API urls.
-func NewWebClient(url string, opts ...options.Option[WebClient]) (*WebClient, error) {
+func NewWebClient(url, faucetURL string, opts ...options.Option[WebClient]) (*WebClient, error) {
 	var initErr error
 	return options.Apply(&WebClient{
-		url: url,
+		url:       url,
+		faucetURL: faucetURL,
 	}, opts, func(w *WebClient) {
 		w.client, initErr = nodeclient.New(w.url)
 	}), initErr
+}
+
+func (c *WebClient) RequestFaucetFunds(address *iotago.Ed25519Address) (err error) {
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, c.faucetURL+"/api/enqueue", func() io.Reader {
+		type reqJSON struct {
+			Address string `json:"address"`
+		}
+
+		addrJSON := &reqJSON{Address: address.Bech32(c.client.CommittedAPI().ProtocolParameters().Bech32HRP())}
+		jsonData, _ := json.Marshal(addrJSON)
+
+		return bytes.NewReader(jsonData)
+	}())
+	if err != nil {
+		return ierrors.Errorf("unable to build http request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", nodeclient.MIMEApplicationJSON)
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return ierrors.Errorf("client: error making http request: %s\n", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK && res.StatusCode != http.StatusAccepted {
+		return ierrors.Errorf("faucet request failed: %s", res.Body)
+	}
+
+	return nil
 }
 
 func (c *WebClient) PostBlock(block *iotago.ProtocolBlock) (blockID iotago.BlockID, err error) {

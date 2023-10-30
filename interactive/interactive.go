@@ -43,6 +43,7 @@ var (
 type Config struct {
 	//nolint:tagliatelle
 	WebAPI               []string `json:"webAPI"`
+	FaucetURL            string   `json:"faucetURL"`
 	Rate                 int      `json:"rate"`
 	DurationStr          string   `json:"duration"`
 	TimeUnitStr          string   `json:"timeUnit"`
@@ -60,6 +61,7 @@ type Config struct {
 
 var configJSON = fmt.Sprintf(`{
 	"webAPI": ["http://localhost:8080","http://localhost:8090"],
+	"faucetURL": "http://localhost:8088",
 	"rate": 2,
 	"duration": "20s",
 	"timeUnit": "1s",
@@ -76,6 +78,7 @@ var defaultConfig = Config{
 		"http://localhost:8080": types.Void,
 		"http://localhost:8090": types.Void,
 	},
+	FaucetURL:            "http://localhost:8088",
 	Rate:                 2,
 	duration:             20 * time.Second,
 	timeUnit:             time.Second,

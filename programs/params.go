@@ -8,6 +8,7 @@ import (
 
 type CustomSpamParams struct {
 	ClientURLs            []string
+	FaucetURL             string
 	SpamTypes             []string
 	Rates                 []int
 	Durations             []time.Duration

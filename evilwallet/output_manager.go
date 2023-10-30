@@ -1,6 +1,7 @@
 package evilwallet
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
 	iotago "github.com/iotaledger/iota.go/v4"
+	"github.com/iotaledger/iota.go/v4/nodeclient"
 	"github.com/iotaledger/iota.go/v4/nodeclient/apimodels"
 )
 
@@ -257,6 +259,48 @@ func (o *OutputManager) AwaitOutputToBeAccepted(outputID iotago.OutputID, waitFo
 	}
 
 	return accepted
+}
+
+func (o *OutputManager) AwaitAddressUnspentOutputToBeAccepted(addr *iotago.Ed25519Address, waitFor time.Duration) (outputID iotago.OutputID, output iotago.Output, err error) {
+	s := time.Now()
+
+	// TODO: improve this, find a client that has indexer
+	var clt models.Client
+	var indexer nodeclient.IndexerClient
+	for _, c := range o.connector.Clients() {
+		clt = c
+		indexer, err = c.Indexer()
+		if err == nil {
+			break
+		}
+	}
+
+	addrBech := addr.Bech32(clt.CommittedAPI().ProtocolParameters().Bech32HRP())
+
+	for ; time.Since(s) < waitFor; time.Sleep(awaitAcceptationSleep) {
+		res, err := indexer.Outputs(context.Background(), &apimodels.BasicOutputsQuery{
+			AddressBech32: addrBech,
+		})
+		if err != nil {
+			return iotago.EmptyOutputID, nil, ierrors.Wrap(err, "indexer request failed in request faucet funds")
+		}
+
+		for res.Next() {
+			unspents, err := res.Outputs(context.TODO())
+			if err != nil {
+				return iotago.EmptyOutputID, nil, ierrors.Wrap(err, "failed to get faucet unspent outputs")
+			}
+
+			if len(unspents) == 0 {
+				o.log.Debugf("no unspent outputs found for address: %s", addrBech)
+				break
+			}
+
+			return lo.Return1(res.Response.Items.OutputIDs())[0], unspents[0], nil
+		}
+	}
+
+	return iotago.EmptyOutputID, nil, ierrors.Errorf("no unspent outputs found for address %s due to timeout", addr.Bech32(clt.CommittedAPI().ProtocolParameters().Bech32HRP()))
 }
 
 // AwaitTransactionsAcceptance awaits for transaction confirmation and updates wallet with outputIDs.

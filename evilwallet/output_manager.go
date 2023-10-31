@@ -263,8 +263,8 @@ func (o *OutputManager) AwaitOutputToBeAccepted(outputID iotago.OutputID, waitFo
 func (o *OutputManager) AwaitAddressUnspentOutputToBeAccepted(addr *iotago.Ed25519Address, waitFor time.Duration) (outputID iotago.OutputID, output iotago.Output, err error) {
 	s := time.Now()
 
-	clt := o.connector.GetClient()
-	indexer, err := o.connector.GetIndexerClient().Indexer()
+	clt := o.connector.GetIndexerClient()
+	indexer, err := clt.Indexer()
 	if err != nil {
 		return iotago.EmptyOutputID, nil, ierrors.Wrap(err, "failed to get indexer client")
 	}

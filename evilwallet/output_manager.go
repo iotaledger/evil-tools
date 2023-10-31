@@ -261,14 +261,13 @@ func (o *OutputManager) AwaitOutputToBeAccepted(outputID iotago.OutputID, waitFo
 }
 
 func (o *OutputManager) AwaitAddressUnspentOutputToBeAccepted(addr *iotago.Ed25519Address, waitFor time.Duration) (outputID iotago.OutputID, output iotago.Output, err error) {
-	s := time.Now()
-
 	clt := o.connector.GetIndexerClient()
 	indexer, err := clt.Indexer()
 	if err != nil {
 		return iotago.EmptyOutputID, nil, ierrors.Wrap(err, "failed to get indexer client")
 	}
 
+	s := time.Now()
 	addrBech := addr.Bech32(clt.CommittedAPI().ProtocolParameters().Bech32HRP())
 
 	for ; time.Since(s) < waitFor; time.Sleep(awaitAcceptationSleep) {
@@ -286,7 +285,7 @@ func (o *OutputManager) AwaitAddressUnspentOutputToBeAccepted(addr *iotago.Ed255
 			}
 
 			if len(unspents) == 0 {
-				o.log.Debugf("no unspent outputs found for address: %s", addrBech)
+				o.log.Debugf("no unspent outputs found in indexer for address: %s", addrBech)
 				break
 			}
 
@@ -294,7 +293,7 @@ func (o *OutputManager) AwaitAddressUnspentOutputToBeAccepted(addr *iotago.Ed255
 		}
 	}
 
-	return iotago.EmptyOutputID, nil, ierrors.Errorf("no unspent outputs found for address %s due to timeout", addr.Bech32(clt.CommittedAPI().ProtocolParameters().Bech32HRP()))
+	return iotago.EmptyOutputID, nil, ierrors.Errorf("no unspent outputs found for address %s due to timeout", addrBech)
 }
 
 // AwaitTransactionsAcceptance awaits for transaction confirmation and updates wallet with outputIDs.

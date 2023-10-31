@@ -206,22 +206,6 @@ func (o *OutputManager) getOutputFromWallet(outputID iotago.OutputID) (output *m
 	return
 }
 
-// RequestOutputsByTxID adds the outputs of a given transaction to the output status map.
-func (o *OutputManager) RequestOutputsByTxID(txID iotago.TransactionID) (outputIDs iotago.OutputIDs) {
-	clt := o.connector.GetClient()
-
-	tx, err := clt.GetTransaction(txID)
-	if err != nil {
-		return
-	}
-
-	for index := range tx.Transaction.Outputs {
-		outputIDs = append(outputIDs, iotago.OutputIDFromTransactionIDAndIndex(txID, uint16(index)))
-	}
-
-	return outputIDs
-}
-
 // AwaitWalletOutputsToBeConfirmed awaits for all outputs in the wallet are confirmed.
 func (o *OutputManager) AwaitWalletOutputsToBeConfirmed(wallet *Wallet) {
 	wg := sync.WaitGroup{}

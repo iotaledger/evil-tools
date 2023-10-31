@@ -29,6 +29,9 @@ func Run(config *Configuration) (*AccountWallet, error) {
 	if config.BindAddress != "" {
 		opts = append(opts, WithClientURL(config.BindAddress))
 	}
+	if config.FaucetBindAddress != "" {
+		opts = append(opts, WithFaucetURL(config.FaucetBindAddress))
+	}
 	if config.AccountStatesFile != "" {
 		opts = append(opts, WithAccountStatesFile(config.AccountStatesFile))
 	}
@@ -69,6 +72,7 @@ type AccountWallet struct {
 	client *models.WebClient
 
 	optsClientBindAddress string
+	optsFaucetURL         string
 	optsAccountStatesFile string
 	optsFaucetParams      *faucetParams
 	optsRequestTimeout    time.Duration
@@ -83,7 +87,7 @@ func NewAccountWallet(opts ...options.Option[AccountWallet]) (*AccountWallet, er
 		optsRequestTimeout: time.Second * 120,
 		optsRequestTicker:  time.Second * 5,
 	}, opts, func(w *AccountWallet) {
-		w.client, initErr = models.NewWebClient(w.optsClientBindAddress)
+		w.client, initErr = models.NewWebClient(w.optsClientBindAddress, w.optsFaucetURL)
 		if initErr != nil {
 			log.Errorf("failed to create web client: %s", initErr.Error())
 

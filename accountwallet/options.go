@@ -11,6 +11,12 @@ func WithClientURL(url string) options.Option[AccountWallet] {
 	}
 }
 
+func WithFaucetURL(url string) options.Option[AccountWallet] {
+	return func(w *AccountWallet) {
+		w.optsFaucetURL = url
+	}
+}
+
 func WithAccountStatesFile(fileName string) options.Option[AccountWallet] {
 	return func(w *AccountWallet) {
 		w.optsAccountStatesFile = fileName

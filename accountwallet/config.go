@@ -64,6 +64,7 @@ func AvailableCommands(cmd string) bool {
 
 type Configuration struct {
 	BindAddress           string `json:"bindAddress,omitempty"`
+	FaucetBindAddress     string `json:"faucetBindAddress,omitempty"`
 	AccountStatesFile     string `json:"accountStatesFile,omitempty"`
 	GenesisSeed           string `json:"genesisSeed,omitempty"`
 	BlockIssuerPrivateKey string `json:"blockIssuerPrivateKey,omitempty"`
@@ -75,6 +76,7 @@ var accountConfigFile = "config.json"
 var (
 	dockerAccountConfigJSON = `{
 	"bindAddress": "http://localhost:8080",
+	"faucetBindAddress": "http://localhost:8088",
 	"accountStatesFile": "wallet.dat",
 	"genesisSeed": "7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih",
 	"blockIssuerPrivateKey": "db39d2fde6301d313b108dc9db1ee724d0f405f6fde966bd776365bc5f4a5fb31e4b21eb51dcddf65c20db1065e1f1514658b23a3ddbf48d30c0efc926a9a648",
@@ -135,7 +137,6 @@ type AccountSubcommands interface {
 
 type CreateAccountParams struct {
 	Alias      string
-	Amount     uint64
 	NoBIF      bool
 	Implicit   bool
 	Transition bool

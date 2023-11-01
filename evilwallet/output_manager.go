@@ -1,6 +1,7 @@
 package evilwallet
 
 import (
+	"context"
 	"sync"
 	"time"
 
@@ -257,6 +258,42 @@ func (o *OutputManager) AwaitOutputToBeAccepted(outputID iotago.OutputID, waitFo
 	}
 
 	return accepted
+}
+
+func (o *OutputManager) AwaitAddressUnspentOutputToBeAccepted(addr *iotago.Ed25519Address, waitFor time.Duration) (outputID iotago.OutputID, output iotago.Output, err error) {
+	clt := o.connector.GetIndexerClient()
+	indexer, err := clt.Indexer()
+	if err != nil {
+		return iotago.EmptyOutputID, nil, ierrors.Wrap(err, "failed to get indexer client")
+	}
+
+	s := time.Now()
+	addrBech := addr.Bech32(clt.CommittedAPI().ProtocolParameters().Bech32HRP())
+
+	for ; time.Since(s) < waitFor; time.Sleep(awaitAcceptationSleep) {
+		res, err := indexer.Outputs(context.Background(), &apimodels.BasicOutputsQuery{
+			AddressBech32: addrBech,
+		})
+		if err != nil {
+			return iotago.EmptyOutputID, nil, ierrors.Wrap(err, "indexer request failed in request faucet funds")
+		}
+
+		for res.Next() {
+			unspents, err := res.Outputs(context.TODO())
+			if err != nil {
+				return iotago.EmptyOutputID, nil, ierrors.Wrap(err, "failed to get faucet unspent outputs")
+			}
+
+			if len(unspents) == 0 {
+				o.log.Debugf("no unspent outputs found in indexer for address: %s", addrBech)
+				break
+			}
+
+			return lo.Return1(res.Response.Items.OutputIDs())[0], unspents[0], nil
+		}
+	}
+
+	return iotago.EmptyOutputID, nil, ierrors.Errorf("no unspent outputs found for address %s due to timeout", addrBech)
 }
 
 // AwaitTransactionsAcceptance awaits for transaction confirmation and updates wallet with outputIDs.

@@ -8,7 +8,6 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/evil-tools/models"
-	"github.com/iotaledger/hive.go/core/safemath"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/iota-core/pkg/blockhandler"
@@ -39,32 +38,47 @@ func (a *AccountWallet) RequestBlockBuiltData(clt *nodeclient.Client, issuerID i
 	return congestionResp, issuerResp, version, nil
 }
 
-func (a *AccountWallet) RequestFaucetFunds(clt models.Client, receiveAddr iotago.Address, amount iotago.BaseToken) (*models.Output, error) {
-	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(clt.Client(), a.faucet.account.ID())
+func (a *AccountWallet) RequestFaucetFunds(clt models.Client, receiveAddr iotago.Address) (*models.Output, error) {
+	//nolint:all,forcetypassert
+	err := clt.RequestFaucetFunds(receiveAddr)
 	if err != nil {
-		return nil, ierrors.Wrapf(err, "failed to get block built data for issuer %s", a.faucet.account.ID().ToHex())
+		return nil, ierrors.Wrap(err, "failed to request funds from faucet")
 	}
 
-	signedTx, err := a.faucet.prepareFaucetRequest(receiveAddr, amount, congestionResp.ReferenceManaCost)
+	indexer, err := clt.Indexer()
 	if err != nil {
-		log.Errorf("failed to prepare faucet request: %s", err)
-
-		return nil, err
+		return nil, ierrors.Wrap(err, "failed to get indexer client")
 	}
 
-	_, err = a.PostWithBlock(clt, signedTx, a.faucet.account, congestionResp, issuerResp, version)
-	if err != nil {
-		log.Errorf("failed to create block: %s", err)
+	addrBech := receiveAddr.Bech32(clt.CommittedAPI().ProtocolParameters().Bech32HRP())
 
-		return nil, err
+	time.Sleep(10 * time.Second)
+
+	res, err := indexer.Outputs(context.Background(), &apimodels.BasicOutputsQuery{
+		AddressBech32: addrBech,
+	})
+	if err != nil {
+		return nil, ierrors.Wrap(err, "indexer request failed in request faucet funds")
+	}
+
+	var outputStruct iotago.Output
+	var outputID iotago.OutputID
+	for res.Next() {
+		unspents, err := res.Outputs(context.TODO())
+		if err != nil {
+			return nil, ierrors.Wrap(err, "failed to get faucet unspent outputs")
+		}
+
+		outputStruct = unspents[0]
+		outputID = lo.Return1(res.Response.Items.OutputIDs())[0]
 	}
 
 	return &models.Output{
-		OutputID:     iotago.OutputIDFromTransactionIDAndIndex(lo.PanicOnErr(signedTx.Transaction.ID()), 0),
+		OutputID:     outputID,
 		Address:      receiveAddr,
 		AddressIndex: 0,
-		Balance:      signedTx.Transaction.Outputs[0].BaseTokenAmount(),
-		OutputStruct: signedTx.Transaction.Outputs[0],
+		Balance:      outputStruct.BaseTokenAmount(),
+		OutputStruct: outputStruct,
 	}, nil
 }
 
@@ -203,79 +217,4 @@ func (f *faucet) getGenesisOutputFromIndexer(clt models.Client, faucetAddr iotag
 	}
 
 	return faucetUnspentOutput, faucetUnspentOutputID, faucetAmount, nil
-}
-
-func (f *faucet) prepareFaucetRequest(receiveAddr iotago.Address, amount iotago.BaseToken, rmc iotago.Mana) (*iotago.SignedTransaction, error) {
-	txBuilder, remainderIndex, err := f.createFaucetTransactionNoManaHandling(receiveAddr, amount)
-	if err != nil {
-		return nil, err
-	}
-
-	rmcAllottedTxBuilder := txBuilder.Clone()
-	// faucet will allot exact mana to be burnt, rest of the mana is alloted to faucet output remainder
-	rmcAllottedTxBuilder.AllotRequiredManaAndStoreRemainingManaInOutput(txBuilder.CreationSlot(), rmc, f.account.ID(), remainderIndex)
-
-	var signedTx *iotago.SignedTransaction
-	signedTx, err = rmcAllottedTxBuilder.Build(f.genesisHdWallet.AddressSigner())
-	if err != nil {
-		log.Infof("WARN: failed to build tx with min required mana allotted, genesis potential mana was not enough, fallback to faucet account")
-		txBuilder.AllotAllMana(txBuilder.CreationSlot(), f.account.ID())
-		if signedTx, err = txBuilder.Build(f.genesisHdWallet.AddressSigner()); err != nil {
-			return nil, ierrors.Wrapf(err, "failed to build transaction with all mana allotted, after not having enough mana required based on RMC")
-		}
-	}
-
-	// set remainder output to be reused by the Faucet wallet
-	//nolint:all,forcetypassert
-	f.unspentOutput = &models.Output{
-		OutputID:     iotago.OutputIDFromTransactionIDAndIndex(lo.PanicOnErr(signedTx.Transaction.ID()), uint16(remainderIndex)),
-		Address:      f.genesisHdWallet.Address(iotago.AddressEd25519).(*iotago.Ed25519Address),
-		AddressIndex: 0,
-		Balance:      signedTx.Transaction.Outputs[1].BaseTokenAmount(),
-		OutputStruct: signedTx.Transaction.Outputs[1],
-	}
-
-	return signedTx, nil
-}
-
-func (f *faucet) createFaucetTransactionNoManaHandling(receiveAddr iotago.Address, amount iotago.BaseToken) (*builder.TransactionBuilder, int, error) {
-	currentTime := time.Now()
-	currentSlot := f.clt.LatestAPI().TimeProvider().SlotFromTime(currentTime)
-
-	apiForSlot := f.clt.APIForSlot(currentSlot)
-	txBuilder := builder.NewTransactionBuilder(apiForSlot)
-
-	//nolint:all,forcetypassert
-	txBuilder.AddInput(&builder.TxInput{
-		UnlockTarget: f.genesisHdWallet.Address(iotago.AddressEd25519).(*iotago.Ed25519Address),
-		InputID:      f.unspentOutput.OutputID,
-		Input:        f.unspentOutput.OutputStruct,
-	})
-
-	remainderAmount, err := safemath.SafeSub(f.unspentOutput.Balance, amount)
-	if err != nil {
-		return nil, 0, ierrors.Errorf("safeSub failed %d - %d: %s", f.unspentOutput.Balance, amount, err)
-	}
-
-	txBuilder.AddOutput(&iotago.BasicOutput{
-		Amount: amount,
-		Conditions: iotago.BasicOutputUnlockConditions{
-			&iotago.AddressUnlockCondition{Address: receiveAddr},
-		},
-		Features: iotago.BasicOutputFeatures{},
-	})
-
-	// remainder output
-	remainderIndex := 1
-	//nolint:all,forcetypassert
-	txBuilder.AddOutput(&iotago.BasicOutput{
-		Amount: remainderAmount,
-		Conditions: iotago.BasicOutputUnlockConditions{
-			&iotago.AddressUnlockCondition{Address: f.genesisHdWallet.Address(iotago.AddressEd25519).(*iotago.Ed25519Address)},
-		},
-	})
-	txBuilder.AddTaggedDataPayload(&iotago.TaggedData{Tag: []byte("Faucet funds"), Data: []byte("to addr" + receiveAddr.String())})
-	txBuilder.SetCreationSlot(currentSlot)
-
-	return txBuilder, remainderIndex, nil
 }

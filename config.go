@@ -20,6 +20,7 @@ var (
 
 	customSpamParams = programs.CustomSpamParams{
 		ClientURLs:            urls,
+		FaucetURL:             "http://localhost:8088",
 		SpamTypes:             []string{spammer.TypeBlock},
 		Rates:                 []int{1},
 		Durations:             []time.Duration{time.Second * 20},

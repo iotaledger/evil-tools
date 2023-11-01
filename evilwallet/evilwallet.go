@@ -31,6 +31,7 @@ const (
 
 var (
 	defaultClientsURLs = []string{"http://localhost:8080", "http://localhost:8090"}
+	defaultFaucetURL   = "http://localhost:8088"
 )
 
 // region EvilWallet ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -46,6 +47,7 @@ type EvilWallet struct {
 	aliasManager  *AliasManager
 
 	optsClientURLs []string
+	optsFaucetURL  string
 	log            *logger.Logger
 }
 
@@ -55,12 +57,12 @@ func NewEvilWallet(opts ...options.Option[EvilWallet]) *EvilWallet {
 		wallets:        NewWallets(),
 		aliasManager:   NewAliasManager(),
 		optsClientURLs: defaultClientsURLs,
+		optsFaucetURL:  defaultFaucetURL,
 		log:            evillogger.New("EvilWallet"),
 	}, opts, func(w *EvilWallet) {
-		connector := models.NewWebClients(w.optsClientURLs)
+		connector := models.NewWebClients(w.optsClientURLs, w.optsFaucetURL)
 		w.connector = connector
 		w.outputManager = NewOutputManager(connector, w.wallets, w.log)
-
 	})
 }
 
@@ -185,7 +187,7 @@ func (e *EvilWallet) RequestFundsFromFaucet(options ...FaucetRequestOption) (ini
 
 // RequestFreshBigFaucetWallets creates n new wallets, each wallet is created from one faucet request and contains 1000 outputs.
 func (e *EvilWallet) RequestFreshBigFaucetWallets(numberOfWallets int) bool {
-	e.log.Debug("Requesting %d wallets from faucet", numberOfWallets)
+	e.log.Debugf("Requesting %d wallets from faucet", numberOfWallets)
 	success := true
 	// channel to block the number of concurrent goroutines
 	semaphore := make(chan bool, 1)
@@ -206,7 +208,7 @@ func (e *EvilWallet) RequestFreshBigFaucetWallets(numberOfWallets int) bool {
 			err := e.RequestFreshBigFaucetWallet()
 			if err != nil {
 				success = false
-				e.log.Error("Failed to request wallet from faucet: %s", err)
+				e.log.Errorf("Failed to request wallet from faucet: %s", err)
 
 				return
 			}
@@ -274,17 +276,22 @@ func (e *EvilWallet) requestAndSplitFaucetFunds(initWallet, receiveWallet *Walle
 	return splitTransactionsID, nil
 }
 
-func (e *EvilWallet) requestFaucetFunds(wallet *Wallet) (outputID *models.Output, err error) {
+func (e *EvilWallet) requestFaucetFunds(wallet *Wallet) (output *models.Output, err error) {
 	receiveAddr := wallet.AddressOnIndex(0)
 	clt := e.connector.GetClient()
 
-	output, err := e.accWallet.RequestFaucetFunds(clt, receiveAddr, faucetTokensPerRequest)
+	err = clt.RequestFaucetFunds(receiveAddr)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to request funds from faucet")
 	}
 
+	outputID, iotaOutput, err := e.outputManager.AwaitAddressUnspentOutputToBeAccepted(receiveAddr, 10*time.Second)
+	if err != nil {
+		return nil, ierrors.Wrap(err, "failed to await faucet output acceptance")
+	}
+
 	// update wallet with newly created output
-	e.outputManager.createOutputFromAddress(wallet, receiveAddr, faucetTokensPerRequest, output.OutputID, output.OutputStruct)
+	output = e.outputManager.createOutputFromAddress(wallet, receiveAddr, iotaOutput.BaseTokenAmount(), outputID, iotaOutput)
 
 	return output, nil
 }

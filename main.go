@@ -97,7 +97,7 @@ func accountsSubcommand(wallet *accountwallet.AccountWallet, sub accountwallet.A
 			return
 		}
 
-		log.Infof("Created account %s with %d tokens", accountID, params.Amount)
+		log.Infof("Created account %s", accountID)
 
 	case accountwallet.OperationDestroyAccount:
 		log.Infof("Run subcommand: %s, with parametetr set: %v", accountwallet.OperationDestroyAccount, sub)

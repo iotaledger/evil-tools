@@ -58,7 +58,7 @@ func (a *AccountWallet) transitionImplicitAccount(
 	accAddr iotago.Address,
 	blockIssuerKeys iotago.BlockIssuerKeys,
 	_ ed25519.PrivateKey,
-	params *CreateAccountParams,
+	_ *CreateAccountParams,
 ) (iotago.AccountID, error) {
 	// transition from implicit to regular account
 	accountOutput := builder.NewAccountOutputBuilder(accAddr, accAddr, implicitAccountOutput.Balance).

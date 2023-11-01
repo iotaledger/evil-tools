@@ -75,7 +75,7 @@ var accountConfigFile = "config.json"
 
 var (
 	dockerAccountConfigJSON = `{
-	"bindAddress": "http://localhost:8080",
+	"bindAddress": "http://localhost:8050",
 	"faucetBindAddress": "http://localhost:8088",
 	"accountStatesFile": "wallet.dat",
 	"genesisSeed": "7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih",

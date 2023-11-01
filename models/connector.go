@@ -206,8 +206,8 @@ type Client interface {
 	PostData(data []byte) (blkID string, err error)
 	// GetBlockConfirmationState returns the AcceptanceState of a given block ID.
 	GetBlockConfirmationState(blkID iotago.BlockID) string
-	// GetBlockState returns the AcceptanceState of a given transaction ID.
-	GetBlockState(txID iotago.TransactionID) (resp *apimodels.BlockMetadataResponse, err error)
+	// GetBlockStateFromTransaction returns the AcceptanceState of a given transaction ID.
+	GetBlockStateFromTransaction(txID iotago.TransactionID) (resp *apimodels.BlockMetadataResponse, err error)
 	// GetOutput gets the output of a given outputID.
 	GetOutput(outputID iotago.OutputID) iotago.Output
 	// GetOutputConfirmationState gets the first unspent outputs of a given address.
@@ -335,7 +335,7 @@ func (c *WebClient) PostData(data []byte) (blkID string, err error) {
 // GetOutputConfirmationState gets the first unspent outputs of a given address.
 func (c *WebClient) GetOutputConfirmationState(outputID iotago.OutputID) string {
 	txID := outputID.TransactionID()
-	resp, err := c.GetBlockState(txID)
+	resp, err := c.GetBlockStateFromTransaction(txID)
 	if err != nil {
 		return ""
 	}
@@ -363,8 +363,8 @@ func (c *WebClient) GetBlockConfirmationState(blkID iotago.BlockID) string {
 	return resp.BlockState
 }
 
-// GetBlockState returns the AcceptanceState of a given transaction ID.
-func (c *WebClient) GetBlockState(txID iotago.TransactionID) (*apimodels.BlockMetadataResponse, error) {
+// GetBlockStateFromTransaction returns the AcceptanceState of a given transaction ID.
+func (c *WebClient) GetBlockStateFromTransaction(txID iotago.TransactionID) (*apimodels.BlockMetadataResponse, error) {
 	return c.client.TransactionIncludedBlockMetadata(context.Background(), txID)
 }
 

@@ -2,7 +2,6 @@ package evilwallet
 
 import (
 	"sync"
-	"time"
 
 	"go.uber.org/atomic"
 
@@ -12,10 +11,6 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
 	iotago "github.com/iotaledger/iota.go/v4"
-)
-
-const (
-	awaitOutputToBeConfirmed = 10 * time.Second
 )
 
 // OutputManager keeps track of the output statuses.
@@ -117,7 +112,7 @@ func (o *OutputManager) Track(outputIDs ...iotago.OutputID) (allConfirmed bool) 
 		go func(id iotago.OutputID, clt models.Client) {
 			defer wg.Done()
 
-			if !utils.AwaitOutputToBeAccepted(clt, id, awaitOutputToBeConfirmed) {
+			if !utils.AwaitOutputToBeAccepted(clt, id) {
 				unconfirmedOutputFound.Store(true)
 			}
 		}(ID, o.connector.GetClient())
@@ -239,7 +234,7 @@ func (o *OutputManager) AwaitTransactionsAcceptance(txIDs ...iotago.TransactionI
 			defer func() {
 				<-semaphore
 			}()
-			err := utils.AwaitTransactionToBeAccepted(clt, txID, waitForAcceptance, txLeft)
+			err := utils.AwaitTransactionToBeAccepted(clt, txID, txLeft)
 			txLeft.Dec()
 			if err != nil {
 				o.log.Errorf("Error awaiting transaction %s to be accepted: %s", txID.String(), err)

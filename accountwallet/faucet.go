@@ -46,7 +46,7 @@ func (a *AccountWallet) RequestFaucetFunds(clt models.Client, receiveAddr iotago
 		return nil, ierrors.Wrap(err, "failed to request funds from faucet")
 	}
 
-	outputID, outputStruct, err := utils.AwaitAddressUnspentOutputToBeAccepted(clt, receiveAddr, 10*time.Second)
+	outputID, outputStruct, err := utils.AwaitAddressUnspentOutputToBeAccepted(clt, receiveAddr)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to await faucet funds")
 	}

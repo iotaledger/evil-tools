@@ -25,9 +25,6 @@ const (
 	// FaucetRequestSplitNumber defines the number of outputs to split from a faucet request.
 	FaucetRequestSplitNumber                  = 120
 	faucetTokensPerRequest   iotago.BaseToken = 432_000_000
-
-	waitForAcceptance     = 20 * time.Second
-	awaitAcceptationSleep = 1 * time.Second
 )
 
 var (
@@ -286,7 +283,7 @@ func (e *EvilWallet) requestFaucetFunds(wallet *Wallet) (output *models.Output, 
 		return nil, ierrors.Wrap(err, "failed to request funds from faucet")
 	}
 
-	outputID, iotaOutput, err := utils.AwaitAddressUnspentOutputToBeAccepted(clt, receiveAddr, 10*time.Second)
+	outputID, iotaOutput, err := utils.AwaitAddressUnspentOutputToBeAccepted(clt, receiveAddr)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to await faucet output acceptance")
 	}

@@ -138,7 +138,7 @@ func createBlowBallCenter(s *Spammer) (iotago.BlockID, error) {
 		},
 	}, s.IssuerAlias, clt)
 
-	err := utils.AwaitBlockToBeConfirmed(clt, centerID, 30*time.Second)
+	err := utils.AwaitBlockToBeConfirmed(clt, centerID)
 
 	return centerID, err
 }

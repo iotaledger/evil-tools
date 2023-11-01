@@ -4,20 +4,24 @@ import (
 	"context"
 	"time"
 
+	"go.uber.org/atomic"
+
 	evillogger "github.com/iotaledger/evil-tools/logger"
 	"github.com/iotaledger/evil-tools/models"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/nodeclient/apimodels"
-	"go.uber.org/atomic"
 )
 
 var UtilsLogger = evillogger.New("Utils")
 
 const (
-	waitForAcceptance     = 20 * time.Second
-	awaitAcceptationSleep = 1 * time.Second
+	MaxRetries    = 20
+	AwaitInterval = 1 * time.Second
+
+	confirmed = "confirmed"
+	finalized = "finalized"
 )
 
 // SplitBalanceEqually splits the balance equally between `splitNumber` outputs.
@@ -41,27 +45,25 @@ func SplitBalanceEqually(splitNumber int, balance iotago.BaseToken) []iotago.Bas
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // AwaitTransactionToBeAccepted awaits for acceptance of a single transaction.
-func AwaitBlockToBeConfirmed(clt models.Client, blkID iotago.BlockID, waitFor time.Duration) error {
-	s := time.Now()
-
-	for ; time.Since(s) < waitFor; time.Sleep(awaitAcceptationSleep) {
+func AwaitBlockToBeConfirmed(clt models.Client, blkID iotago.BlockID) error {
+	for i := 0; i < MaxRetries; i++ {
 		state := clt.GetBlockConfirmationState(blkID)
-		if state == "confirmed" || state == "finalized" {
+		if state == confirmed || state == finalized {
 			return nil
 		}
+
+		time.Sleep(AwaitInterval)
 	}
 
 	UtilsLogger.Debugf("Block not confirmed: %s", blkID.ToHex())
 
 	return ierrors.Errorf("Block not confirmed: %s", blkID.ToHex())
-
 }
 
 // AwaitTransactionToBeAccepted awaits for acceptance of a single transaction.
-func AwaitTransactionToBeAccepted(clt models.Client, txID iotago.TransactionID, waitFor time.Duration, txLeft *atomic.Int64) error {
-	s := time.Now()
+func AwaitTransactionToBeAccepted(clt models.Client, txID iotago.TransactionID, txLeft *atomic.Int64) error {
 	var accepted bool
-	for ; time.Since(s) < waitFor; time.Sleep(awaitAcceptationSleep) {
+	for i := 0; i < MaxRetries; i++ {
 		resp, err := clt.GetBlockState(txID)
 		if resp == nil {
 			UtilsLogger.Debugf("Block state API error: %v", err)
@@ -87,6 +89,8 @@ func AwaitTransactionToBeAccepted(clt models.Client, txID iotago.TransactionID, 
 			accepted = true
 			break
 		}
+
+		time.Sleep(AwaitInterval)
 	}
 	if !accepted {
 		return ierrors.Errorf("transaction %s not accepted in time", txID)
@@ -97,16 +101,15 @@ func AwaitTransactionToBeAccepted(clt models.Client, txID iotago.TransactionID, 
 	return nil
 }
 
-func AwaitAddressUnspentOutputToBeAccepted(clt models.Client, addr iotago.Address, waitFor time.Duration) (outputID iotago.OutputID, output iotago.Output, err error) {
+func AwaitAddressUnspentOutputToBeAccepted(clt models.Client, addr iotago.Address) (outputID iotago.OutputID, output iotago.Output, err error) {
 	indexer, err := clt.Indexer()
 	if err != nil {
 		return iotago.EmptyOutputID, nil, ierrors.Wrap(err, "failed to get indexer client")
 	}
 
-	s := time.Now()
 	addrBech := addr.Bech32(clt.CommittedAPI().ProtocolParameters().Bech32HRP())
 
-	for ; time.Since(s) < waitFor; time.Sleep(awaitAcceptationSleep) {
+	for i := 0; i < MaxRetries; i++ {
 		res, err := indexer.Outputs(context.Background(), &apimodels.BasicOutputsQuery{
 			AddressBech32: addrBech,
 		})
@@ -127,6 +130,8 @@ func AwaitAddressUnspentOutputToBeAccepted(clt models.Client, addr iotago.Addres
 
 			return lo.Return1(res.Response.Items.OutputIDs())[0], unspents[0], nil
 		}
+
+		time.Sleep(AwaitInterval)
 	}
 
 	return iotago.EmptyOutputID, nil, ierrors.Errorf("no unspent outputs found for address %s due to timeout", addrBech)
@@ -134,15 +139,16 @@ func AwaitAddressUnspentOutputToBeAccepted(clt models.Client, addr iotago.Addres
 
 // AwaitOutputToBeAccepted awaits for output from a provided outputID is accepted. Timeout is waitFor.
 // Useful when we have only an address and no transactionID, e.g. faucet funds request.
-func AwaitOutputToBeAccepted(clt models.Client, outputID iotago.OutputID, waitFor time.Duration) (accepted bool) {
-	s := time.Now()
+func AwaitOutputToBeAccepted(clt models.Client, outputID iotago.OutputID) (accepted bool) {
 	accepted = false
-	for ; time.Since(s) < waitFor; time.Sleep(awaitAcceptationSleep) {
+	for i := 0; i < MaxRetries; i++ {
 		confirmationState := clt.GetOutputConfirmationState(outputID)
 		if confirmationState == "confirmed" {
 			accepted = true
 			break
 		}
+
+		time.Sleep(AwaitInterval)
 	}
 
 	return accepted

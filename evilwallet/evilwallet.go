@@ -278,14 +278,14 @@ func (e *EvilWallet) requestAndSplitFaucetFunds(initWallet, receiveWallet *Walle
 
 func (e *EvilWallet) requestFaucetFunds(wallet *Wallet) (output *models.Output, err error) {
 	receiveAddr := wallet.AddressOnIndex(0)
-	clt := e.connector.GetClient()
+	clt := e.connector.GetIndexerClient()
 
 	err = clt.RequestFaucetFunds(receiveAddr)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to request funds from faucet")
 	}
 
-	outputID, iotaOutput, err := e.outputManager.AwaitAddressUnspentOutputToBeAccepted(receiveAddr, 10*time.Second)
+	outputID, iotaOutput, err := AwaitAddressUnspentOutputToBeAccepted(clt, receiveAddr, 10*time.Second)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to await faucet output acceptance")
 	}

@@ -1,6 +1,19 @@
 package evilwallet
 
-import iotago "github.com/iotaledger/iota.go/v4"
+import (
+	"context"
+	"time"
+
+	evillogger "github.com/iotaledger/evil-tools/logger"
+	"github.com/iotaledger/evil-tools/models"
+	"github.com/iotaledger/hive.go/ierrors"
+	"github.com/iotaledger/hive.go/lo"
+	iotago "github.com/iotaledger/iota.go/v4"
+	"github.com/iotaledger/iota.go/v4/nodeclient/apimodels"
+	"go.uber.org/atomic"
+)
+
+var UtilsLogger = evillogger.New("Utils")
 
 // SplitBalanceEqually splits the balance equally between `splitNumber` outputs.
 func SplitBalanceEqually(splitNumber int, balance iotago.BaseToken) []iotago.BaseToken {
@@ -21,3 +34,111 @@ func SplitBalanceEqually(splitNumber int, balance iotago.BaseToken) []iotago.Bas
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// AwaitTransactionToBeAccepted awaits for acceptance of a single transaction.
+func AwaitBlockToBeConfirmed(clt models.Client, blkID iotago.BlockID, waitFor time.Duration) error {
+	s := time.Now()
+
+	for ; time.Since(s) < waitFor; time.Sleep(awaitAcceptationSleep) {
+		state := clt.GetBlockConfirmationState(blkID)
+		if state == "confirmed" || state == "finalized" {
+			return nil
+		}
+	}
+
+	UtilsLogger.Debugf("Block not confirmed: %s", blkID.ToHex())
+
+	return ierrors.Errorf("Block not confirmed: %s", blkID.ToHex())
+
+}
+
+// AwaitTransactionToBeAccepted awaits for acceptance of a single transaction.
+func AwaitTransactionToBeAccepted(clt models.Client, txID iotago.TransactionID, waitFor time.Duration, txLeft *atomic.Int64) error {
+	s := time.Now()
+	var accepted bool
+	for ; time.Since(s) < waitFor; time.Sleep(awaitAcceptationSleep) {
+		resp, err := clt.GetBlockState(txID)
+		if resp == nil {
+			UtilsLogger.Debugf("Block state API error: %v", err)
+
+			continue
+		}
+		if resp.BlockState == apimodels.BlockStateFailed.String() || resp.BlockState == apimodels.BlockStateRejected.String() {
+			failureReason, _, _ := apimodels.BlockFailureReasonFromBytes(lo.PanicOnErr(resp.BlockFailureReason.Bytes()))
+
+			return ierrors.Errorf("tx %s failed because block failure: %d", txID, failureReason)
+		}
+
+		if resp.TransactionState == apimodels.TransactionStateFailed.String() {
+			failureReason, _, _ := apimodels.TransactionFailureReasonFromBytes(lo.PanicOnErr(resp.TransactionFailureReason.Bytes()))
+
+			return ierrors.Errorf("transaction %s failed: %d", txID, failureReason)
+		}
+
+		confirmationState := resp.TransactionState
+
+		UtilsLogger.Debugf("Tx %s confirmationState: %s, tx left: %d", txID.ToHex(), confirmationState, txLeft.Load())
+		if confirmationState == "accepted" || confirmationState == "confirmed" || confirmationState == "finalized" {
+			accepted = true
+			break
+		}
+	}
+	if !accepted {
+		return ierrors.Errorf("transaction %s not accepted in time", txID)
+	}
+
+	UtilsLogger.Debugf("Transaction %s accepted", txID)
+
+	return nil
+}
+
+func AwaitAddressUnspentOutputToBeAccepted(clt models.Client, addr *iotago.Ed25519Address, waitFor time.Duration) (outputID iotago.OutputID, output iotago.Output, err error) {
+	indexer, err := clt.Indexer()
+	if err != nil {
+		return iotago.EmptyOutputID, nil, ierrors.Wrap(err, "failed to get indexer client")
+	}
+
+	s := time.Now()
+	addrBech := addr.Bech32(clt.CommittedAPI().ProtocolParameters().Bech32HRP())
+
+	for ; time.Since(s) < waitFor; time.Sleep(awaitAcceptationSleep) {
+		res, err := indexer.Outputs(context.Background(), &apimodels.BasicOutputsQuery{
+			AddressBech32: addrBech,
+		})
+		if err != nil {
+			return iotago.EmptyOutputID, nil, ierrors.Wrap(err, "indexer request failed in request faucet funds")
+		}
+
+		for res.Next() {
+			unspents, err := res.Outputs(context.TODO())
+			if err != nil {
+				return iotago.EmptyOutputID, nil, ierrors.Wrap(err, "failed to get faucet unspent outputs")
+			}
+
+			if len(unspents) == 0 {
+				UtilsLogger.Debugf("no unspent outputs found in indexer for address: %s", addrBech)
+				break
+			}
+
+			return lo.Return1(res.Response.Items.OutputIDs())[0], unspents[0], nil
+		}
+	}
+
+	return iotago.EmptyOutputID, nil, ierrors.Errorf("no unspent outputs found for address %s due to timeout", addrBech)
+}
+
+// AwaitOutputToBeAccepted awaits for output from a provided outputID is accepted. Timeout is waitFor.
+// Useful when we have only an address and no transactionID, e.g. faucet funds request.
+func AwaitOutputToBeAccepted(clt models.Client, outputID iotago.OutputID, waitFor time.Duration) (accepted bool) {
+	s := time.Now()
+	accepted = false
+	for ; time.Since(s) < waitFor; time.Sleep(awaitAcceptationSleep) {
+		confirmationState := clt.GetOutputConfirmationState(outputID)
+		if confirmationState == "confirmed" {
+			accepted = true
+			break
+		}
+	}
+
+	return accepted
+}

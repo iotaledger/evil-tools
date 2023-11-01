@@ -7,6 +7,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/evil-tools/models"
+	"github.com/iotaledger/evil-tools/utils"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
@@ -116,7 +117,7 @@ func (o *OutputManager) Track(outputIDs ...iotago.OutputID) (allConfirmed bool) 
 		go func(id iotago.OutputID, clt models.Client) {
 			defer wg.Done()
 
-			if !AwaitOutputToBeAccepted(clt, id, awaitOutputToBeConfirmed) {
+			if !utils.AwaitOutputToBeAccepted(clt, id, awaitOutputToBeConfirmed) {
 				unconfirmedOutputFound.Store(true)
 			}
 		}(ID, o.connector.GetClient())
@@ -238,7 +239,7 @@ func (o *OutputManager) AwaitTransactionsAcceptance(txIDs ...iotago.TransactionI
 			defer func() {
 				<-semaphore
 			}()
-			err := AwaitTransactionToBeAccepted(clt, txID, waitForAcceptance, txLeft)
+			err := utils.AwaitTransactionToBeAccepted(clt, txID, waitForAcceptance, txLeft)
 			txLeft.Dec()
 			if err != nil {
 				o.log.Errorf("Error awaiting transaction %s to be accepted: %s", txID.String(), err)

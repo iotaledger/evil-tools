@@ -1,4 +1,4 @@
-package evilwallet
+package utils
 
 import (
 	"context"
@@ -14,6 +14,11 @@ import (
 )
 
 var UtilsLogger = evillogger.New("Utils")
+
+const (
+	waitForAcceptance     = 20 * time.Second
+	awaitAcceptationSleep = 1 * time.Second
+)
 
 // SplitBalanceEqually splits the balance equally between `splitNumber` outputs.
 func SplitBalanceEqually(splitNumber int, balance iotago.BaseToken) []iotago.BaseToken {
@@ -92,7 +97,7 @@ func AwaitTransactionToBeAccepted(clt models.Client, txID iotago.TransactionID, 
 	return nil
 }
 
-func AwaitAddressUnspentOutputToBeAccepted(clt models.Client, addr *iotago.Ed25519Address, waitFor time.Duration) (outputID iotago.OutputID, output iotago.Output, err error) {
+func AwaitAddressUnspentOutputToBeAccepted(clt models.Client, addr iotago.Address, waitFor time.Duration) (outputID iotago.OutputID, output iotago.Output, err error) {
 	indexer, err := clt.Indexer()
 	if err != nil {
 		return iotago.EmptyOutputID, nil, ierrors.Wrap(err, "failed to get indexer client")

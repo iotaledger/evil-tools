@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/evil-tools/evilwallet"
 	"github.com/iotaledger/evil-tools/models"
+	"github.com/iotaledger/evil-tools/utils"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
 	iotago "github.com/iotaledger/iota.go/v4"
@@ -138,7 +138,7 @@ func createBlowBallCenter(s *Spammer) (iotago.BlockID, error) {
 		},
 	}, s.IssuerAlias, clt)
 
-	err := evilwallet.AwaitBlockToBeConfirmed(clt, centerID, 30*time.Second)
+	err := utils.AwaitBlockToBeConfirmed(clt, centerID, 30*time.Second)
 
 	return centerID, err
 }

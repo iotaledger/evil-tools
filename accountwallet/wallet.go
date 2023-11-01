@@ -280,10 +280,10 @@ func (a *AccountWallet) isAccountReady(accData *models.AccountData) bool {
 	return true
 }
 
-func (a *AccountWallet) getFunds(amount uint64, addressType iotago.AddressType) (*models.Output, ed25519.PrivateKey, error) {
+func (a *AccountWallet) getFunds(addressType iotago.AddressType) (*models.Output, ed25519.PrivateKey, error) {
 	receiverAddr, privKey, usedIndex := a.getAddress(addressType)
 
-	createdOutput, err := a.RequestFaucetFunds(a.client, receiverAddr, iotago.BaseToken(amount))
+	createdOutput, err := a.RequestFaucetFunds(a.client, receiverAddr)
 	if err != nil {
 		return nil, nil, ierrors.Wrap(err, "failed to request funds from Faucet")
 	}

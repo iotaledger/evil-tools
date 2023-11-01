@@ -219,7 +219,7 @@ type Client interface {
 	// GetCongestion returns congestion data such as rmc or issuing readiness.
 	GetCongestion(id iotago.AccountID) (resp *apimodels.CongestionResponse, err error)
 	// RequestFaucetFunds
-	RequestFaucetFunds(address *iotago.Ed25519Address) (err error)
+	RequestFaucetFunds(address iotago.Address) (err error)
 
 	iotago.APIProvider
 }
@@ -279,7 +279,7 @@ func NewWebClient(url, faucetURL string, opts ...options.Option[WebClient]) (*We
 	}), initErr
 }
 
-func (c *WebClient) RequestFaucetFunds(address *iotago.Ed25519Address) (err error) {
+func (c *WebClient) RequestFaucetFunds(address iotago.Address) (err error) {
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, c.faucetURL+"/api/enqueue", func() io.Reader {
 		jsonData, _ := json.Marshal(&faucet.EnqueueRequest{
 			Address: address.Bech32(c.client.CommittedAPI().ProtocolParameters().Bech32HRP()),

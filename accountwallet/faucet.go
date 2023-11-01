@@ -40,7 +40,6 @@ func (a *AccountWallet) RequestBlockBuiltData(clt *nodeclient.Client, issuerID i
 }
 
 func (a *AccountWallet) RequestFaucetFunds(clt models.Client, receiveAddr iotago.Address) (*models.Output, error) {
-	//nolint:all,forcetypassert
 	err := clt.RequestFaucetFunds(receiveAddr)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to request funds from faucet")

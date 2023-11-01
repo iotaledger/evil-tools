@@ -19,9 +19,6 @@ var UtilsLogger = evillogger.New("Utils")
 const (
 	MaxRetries    = 20
 	AwaitInterval = 1 * time.Second
-
-	confirmed = "confirmed"
-	finalized = "finalized"
 )
 
 // SplitBalanceEqually splits the balance equally between `splitNumber` outputs.
@@ -42,13 +39,12 @@ func SplitBalanceEqually(splitNumber int, balance iotago.BaseToken) []iotago.Bas
 	return outputBalances
 }
 
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // AwaitTransactionToBeAccepted awaits for acceptance of a single transaction.
 func AwaitBlockToBeConfirmed(clt models.Client, blkID iotago.BlockID) error {
 	for i := 0; i < MaxRetries; i++ {
 		state := clt.GetBlockConfirmationState(blkID)
-		if state == confirmed || state == finalized {
+		if state == apimodels.BlockStateConfirmed.String() || state == apimodels.BlockStateFinalized.String() {
+			UtilsLogger.Debugf("Block confirmed: %s", blkID.ToHex())
 			return nil
 		}
 
@@ -62,9 +58,8 @@ func AwaitBlockToBeConfirmed(clt models.Client, blkID iotago.BlockID) error {
 
 // AwaitTransactionToBeAccepted awaits for acceptance of a single transaction.
 func AwaitTransactionToBeAccepted(clt models.Client, txID iotago.TransactionID, txLeft *atomic.Int64) error {
-	var accepted bool
 	for i := 0; i < MaxRetries; i++ {
-		resp, err := clt.GetBlockState(txID)
+		resp, err := clt.GetBlockStateFromTransaction(txID)
 		if resp == nil {
 			UtilsLogger.Debugf("Block state API error: %v", err)
 
@@ -85,20 +80,16 @@ func AwaitTransactionToBeAccepted(clt models.Client, txID iotago.TransactionID, 
 		confirmationState := resp.TransactionState
 
 		UtilsLogger.Debugf("Tx %s confirmationState: %s, tx left: %d", txID.ToHex(), confirmationState, txLeft.Load())
-		if confirmationState == "accepted" || confirmationState == "confirmed" || confirmationState == "finalized" {
-			accepted = true
-			break
+		if confirmationState == apimodels.TransactionStateAccepted.String() ||
+			confirmationState == apimodels.TransactionStateConfirmed.String() ||
+			confirmationState == apimodels.TransactionStateFinalized.String() {
+			return nil
 		}
 
 		time.Sleep(AwaitInterval)
 	}
-	if !accepted {
-		return ierrors.Errorf("transaction %s not accepted in time", txID)
-	}
 
-	UtilsLogger.Debugf("Transaction %s accepted", txID)
-
-	return nil
+	return ierrors.Errorf("Transaction %s not accepted in time", txID)
 }
 
 func AwaitAddressUnspentOutputToBeAccepted(clt models.Client, addr iotago.Address) (outputID iotago.OutputID, output iotago.Output, err error) {
@@ -139,17 +130,15 @@ func AwaitAddressUnspentOutputToBeAccepted(clt models.Client, addr iotago.Addres
 
 // AwaitOutputToBeAccepted awaits for output from a provided outputID is accepted. Timeout is waitFor.
 // Useful when we have only an address and no transactionID, e.g. faucet funds request.
-func AwaitOutputToBeAccepted(clt models.Client, outputID iotago.OutputID) (accepted bool) {
-	accepted = false
+func AwaitOutputToBeAccepted(clt models.Client, outputID iotago.OutputID) bool {
 	for i := 0; i < MaxRetries; i++ {
 		confirmationState := clt.GetOutputConfirmationState(outputID)
-		if confirmationState == "confirmed" {
-			accepted = true
-			break
+		if confirmationState == apimodels.TransactionStateConfirmed.String() {
+			return true
 		}
 
 		time.Sleep(AwaitInterval)
 	}
 
-	return accepted
+	return false
 }

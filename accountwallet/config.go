@@ -137,7 +137,6 @@ type AccountSubcommands interface {
 
 type CreateAccountParams struct {
 	Alias      string
-	Amount     uint64
 	NoBIF      bool
 	Implicit   bool
 	Transition bool

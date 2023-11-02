@@ -3,7 +3,7 @@ package evilwallet
 import (
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/evil-tools/models"
+	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
 )

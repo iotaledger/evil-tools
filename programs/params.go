@@ -3,7 +3,7 @@ package programs
 import (
 	"time"
 
-	"github.com/iotaledger/evil-tools/evilwallet"
+	"github.com/iotaledger/evil-tools/pkg/evilwallet"
 )
 
 type CustomSpamParams struct {

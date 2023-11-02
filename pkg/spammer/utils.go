@@ -3,7 +3,7 @@ package spammer
 import (
 	"time"
 
-	"github.com/iotaledger/evil-tools/evilwallet"
+	"github.com/iotaledger/evil-tools/pkg/evilwallet"
 )
 
 // BigWalletsNeeded calculates how many big wallets needs to be prepared for a spam based on provided spam details.

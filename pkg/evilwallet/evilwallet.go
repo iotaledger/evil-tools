@@ -5,10 +5,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/evil-tools/accountwallet"
-	evillogger "github.com/iotaledger/evil-tools/logger"
-	"github.com/iotaledger/evil-tools/models"
-	"github.com/iotaledger/evil-tools/utils"
+	"github.com/iotaledger/evil-tools/pkg/accountwallet"
+	"github.com/iotaledger/evil-tools/pkg/models"
+	"github.com/iotaledger/evil-tools/pkg/utils"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
@@ -56,7 +55,7 @@ func NewEvilWallet(opts ...options.Option[EvilWallet]) *EvilWallet {
 		aliasManager:   NewAliasManager(),
 		optsClientURLs: defaultClientsURLs,
 		optsFaucetURL:  defaultFaucetURL,
-		log:            evillogger.New("EvilWallet"),
+		log:            utils.NewLogger("EvilWallet"),
 	}, opts, func(w *EvilWallet) {
 		connector := models.NewWebClients(w.optsClientURLs, w.optsFaucetURL)
 		w.connector = connector

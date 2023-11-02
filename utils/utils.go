@@ -18,8 +18,8 @@ import (
 var log = evillogger.New("Utils")
 
 const (
-	MaxRetries    = 100
-	AwaitInterval = 1 * time.Second
+	MaxRetries    = 20
+	AwaitInterval = 2 * time.Second
 )
 
 // SplitBalanceEqually splits the balance equally between `splitNumber` outputs.

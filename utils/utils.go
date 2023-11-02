@@ -59,9 +59,8 @@ func AwaitBlockToBeConfirmed(clt models.Client, blkID iotago.BlockID) error {
 // AwaitTransactionToBeAccepted awaits for acceptance of a single transaction.
 func AwaitTransactionToBeAccepted(clt models.Client, txID iotago.TransactionID, txLeft *atomic.Int64) error {
 	for i := 0; i < MaxRetries; i++ {
-		resp, err := clt.GetBlockStateFromTransaction(txID)
+		resp, _ := clt.GetBlockStateFromTransaction(txID)
 		if resp == nil {
-			UtilsLogger.Debugf("Block state API error: %v", err)
 
 			continue
 		}

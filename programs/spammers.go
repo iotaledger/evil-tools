@@ -1,7 +1,6 @@
 package programs
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -23,7 +22,6 @@ func requestFaucetFunds(params *CustomSpamParams, w *evilwallet.EvilWallet) <-ch
 		return nil
 	}
 	var numOfBigWallets = 2
-	fmt.Println("HERE, duration: ", params.Duration, "rate: ", params.Rate, "timeUnit: ", params.TimeUnit)
 	if params.Duration >= 0 {
 		numOfBigWallets = spammer.BigWalletsNeeded(params.Rate, params.TimeUnit, params.Duration)
 		if numOfBigWallets > maxBigWalletsCreatedAtOnce {
@@ -31,7 +29,6 @@ func requestFaucetFunds(params *CustomSpamParams, w *evilwallet.EvilWallet) <-ch
 			log.Warnf("Reached maximum number of big wallets created at once: %d, use infinite spam instead", maxBigWalletsCreatedAtOnce)
 		}
 	}
-	fmt.Println("HERE, numOfBigWallets: ", numOfBigWallets)
 	success := w.RequestFreshBigFaucetWallets(numOfBigWallets)
 	if !success {
 		log.Errorf("Failed to request faucet wallet")

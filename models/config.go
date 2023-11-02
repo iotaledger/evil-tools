@@ -2,6 +2,7 @@ package models
 
 type Config struct {
 	WebAPI               []string `json:"webAPI"` //nolint:tagliatelle
+	FaucetURL            string   `json:"faucetUrl"`
 	Rate                 int      `json:"rate"`
 	Duration             string   `json:"duration"`
 	TimeUnit             string   `json:"timeUnit"`

@@ -17,7 +17,7 @@ import (
 var UtilsLogger = evillogger.New("Utils")
 
 const (
-	MaxRetries    = 20
+	MaxRetries    = 100
 	AwaitInterval = 1 * time.Second
 )
 

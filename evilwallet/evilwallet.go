@@ -23,7 +23,7 @@ import (
 
 const (
 	// FaucetRequestSplitNumber defines the number of outputs to split from a faucet request.
-	FaucetRequestSplitNumber = 120
+	FaucetRequestSplitNumber = 50
 	// MaxBigWalletsCreatedAtOnce is maximum of evil wallets that can be created at once for non-infinite spam.
 	MaxBigWalletsCreatedAtOnce = 10
 	// BigFaucetWalletDeposit indicates the minimum outputs left number that triggers funds requesting in the background

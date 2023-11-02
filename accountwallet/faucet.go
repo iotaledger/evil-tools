@@ -8,6 +8,7 @@ import (
 	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/evil-tools/models"
+	"github.com/iotaledger/evil-tools/utils"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/iota-core/pkg/blockhandler"
@@ -39,38 +40,14 @@ func (a *AccountWallet) RequestBlockBuiltData(clt *nodeclient.Client, issuerID i
 }
 
 func (a *AccountWallet) RequestFaucetFunds(clt models.Client, receiveAddr iotago.Address) (*models.Output, error) {
-	//nolint:all,forcetypassert
 	err := clt.RequestFaucetFunds(receiveAddr)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to request funds from faucet")
 	}
 
-	indexer, err := clt.Indexer()
+	outputID, outputStruct, err := utils.AwaitAddressUnspentOutputToBeAccepted(clt, receiveAddr)
 	if err != nil {
-		return nil, ierrors.Wrap(err, "failed to get indexer client")
-	}
-
-	addrBech := receiveAddr.Bech32(clt.CommittedAPI().ProtocolParameters().Bech32HRP())
-
-	time.Sleep(10 * time.Second)
-
-	res, err := indexer.Outputs(context.Background(), &apimodels.BasicOutputsQuery{
-		AddressBech32: addrBech,
-	})
-	if err != nil {
-		return nil, ierrors.Wrap(err, "indexer request failed in request faucet funds")
-	}
-
-	var outputStruct iotago.Output
-	var outputID iotago.OutputID
-	for res.Next() {
-		unspents, err := res.Outputs(context.TODO())
-		if err != nil {
-			return nil, ierrors.Wrap(err, "failed to get faucet unspent outputs")
-		}
-
-		outputStruct = unspents[0]
-		outputID = lo.Return1(res.Response.Items.OutputIDs())[0]
+		return nil, ierrors.Wrap(err, "failed to await faucet funds")
 	}
 
 	return &models.Output{

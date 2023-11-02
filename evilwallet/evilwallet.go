@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/evil-tools/accountwallet"
 	evillogger "github.com/iotaledger/evil-tools/logger"
 	"github.com/iotaledger/evil-tools/models"
+	"github.com/iotaledger/evil-tools/utils"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
@@ -24,13 +25,10 @@ const (
 	// FaucetRequestSplitNumber defines the number of outputs to split from a faucet request.
 	FaucetRequestSplitNumber                  = 120
 	faucetTokensPerRequest   iotago.BaseToken = 432_000_000
-
-	waitForAcceptance     = 20 * time.Second
-	awaitAcceptationSleep = 1 * time.Second
 )
 
 var (
-	defaultClientsURLs = []string{"http://localhost:8080", "http://localhost:8090"}
+	defaultClientsURLs = []string{"http://localhost:8050", "http://localhost:8060"}
 	defaultFaucetURL   = "http://localhost:8088"
 )
 
@@ -278,14 +276,14 @@ func (e *EvilWallet) requestAndSplitFaucetFunds(initWallet, receiveWallet *Walle
 
 func (e *EvilWallet) requestFaucetFunds(wallet *Wallet) (output *models.Output, err error) {
 	receiveAddr := wallet.AddressOnIndex(0)
-	clt := e.connector.GetClient()
+	clt := e.connector.GetIndexerClient()
 
 	err = clt.RequestFaucetFunds(receiveAddr)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to request funds from faucet")
 	}
 
-	outputID, iotaOutput, err := e.outputManager.AwaitAddressUnspentOutputToBeAccepted(receiveAddr, 10*time.Second)
+	outputID, iotaOutput, err := utils.AwaitAddressUnspentOutputToBeAccepted(clt, receiveAddr)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to await faucet output acceptance")
 	}
@@ -371,7 +369,7 @@ func (e *EvilWallet) splitOutputs(inputWallet, outputWallet *Wallet) ([]iotago.T
 }
 
 func (e *EvilWallet) createSplitOutputs(input *models.Output, splitNumber int, receiveWallet *Wallet) []*OutputOption {
-	balances := SplitBalanceEqually(splitNumber, input.Balance)
+	balances := utils.SplitBalanceEqually(splitNumber, input.Balance)
 	outputs := make([]*OutputOption, splitNumber)
 	for i, bal := range balances {
 		outputs[i] = &OutputOption{amount: bal, address: receiveWallet.Address(), outputType: iotago.OutputBasic}
@@ -744,7 +742,7 @@ func (e *EvilWallet) updateOutputBalances(buildOptions *Options) (err error) {
 				totalBalance += in.Balance
 			}
 		}
-		balances := SplitBalanceEqually(len(buildOptions.outputs)+len(buildOptions.aliasOutputs), totalBalance)
+		balances := utils.SplitBalanceEqually(len(buildOptions.outputs)+len(buildOptions.aliasOutputs), totalBalance)
 		i := 0
 		for out, output := range buildOptions.aliasOutputs {
 			switch output.Type() {

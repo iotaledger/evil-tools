@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/evil-tools/models"
+	"github.com/iotaledger/evil-tools/utils"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
 	iotago "github.com/iotaledger/iota.go/v4"
@@ -137,21 +138,9 @@ func createBlowBallCenter(s *Spammer) (iotago.BlockID, error) {
 		},
 	}, s.IssuerAlias, clt)
 
-	timer := time.NewTimer(10 * time.Second)
-	defer timer.Stop()
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			state := clt.GetBlockConfirmationState(centerID)
-			if state == "confirmed" {
-				return centerID, nil
-			}
-		case <-timer.C:
-			return iotago.EmptyBlockID, ierrors.Errorf("failed to confirm center block")
-		}
-	}
+	err := utils.AwaitBlockToBeConfirmed(clt, centerID)
+
+	return centerID, err
 }
 
 func createBlowBall(center iotago.BlockID, s *Spammer) []*iotago.ProtocolBlock {

@@ -1,7 +1,6 @@
 package evilwallet
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -26,11 +25,11 @@ const (
 	FaucetRequestSplitNumber = 50
 	// MaxBigWalletsCreatedAtOnce is maximum of evil wallets that can be created at once for non-infinite spam.
 	MaxBigWalletsCreatedAtOnce = 10
-	// BigFaucetWalletDeposit indicates the minimum outputs left number that triggers funds requesting in the background
+	// BigFaucetWalletDeposit indicates the minimum outputs left number that triggers funds requesting in the background.
 	BigFaucetWalletDeposit = 4
 	// CheckFundsLeftInterval is the interval to check funds left in the background for requesting funds triggering.
 	CheckFundsLeftInterval = time.Second * 5
-	// BigFaucetWalletsAtOnce number of faucet wallets requested at once in the background
+	// BigFaucetWalletsAtOnce number of faucet wallets requested at once in the background.
 	BigFaucetWalletsAtOnce = 2
 )
 
@@ -475,23 +474,6 @@ func (e *EvilWallet) CreateTransaction(options ...Option) (*models.PayloadIssuan
 	//e.log.Debugf("\n %s", printTransaction(signedTx))
 
 	return txData, nil
-}
-
-func printTransaction(tx *iotago.SignedTransaction) string {
-	txDetails := ""
-	txDetails += fmt.Sprintf("Transaction ID; %s, slotCreation: %d\n", lo.PanicOnErr(tx.ID()).ToHex(), tx.Transaction.CreationSlot)
-	for index, out := range tx.Transaction.Outputs {
-		txDetails += fmt.Sprintf("Output index: %d, base token: %d, stored mana: %d\n", index, out.BaseTokenAmount(), out.StoredMana())
-	}
-	txDetails += fmt.Sprintln("Allotments:")
-	for _, allotment := range tx.Transaction.Allotments {
-		txDetails += fmt.Sprintf("AllotmentID: %s, value: %d\n", allotment.AccountID, allotment.Mana)
-	}
-	for _, allotment := range tx.Transaction.TransactionEssence.Allotments {
-		txDetails += fmt.Sprintf("al 2 AllotmentID: %s, value: %d\n", allotment.AccountID, allotment.Mana)
-	}
-
-	return txDetails
 }
 
 // addOutputsToOutputManager adds output to the OutputManager if.

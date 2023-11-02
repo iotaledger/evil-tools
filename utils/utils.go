@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"go.uber.org/atomic"
@@ -141,4 +142,21 @@ func AwaitOutputToBeAccepted(clt models.Client, outputID iotago.OutputID) bool {
 	}
 
 	return false
+}
+
+func PrintTransaction(tx *iotago.SignedTransaction) string {
+	txDetails := ""
+	txDetails += fmt.Sprintf("Transaction ID; %s, slotCreation: %d\n", lo.PanicOnErr(tx.ID()).ToHex(), tx.Transaction.CreationSlot)
+	for index, out := range tx.Transaction.Outputs {
+		txDetails += fmt.Sprintf("Output index: %d, base token: %d, stored mana: %d\n", index, out.BaseTokenAmount(), out.StoredMana())
+	}
+	txDetails += fmt.Sprintln("Allotments:")
+	for _, allotment := range tx.Transaction.Allotments {
+		txDetails += fmt.Sprintf("AllotmentID: %s, value: %d\n", allotment.AccountID, allotment.Mana)
+	}
+	for _, allotment := range tx.Transaction.TransactionEssence.Allotments {
+		txDetails += fmt.Sprintf("al 2 AllotmentID: %s, value: %d\n", allotment.AccountID, allotment.Mana)
+	}
+
+	return txDetails
 }

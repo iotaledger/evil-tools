@@ -3,11 +3,9 @@ package programs
 import (
 	"github.com/iotaledger/evil-tools/accountwallet"
 	"github.com/iotaledger/evil-tools/models"
-	"github.com/iotaledger/evil-tools/spammer"
 )
 
 type Runner struct {
-	spammer     *spammer.Spammer
 	spamDetails *models.Config
 
 	finished chan bool

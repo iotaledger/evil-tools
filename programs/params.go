@@ -26,13 +26,13 @@ type CustomSpamParams struct {
 
 func ConfigFromCustomSpamParams(params *CustomSpamParams) *models.Config {
 	return &models.Config{
-		WebAPI:   params.ClientURLs,
+		WebAPI:    params.ClientURLs,
 		FaucetURL: "http://localhost:8088",
-		Rate:     params.Rate,
-		Duration: params.Duration.String(),
-		TimeUnit: params.TimeUnit.String(),
-		Deep:     params.DeepSpam,
-		Reuse:    false,
-		Scenario: params.ScenarioName,
+		Rate:      params.Rate,
+		Duration:  params.Duration.String(),
+		TimeUnit:  params.TimeUnit.String(),
+		Deep:      params.DeepSpam,
+		Reuse:     false,
+		Scenario:  params.ScenarioName,
 	}
 }

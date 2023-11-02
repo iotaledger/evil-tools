@@ -9,6 +9,7 @@ import (
 
 type CustomSpamParams struct {
 	ClientURLs            []string
+	FaucetURL             string
 	SpamType              string
 	Rate                  int
 	Duration              time.Duration
@@ -26,6 +27,7 @@ type CustomSpamParams struct {
 func ConfigFromCustomSpamParams(params *CustomSpamParams) *models.Config {
 	return &models.Config{
 		WebAPI:   params.ClientURLs,
+		FaucetURL: "http://localhost:8088",
 		Rate:     params.Rate,
 		Duration: params.Duration.String(),
 		TimeUnit: params.TimeUnit.String(),

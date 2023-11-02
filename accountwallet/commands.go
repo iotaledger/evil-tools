@@ -25,7 +25,7 @@ func (a *AccountWallet) createAccountImplicitly(params *CreateAccountParams) (io
 	// An implicit account has an implicitly defined Block Issuer Key, corresponding to the address itself.
 	// Thus, implicit accounts can issue blocks by signing them with the private key corresponding to the public key
 	// from which the Implicit Account Creation Address was derived.
-	implicitAccountOutput, privateKey, err := a.getFunds(params.Amount, iotago.AddressImplicitAccountCreation)
+	implicitAccountOutput, privateKey, err := a.getFunds(iotago.AddressImplicitAccountCreation)
 	if err != nil {
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "Failed to create account")
 	}
@@ -58,7 +58,7 @@ func (a *AccountWallet) transitionImplicitAccount(
 	accAddr iotago.Address,
 	blockIssuerKeys iotago.BlockIssuerKeys,
 	_ ed25519.PrivateKey,
-	params *CreateAccountParams,
+	_ *CreateAccountParams,
 ) (iotago.AccountID, error) {
 	// transition from implicit to regular account
 	accountOutput := builder.NewAccountOutputBuilder(accAddr, accAddr, implicitAccountOutput.Balance).
@@ -66,7 +66,7 @@ func (a *AccountWallet) transitionImplicitAccount(
 		AccountID(iotago.AccountIDFromOutputID(implicitAccountOutput.OutputID)).
 		BlockIssuer(blockIssuerKeys, iotago.MaxSlotIndex).MustBuild()
 
-	log.Infof("Created account %s with %d tokens\n", accountOutput.AccountID.ToHex(), params.Amount)
+	log.Infof("Created account %s with %d tokens\n", accountOutput.AccountID.ToHex())
 	txBuilder := a.createTransactionBuilder(implicitAccountOutput, implicitAccAddr, accountOutput)
 
 	// TODO get congestionResponse from API

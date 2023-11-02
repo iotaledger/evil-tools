@@ -1,13 +1,19 @@
 package models
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"io"
+	"net/http"
 	"time"
 
 	"github.com/google/martian/log"
 
+	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
+	"github.com/iotaledger/inx-faucet/pkg/faucet"
 	"github.com/iotaledger/iota-core/pkg/model"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/builder"
@@ -37,12 +43,16 @@ type Connector interface {
 	RemoveClient(url string)
 	// GetClient returns the client instance that was used the longest time ago.
 	GetClient() Client
+	// GetIndexerClient returns the indexer client instance.
+	GetIndexerClient() Client
 }
 
 // WebClients is responsible for handling connections via GoShimmerAPI.
 type WebClients struct {
-	clients []*WebClient
-	urls    []string
+	clients        []*WebClient
+	indexerClients []*WebClient
+	urls           []string
+	faucetURL      string
 
 	// helper variable indicating which clt was recently used, useful for double, triple,... spends
 	lastUsed int
@@ -51,22 +61,29 @@ type WebClients struct {
 }
 
 // NewWebClients creates Connector from provided GoShimmerAPI urls.
-func NewWebClients(urls []string, setters ...options.Option[WebClient]) *WebClients {
+func NewWebClients(urls []string, faucetURL string, setters ...options.Option[WebClient]) *WebClients {
 	clients := make([]*WebClient, len(urls))
+	indexers := make([]*WebClient, 0)
 	var err error
 	for i, url := range urls {
-		clients[i], err = NewWebClient(url, setters...)
+		clients[i], err = NewWebClient(url, faucetURL, setters...)
 		if err != nil {
 			log.Errorf("failed to create client for url %s: %s", url, err)
 
 			return nil
 		}
+
+		if _, err := clients[i].client.Indexer(context.Background()); err == nil {
+			indexers = append(indexers, clients[i])
+		}
 	}
 
 	return &WebClients{
-		clients:  clients,
-		urls:     urls,
-		lastUsed: -1,
+		clients:        clients,
+		indexerClients: indexers,
+		urls:           urls,
+		faucetURL:      faucetURL,
+		lastUsed:       -1,
 	}
 }
 
@@ -118,6 +135,13 @@ func (c *WebClients) GetClients(numOfClt int) []Client {
 	return clts
 }
 
+func (c *WebClients) GetIndexerClient() Client {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return c.indexerClients[0]
+}
+
 // getClient returns the client instance that was used the longest time ago, not protected by mutex.
 func (c *WebClients) getClient() Client {
 	if c.lastUsed >= len(c.clients)-1 {
@@ -142,7 +166,7 @@ func (c *WebClients) AddClient(url string, setters ...options.Option[WebClient])
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	clt, err := NewWebClient(url, setters...)
+	clt, err := NewWebClient(url, c.faucetURL, setters...)
 	if err != nil {
 		log.Errorf("failed to create client for url %s: %s", url, err)
 
@@ -182,8 +206,8 @@ type Client interface {
 	PostData(data []byte) (blkID string, err error)
 	// GetBlockConfirmationState returns the AcceptanceState of a given block ID.
 	GetBlockConfirmationState(blkID iotago.BlockID) string
-	// GetBlockState returns the AcceptanceState of a given transaction ID.
-	GetBlockState(txID iotago.TransactionID) (resp *apimodels.BlockMetadataResponse, err error)
+	// GetBlockStateFromTransaction returns the AcceptanceState of a given transaction ID.
+	GetBlockStateFromTransaction(txID iotago.TransactionID) (resp *apimodels.BlockMetadataResponse, err error)
 	// GetOutput gets the output of a given outputID.
 	GetOutput(outputID iotago.OutputID) iotago.Output
 	// GetOutputConfirmationState gets the first unspent outputs of a given address.
@@ -194,14 +218,17 @@ type Client interface {
 	GetBlockIssuance(...iotago.SlotIndex) (resp *apimodels.IssuanceBlockHeaderResponse, err error)
 	// GetCongestion returns congestion data such as rmc or issuing readiness.
 	GetCongestion(id iotago.AccountID) (resp *apimodels.CongestionResponse, err error)
+	// RequestFaucetFunds
+	RequestFaucetFunds(address iotago.Address) (err error)
 
 	iotago.APIProvider
 }
 
 // WebClient contains a GoShimmer web API to interact with a node.
 type WebClient struct {
-	client *nodeclient.Client
-	url    string
+	client    *nodeclient.Client
+	url       string
+	faucetURL string
 }
 
 func (c *WebClient) Client() *nodeclient.Client {
@@ -242,13 +269,41 @@ func (c *WebClient) URL() string {
 }
 
 // NewWebClient creates Connector from provided iota-core API urls.
-func NewWebClient(url string, opts ...options.Option[WebClient]) (*WebClient, error) {
+func NewWebClient(url, faucetURL string, opts ...options.Option[WebClient]) (*WebClient, error) {
 	var initErr error
 	return options.Apply(&WebClient{
-		url: url,
+		url:       url,
+		faucetURL: faucetURL,
 	}, opts, func(w *WebClient) {
 		w.client, initErr = nodeclient.New(w.url)
 	}), initErr
+}
+
+func (c *WebClient) RequestFaucetFunds(address iotago.Address) (err error) {
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, c.faucetURL+"/api/enqueue", func() io.Reader {
+		jsonData, _ := json.Marshal(&faucet.EnqueueRequest{
+			Address: address.Bech32(c.client.CommittedAPI().ProtocolParameters().Bech32HRP()),
+		})
+
+		return bytes.NewReader(jsonData)
+	}())
+	if err != nil {
+		return ierrors.Errorf("unable to build http request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", nodeclient.MIMEApplicationJSON)
+
+	res, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return ierrors.Errorf("client: error making http request: %s\n", err)
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusAccepted {
+		return ierrors.Errorf("faucet request failed: %s", res.Body)
+	}
+
+	return nil
 }
 
 func (c *WebClient) PostBlock(block *iotago.ProtocolBlock) (blockID iotago.BlockID, err error) {
@@ -280,7 +335,7 @@ func (c *WebClient) PostData(data []byte) (blkID string, err error) {
 // GetOutputConfirmationState gets the first unspent outputs of a given address.
 func (c *WebClient) GetOutputConfirmationState(outputID iotago.OutputID) string {
 	txID := outputID.TransactionID()
-	resp, err := c.GetBlockState(txID)
+	resp, err := c.GetBlockStateFromTransaction(txID)
 	if err != nil {
 		return ""
 	}
@@ -308,8 +363,8 @@ func (c *WebClient) GetBlockConfirmationState(blkID iotago.BlockID) string {
 	return resp.BlockState
 }
 
-// GetBlockState returns the AcceptanceState of a given transaction ID.
-func (c *WebClient) GetBlockState(txID iotago.TransactionID) (*apimodels.BlockMetadataResponse, error) {
+// GetBlockStateFromTransaction returns the AcceptanceState of a given transaction ID.
+func (c *WebClient) GetBlockStateFromTransaction(txID iotago.TransactionID) (*apimodels.BlockMetadataResponse, error) {
 	return c.client.TransactionIncludedBlockMetadata(context.Background(), txID)
 }
 

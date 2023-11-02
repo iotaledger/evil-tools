@@ -12,7 +12,7 @@ import (
 // Nodes used during the test, use at least two nodes to be able to double spend.
 var (
 	// urls = []string{"http://bootstrap-01.feature.shimmer.iota.cafe:8080", "http://vanilla-01.feature.shimmer.iota.cafe:8080", "http://drng-01.feature.shimmer.iota.cafe:8080"}
-	urls = []string{"http://localhost:8080", "http://localhost:8090"} //, "http://localhost:8070", "http://localhost:8040"}
+	urls = []string{"http://localhost:8050", "http://localhost:8060"} //, "http://localhost:8070", "http://localhost:8040"}
 )
 
 var (
@@ -20,6 +20,7 @@ var (
 
 	customSpamParams = programs.CustomSpamParams{
 		ClientURLs:            urls,
+		FaucetURL:             "http://localhost:8088",
 		SpamType:              spammer.TypeBlock,
 		Rate:                  1,
 		Duration:              0,

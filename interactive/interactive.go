@@ -69,8 +69,8 @@ var defaultConfig = models.Config{
 
 var defaultInteractiveConfig = config{
 	clientURLs: map[string]types.Empty{
-		"http://localhost:8080": types.Void,
-		"http://localhost:8090": types.Void,
+		"http://localhost:8050": types.Void,
+		"http://localhost:8060": types.Void,
 	},
 	duration: 20 * time.Second,
 	timeUnit: time.Second,

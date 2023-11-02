@@ -211,7 +211,6 @@ func accountUsage() {
 func parseCreateAccountFlags(subcommands []string) (*accountwallet.CreateAccountParams, error) {
 	flagSet := flag.NewFlagSet("create", flag.ExitOnError)
 	alias := flagSet.String("alias", "", "The alias name of new created account")
-	amount := flagSet.Int64("amount", 1000, "The amount to be transferred to the new account")
 	noBif := flagSet.Bool("noBIF", false, "Create account without Block Issuer Feature, can only be set false no if implicit is false, as each account created implicitly needs to have BIF.")
 	implicit := flagSet.Bool("implicit", false, "Create an implicit account")
 	transition := flagSet.Bool("transition", true, "Indicates if account should be transitioned to full account if created with implicit address.")
@@ -235,7 +234,7 @@ func parseCreateAccountFlags(subcommands []string) (*accountwallet.CreateAccount
 		*noBif = false
 	}
 
-	log.Infof("Parsed flags: alias: %s, amount: %d, BIF: %t, implicit: %t, transition: %t", *alias, *amount, *noBif, *implicit, *transition)
+	log.Infof("Parsed flags: alias: %s, BIF: %t, implicit: %t, transition: %t", *alias, *noBif, *implicit, *transition)
 
 	if !*implicit == *transition {
 		log.Info("WARN: Implicit flag set to false, account will be created non-implicitly by Faucet, no need for transition, flag will be ignored")
@@ -244,7 +243,6 @@ func parseCreateAccountFlags(subcommands []string) (*accountwallet.CreateAccount
 
 	return &accountwallet.CreateAccountParams{
 		Alias:      *alias,
-		Amount:     uint64(*amount),
 		NoBIF:      *noBif,
 		Implicit:   *implicit,
 		Transition: *transition,

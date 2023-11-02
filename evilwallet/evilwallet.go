@@ -8,6 +8,7 @@ import (
 	"github.com/iotaledger/evil-tools/accountwallet"
 	evillogger "github.com/iotaledger/evil-tools/logger"
 	"github.com/iotaledger/evil-tools/models"
+	"github.com/iotaledger/evil-tools/utils"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
@@ -24,13 +25,11 @@ const (
 	// FaucetRequestSplitNumber defines the number of outputs to split from a faucet request.
 	FaucetRequestSplitNumber                  = 120
 	faucetTokensPerRequest   iotago.BaseToken = 432_000_000
-
-	waitForAcceptance     = 20 * time.Second
-	awaitAcceptationSleep = 1 * time.Second
 )
 
 var (
-	defaultClientsURLs = []string{"http://localhost:8080", "http://localhost:8090"}
+	defaultClientsURLs = []string{"http://localhost:8050", "http://localhost:8060"}
+	defaultFaucetURL   = "http://localhost:8088"
 )
 
 // region EvilWallet ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -46,6 +45,7 @@ type EvilWallet struct {
 	aliasManager  *AliasManager
 
 	optsClientURLs []string
+	optsFaucetURL  string
 	log            *logger.Logger
 }
 
@@ -55,12 +55,12 @@ func NewEvilWallet(opts ...options.Option[EvilWallet]) *EvilWallet {
 		wallets:        NewWallets(),
 		aliasManager:   NewAliasManager(),
 		optsClientURLs: defaultClientsURLs,
+		optsFaucetURL:  defaultFaucetURL,
 		log:            evillogger.New("EvilWallet"),
 	}, opts, func(w *EvilWallet) {
-		connector := models.NewWebClients(w.optsClientURLs)
+		connector := models.NewWebClients(w.optsClientURLs, w.optsFaucetURL)
 		w.connector = connector
 		w.outputManager = NewOutputManager(connector, w.wallets, w.log)
-
 	})
 }
 
@@ -206,7 +206,7 @@ func (e *EvilWallet) RequestFreshBigFaucetWallets(numberOfWallets int) bool {
 			err := e.RequestFreshBigFaucetWallet()
 			if err != nil {
 				success = false
-				e.log.Error("Failed to request wallet from faucet: %s", err)
+				e.log.Errorf("Failed to request wallet from faucet: %s", err)
 
 				return
 			}
@@ -274,17 +274,22 @@ func (e *EvilWallet) requestAndSplitFaucetFunds(initWallet, receiveWallet *Walle
 	return splitTransactionsID, nil
 }
 
-func (e *EvilWallet) requestFaucetFunds(wallet *Wallet) (outputID *models.Output, err error) {
+func (e *EvilWallet) requestFaucetFunds(wallet *Wallet) (output *models.Output, err error) {
 	receiveAddr := wallet.AddressOnIndex(0)
-	clt := e.connector.GetClient()
+	clt := e.connector.GetIndexerClient()
 
-	output, err := e.accWallet.RequestFaucetFunds(clt, receiveAddr, faucetTokensPerRequest)
+	err = clt.RequestFaucetFunds(receiveAddr)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to request funds from faucet")
 	}
 
+	outputID, iotaOutput, err := utils.AwaitAddressUnspentOutputToBeAccepted(clt, receiveAddr)
+	if err != nil {
+		return nil, ierrors.Wrap(err, "failed to await faucet output acceptance")
+	}
+
 	// update wallet with newly created output
-	e.outputManager.createOutputFromAddress(wallet, receiveAddr, faucetTokensPerRequest, output.OutputID, output.OutputStruct)
+	output = e.outputManager.createOutputFromAddress(wallet, receiveAddr, iotaOutput.BaseTokenAmount(), outputID, iotaOutput)
 
 	return output, nil
 }
@@ -364,7 +369,7 @@ func (e *EvilWallet) splitOutputs(inputWallet, outputWallet *Wallet) ([]iotago.T
 }
 
 func (e *EvilWallet) createSplitOutputs(input *models.Output, splitNumber int, receiveWallet *Wallet) []*OutputOption {
-	balances := SplitBalanceEqually(splitNumber, input.Balance)
+	balances := utils.SplitBalanceEqually(splitNumber, input.Balance)
 	outputs := make([]*OutputOption, splitNumber)
 	for i, bal := range balances {
 		outputs[i] = &OutputOption{amount: bal, address: receiveWallet.Address(), outputType: iotago.OutputBasic}
@@ -737,7 +742,7 @@ func (e *EvilWallet) updateOutputBalances(buildOptions *Options) (err error) {
 				totalBalance += in.Balance
 			}
 		}
-		balances := SplitBalanceEqually(len(buildOptions.outputs)+len(buildOptions.aliasOutputs), totalBalance)
+		balances := utils.SplitBalanceEqually(len(buildOptions.outputs)+len(buildOptions.aliasOutputs), totalBalance)
 		i := 0
 		for out, output := range buildOptions.aliasOutputs {
 			switch output.Type() {

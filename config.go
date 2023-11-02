@@ -20,9 +20,9 @@ var (
 
 	customSpamParams = programs.CustomSpamParams{
 		ClientURLs:            urls,
-		SpamTypes:             []string{spammer.TypeBlock},
-		Rates:                 []int{1},
-		Durations:             []time.Duration{},
+		SpamType:              spammer.TypeBlock,
+		Rate:                  1,
+		Duration:              0,
 		TimeUnit:              time.Second,
 		DelayBetweenConflicts: 0,
 		NSpend:                2,

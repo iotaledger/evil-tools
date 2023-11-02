@@ -213,7 +213,7 @@ func (s *Spammer) Spam() {
 }
 
 func (s *Spammer) CheckIfAllSent() {
-	if s.State.batchPrepared.Load() >= int64(s.SpamDetails.MaxBatchesSent) {
+	if s.SpamDetails.MaxDuration >= 0 && s.State.batchPrepared.Load() >= int64(s.SpamDetails.MaxBatchesSent) {
 		s.log.Infof("Maximum number of blocks sent, stopping spammer...")
 		s.done <- true
 	}

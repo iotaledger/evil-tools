@@ -185,7 +185,7 @@ func (e *EvilWallet) RequestFundsFromFaucet(options ...FaucetRequestOption) (ini
 
 // RequestFreshBigFaucetWallets creates n new wallets, each wallet is created from one faucet request and contains 1000 outputs.
 func (e *EvilWallet) RequestFreshBigFaucetWallets(numberOfWallets int) bool {
-	e.log.Debug("Requesting %d wallets from faucet", numberOfWallets)
+	e.log.Debugf("Requesting %d wallets from faucet", numberOfWallets)
 	success := true
 	// channel to block the number of concurrent goroutines
 	semaphore := make(chan bool, 1)
@@ -460,7 +460,7 @@ func (e *EvilWallet) CreateTransaction(options ...Option) (*models.PayloadIssuan
 	e.addOutputsToOutputManager(signedTx, buildOptions.outputWallet, tempWallet, tempAddresses)
 	e.registerOutputAliases(signedTx, addrAliasMap)
 
-	e.log.Debugf("\n %s", printTransaction(signedTx))
+	//e.log.Debugf("\n %s", printTransaction(signedTx))
 
 	return txData, nil
 }
@@ -758,7 +758,6 @@ func (e *EvilWallet) updateOutputBalances(buildOptions *Options) (err error) {
 }
 
 func (e *EvilWallet) makeTransaction(inputs []*models.Output, outputs iotago.Outputs[iotago.Output], w *Wallet, congestionResponse *apimodels.CongestionResponse, issuerAccountID iotago.AccountID) (tx *iotago.SignedTransaction, err error) {
-	e.log.Debugf("makeTransaction len(outputs): %d", len(outputs))
 	clt := e.Connector().GetClient()
 	currentTime := time.Now()
 	targetSlot := clt.LatestAPI().TimeProvider().SlotFromTime(currentTime)

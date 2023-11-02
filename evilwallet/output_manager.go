@@ -292,9 +292,8 @@ func (o *OutputManager) AwaitTransactionToBeAccepted(txID iotago.TransactionID, 
 	clt := o.connector.GetClient()
 	var accepted bool
 	for ; time.Since(s) < waitFor; time.Sleep(awaitAcceptationSleep) {
-		resp, err := clt.GetBlockState(txID)
+		resp, _ := clt.GetBlockState(txID)
 		if resp == nil {
-			o.log.Debugf("Block state API error: %v", err)
 
 			continue
 		}

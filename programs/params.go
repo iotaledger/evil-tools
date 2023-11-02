@@ -9,9 +9,9 @@ import (
 
 type CustomSpamParams struct {
 	ClientURLs            []string
-	SpamTypes             []string
-	Rates                 []int
-	Durations             []time.Duration
+	SpamType              string
+	Rate                  int
+	Duration              time.Duration
 	TimeUnit              time.Duration
 	DelayBetweenConflicts time.Duration
 	NSpend                int
@@ -26,8 +26,8 @@ type CustomSpamParams struct {
 func ConfigFromCustomSpamParams(params *CustomSpamParams) *models.Config {
 	return &models.Config{
 		WebAPI:   params.ClientURLs,
-		Rate:     params.Rates[0],
-		Duration: params.Durations[0].String(),
+		Rate:     params.Rate,
+		Duration: params.Duration.String(),
 		TimeUnit: params.TimeUnit.String(),
 		Deep:     params.DeepSpam,
 		Reuse:    false,

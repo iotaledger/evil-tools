@@ -36,8 +36,6 @@ var (
 
 // EvilWallet provides a user-friendly way to do complicated double spend scenarios.
 type EvilWallet struct {
-	// faucet is the wallet of faucet
-	faucet        *Wallet
 	wallets       *Wallets
 	accWallet     *accountwallet.AccountWallet
 	connector     models.Connector
@@ -62,13 +60,6 @@ func NewEvilWallet(opts ...options.Option[EvilWallet]) *EvilWallet {
 		w.connector = connector
 		w.outputManager = NewOutputManager(connector, w.wallets, w.log)
 	})
-}
-
-func (e *EvilWallet) LastFaucetUnspentOutput() iotago.OutputID {
-	faucetAddr := e.faucet.AddressOnIndex(0)
-	unspentFaucet := e.faucet.UnspentOutput(faucetAddr.String())
-
-	return unspentFaucet.OutputID
 }
 
 // NewWallet creates a new wallet of the given wallet type.

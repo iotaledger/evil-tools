@@ -13,8 +13,6 @@ import (
 	"github.com/iotaledger/iota.go/v4/nodeclient/apimodels"
 )
 
-var UtilsLogger = NewLogger("Utils")
-
 const (
 	MaxRetries    = 20
 	AwaitInterval = 1 * time.Second

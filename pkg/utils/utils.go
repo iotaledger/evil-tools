@@ -7,15 +7,12 @@ import (
 
 	"go.uber.org/atomic"
 
-	evillogger "github.com/iotaledger/evil-tools/logger"
-	"github.com/iotaledger/evil-tools/models"
+	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/nodeclient/apimodels"
 )
-
-var log = evillogger.New("Utils")
 
 const (
 	MaxRetries    = 20
@@ -45,14 +42,14 @@ func AwaitBlockToBeConfirmed(clt models.Client, blkID iotago.BlockID) error {
 	for i := 0; i < MaxRetries; i++ {
 		state := clt.GetBlockConfirmationState(blkID)
 		if state == apimodels.BlockStateConfirmed.String() || state == apimodels.BlockStateFinalized.String() {
-			log.Debugf("Block confirmed: %s", blkID.ToHex())
+			UtilsLogger.Debugf("Block confirmed: %s", blkID.ToHex())
 			return nil
 		}
 
 		time.Sleep(AwaitInterval)
 	}
 
-	log.Debugf("Block not confirmed: %s", blkID.ToHex())
+	UtilsLogger.Debugf("Block not confirmed: %s", blkID.ToHex())
 
 	return ierrors.Errorf("Block not confirmed: %s", blkID.ToHex())
 }
@@ -80,7 +77,7 @@ func AwaitTransactionToBeAccepted(clt models.Client, txID iotago.TransactionID, 
 
 		confirmationState := resp.TransactionState
 
-		log.Debugf("Tx %s confirmationState: %s, tx left: %d", txID.ToHex(), confirmationState, txLeft.Load())
+		UtilsLogger.Debugf("Tx %s confirmationState: %s, tx left: %d", txID.ToHex(), confirmationState, txLeft.Load())
 		if confirmationState == apimodels.TransactionStateAccepted.String() ||
 			confirmationState == apimodels.TransactionStateConfirmed.String() ||
 			confirmationState == apimodels.TransactionStateFinalized.String() {
@@ -116,7 +113,7 @@ func AwaitAddressUnspentOutputToBeAccepted(clt models.Client, addr iotago.Addres
 			}
 
 			if len(unspents) == 0 {
-				log.Debugf("no unspent outputs found in indexer for address: %s", addrBech)
+				UtilsLogger.Debugf("no unspent outputs found in indexer for address: %s", addrBech)
 				break
 			}
 

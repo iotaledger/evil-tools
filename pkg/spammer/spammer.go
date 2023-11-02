@@ -5,8 +5,8 @@ import (
 
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/evil-tools/evilwallet"
-	"github.com/iotaledger/evil-tools/models"
+	"github.com/iotaledger/evil-tools/pkg/evilwallet"
+	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/app/configuration"
 	appLogger "github.com/iotaledger/hive.go/app/logger"
 	"github.com/iotaledger/hive.go/ds/types"

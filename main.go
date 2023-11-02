@@ -4,14 +4,14 @@ import (
 	"flag"
 	"fmt"
 
-	"github.com/iotaledger/evil-tools/accountwallet"
-	"github.com/iotaledger/evil-tools/interactive"
-	"github.com/iotaledger/evil-tools/logger"
+	"github.com/iotaledger/evil-tools/pkg/accountwallet"
+	"github.com/iotaledger/evil-tools/pkg/interactive"
+	"github.com/iotaledger/evil-tools/pkg/utils"
 	"github.com/iotaledger/evil-tools/programs"
 )
 
 var (
-	log           = logger.New("main")
+	log           = utils.NewLogger("main")
 	optionFlagSet = flag.NewFlagSet("script flag set", flag.ExitOnError)
 )
 

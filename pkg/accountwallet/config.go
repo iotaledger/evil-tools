@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/iotaledger/evil-tools/models"
+	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/ds/types"
 )
 

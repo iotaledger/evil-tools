@@ -3,7 +3,7 @@ package spammer
 import (
 	"time"
 
-	"github.com/iotaledger/evil-tools/evilwallet"
+	"github.com/iotaledger/evil-tools/pkg/evilwallet"
 )
 
 type Options func(*Spammer)

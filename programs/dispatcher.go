@@ -1,8 +1,8 @@
 package programs
 
 import (
-	"github.com/iotaledger/evil-tools/accountwallet"
-	"github.com/iotaledger/evil-tools/models"
+	"github.com/iotaledger/evil-tools/pkg/accountwallet"
+	"github.com/iotaledger/evil-tools/pkg/models"
 )
 
 type Runner struct {

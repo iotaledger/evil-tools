@@ -3,8 +3,8 @@ package programs
 import (
 	"time"
 
-	"github.com/iotaledger/evil-tools/evilwallet"
-	"github.com/iotaledger/evil-tools/models"
+	"github.com/iotaledger/evil-tools/pkg/evilwallet"
+	"github.com/iotaledger/evil-tools/pkg/models"
 )
 
 type CustomSpamParams struct {

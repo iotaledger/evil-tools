@@ -4,13 +4,13 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/evil-tools/accountwallet"
-	"github.com/iotaledger/evil-tools/evilwallet"
-	"github.com/iotaledger/evil-tools/logger"
-	"github.com/iotaledger/evil-tools/spammer"
+	"github.com/iotaledger/evil-tools/pkg/accountwallet"
+	"github.com/iotaledger/evil-tools/pkg/evilwallet"
+	"github.com/iotaledger/evil-tools/pkg/spammer"
+	"github.com/iotaledger/evil-tools/pkg/utils"
 )
 
-var log = logger.New("customSpam")
+var log = utils.NewLogger("customSpam")
 
 func requestFaucetFunds(params *CustomSpamParams, w *evilwallet.EvilWallet) <-chan bool {
 	if params.SpamType == spammer.TypeBlock {

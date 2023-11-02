@@ -9,6 +9,7 @@ import (
 
 	"github.com/iotaledger/evil-tools/accountwallet"
 	"github.com/iotaledger/evil-tools/evilwallet"
+	"github.com/iotaledger/evil-tools/spammer"
 	"github.com/iotaledger/hive.go/ierrors"
 )
 
@@ -77,7 +78,7 @@ func parseBasicSpamFlags() {
 	if *duration != "" {
 		customSpamParams.Duration, _ = time.ParseDuration(*duration)
 	} else {
-		customSpamParams.Duration = time.Duration(-1)
+		customSpamParams.Duration = spammer.InfiniteDuration
 	}
 	if *scenario != "" {
 		conflictBatch, ok := evilwallet.GetScenario(*scenario)

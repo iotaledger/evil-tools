@@ -26,6 +26,10 @@ const (
 	TypeBlowball = "bb"
 )
 
+const (
+	InfiniteDuration = time.Duration(-1)
+)
+
 // region Spammer //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type SpammingFunc func(*Spammer)

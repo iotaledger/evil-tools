@@ -23,7 +23,6 @@ var (
 		FaucetURL:             "http://localhost:8088",
 		SpamType:              spammer.TypeBlock,
 		Rate:                  1,
-		Duration:              0,
 		TimeUnit:              time.Second,
 		DelayBetweenConflicts: 0,
 		NSpend:                2,

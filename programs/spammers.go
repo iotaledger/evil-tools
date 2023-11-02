@@ -17,7 +17,7 @@ func requestFaucetFunds(params *CustomSpamParams, w *evilwallet.EvilWallet) <-ch
 		return nil
 	}
 	var numOfBigWallets = evilwallet.BigFaucetWalletsAtOnce
-	if params.Duration >= 0 {
+	if params.Duration != spammer.InfiniteDuration {
 		numOfBigWallets = spammer.BigWalletsNeeded(params.Rate, params.TimeUnit, params.Duration)
 		if numOfBigWallets > evilwallet.MaxBigWalletsCreatedAtOnce {
 			numOfBigWallets = evilwallet.MaxBigWalletsCreatedAtOnce
@@ -29,21 +29,20 @@ func requestFaucetFunds(params *CustomSpamParams, w *evilwallet.EvilWallet) <-ch
 		log.Errorf("Failed to request faucet wallet")
 		return nil
 	}
-	if params.Duration >= 0 {
+	if params.Duration != spammer.InfiniteDuration {
 		unspentOutputsLeft := w.UnspentOutputsLeft(evilwallet.Fresh)
 		log.Debugf("Prepared %d unspent outputs for spamming.", unspentOutputsLeft)
 
 		return nil
 	}
 	var requestingChan = make(<-chan bool)
-	var errorChan = make(chan<- error)
 	log.Debugf("Start requesting faucet funds infinitely...")
-	go requestInfinitely(w, requestingChan, errorChan)
+	go requestInfinitely(w, requestingChan)
 
 	return requestingChan
 }
 
-func requestInfinitely(w *evilwallet.EvilWallet, done <-chan bool, errChan chan<- error) {
+func requestInfinitely(w *evilwallet.EvilWallet, done <-chan bool) {
 	for {
 		select {
 		case <-done:
@@ -75,11 +74,6 @@ func CustomSpam(params *CustomSpamParams, accWallet *accountwallet.AccountWallet
 
 	log.Infof("Start spamming with rate: %d, time unit: %s, and spamming type: %s.", params.Rate, params.TimeUnit.String(), params.SpamType)
 
-	var duration time.Duration = -1
-	if params.Duration >= 0 {
-		duration = params.Duration
-	}
-
 	// TODO here we can shutdown requesting when we will have evil-tools running in the background.
 	_ = requestFaucetFunds(params, w)
 
@@ -90,7 +84,7 @@ func CustomSpam(params *CustomSpamParams, accWallet *accountwallet.AccountWallet
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			s := SpamBlocks(w, params.Rate, params.TimeUnit, duration, params.EnableRateSetter, params.AccountAlias)
+			s := SpamBlocks(w, params.Rate, params.TimeUnit, params.Duration, params.EnableRateSetter, params.AccountAlias)
 			if s == nil {
 				return
 			}
@@ -101,7 +95,7 @@ func CustomSpam(params *CustomSpamParams, accWallet *accountwallet.AccountWallet
 		go func() {
 			defer wg.Done()
 
-			s := SpamBlowball(w, params.Rate, params.TimeUnit, duration, params.BlowballSize, params.EnableRateSetter, params.AccountAlias)
+			s := SpamBlowball(w, params.Rate, params.TimeUnit, params.Duration, params.BlowballSize, params.EnableRateSetter, params.AccountAlias)
 			if s == nil {
 				return
 			}
@@ -111,19 +105,19 @@ func CustomSpam(params *CustomSpamParams, accWallet *accountwallet.AccountWallet
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			SpamTransaction(w, params.Rate, params.TimeUnit, duration, params.DeepSpam, params.EnableRateSetter, params.AccountAlias)
+			SpamTransaction(w, params.Rate, params.TimeUnit, params.Duration, params.DeepSpam, params.EnableRateSetter, params.AccountAlias)
 		}()
 	case spammer.TypeDs:
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			SpamDoubleSpends(w, params.Rate, params.NSpend, params.TimeUnit, duration, params.DelayBetweenConflicts, params.DeepSpam, params.EnableRateSetter, params.AccountAlias)
+			SpamDoubleSpends(w, params.Rate, params.NSpend, params.TimeUnit, params.Duration, params.DelayBetweenConflicts, params.DeepSpam, params.EnableRateSetter, params.AccountAlias)
 		}()
 	case spammer.TypeCustom:
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			s := SpamNestedConflicts(w, params.Rate, params.TimeUnit, duration, params.Scenario, params.DeepSpam, false, params.EnableRateSetter, params.AccountAlias)
+			s := SpamNestedConflicts(w, params.Rate, params.TimeUnit, params.Duration, params.Scenario, params.DeepSpam, false, params.EnableRateSetter, params.AccountAlias)
 			if s == nil {
 				return
 			}
@@ -134,7 +128,7 @@ func CustomSpam(params *CustomSpamParams, accWallet *accountwallet.AccountWallet
 		go func() {
 			defer wg.Done()
 
-			s := SpamAccounts(w, params.Rate, params.TimeUnit, duration, params.EnableRateSetter, params.AccountAlias)
+			s := SpamAccounts(w, params.Rate, params.TimeUnit, params.Duration, params.EnableRateSetter, params.AccountAlias)
 			if s == nil {
 				return
 			}

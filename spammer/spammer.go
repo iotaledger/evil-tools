@@ -301,7 +301,10 @@ func (s *Spammer) PrepareAndPostBlock(txData *models.PayloadIssuanceData, issuer
 		}
 	}
 	count := s.State.txSent.Add(1)
-	s.log.Debugf("Last block sent, ID: %s, txCount: %d", blockID.ToHex(), count)
+	//s.log.Debugf("Last block sent, ID: %s, txCount: %d", blockID.ToHex(), count)
+	if count%200 == 0 {
+		s.log.Infof("Blocks issued so far: %d, errors encountered: %d", count, s.ErrCounter.GetTotalErrorCount())
+	}
 
 	return blockID
 }

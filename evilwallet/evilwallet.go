@@ -214,7 +214,7 @@ func (e *EvilWallet) RequestFreshBigFaucetWallets(numberOfWallets int) bool {
 	}
 	wg.Wait()
 
-	e.log.Debugf("Finished requesting %d wallets from faucet", numberOfWallets)
+	e.log.Debugf("Finished requesting %d wallets from faucet, outputs available: %d", numberOfWallets, e.UnspentOutputsLeft(Fresh))
 
 	return success
 }

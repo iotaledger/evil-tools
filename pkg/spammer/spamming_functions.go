@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/iotaledger/evil-tools/models"
-	"github.com/iotaledger/evil-tools/utils"
+	"github.com/iotaledger/evil-tools/pkg/models"
+	"github.com/iotaledger/evil-tools/pkg/utils"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
 	iotago "github.com/iotaledger/iota.go/v4"

@@ -6,15 +6,14 @@ import (
 
 	"go.uber.org/atomic"
 
-	evillogger "github.com/iotaledger/evil-tools/logger"
-	"github.com/iotaledger/evil-tools/models"
+	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/nodeclient/apimodels"
 )
 
-var UtilsLogger = evillogger.New("Utils")
+var UtilsLogger = NewLogger("Utils")
 
 const (
 	MaxRetries    = 20

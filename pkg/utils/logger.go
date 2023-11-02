@@ -1,4 +1,4 @@
-package logger
+package utils
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 )
 
-var New = logger.NewLogger
+var NewLogger = logger.NewLogger
 
 func init() {
 	config := configuration.New()

@@ -13,9 +13,9 @@ import (
 	"github.com/AlecAivazis/survey/v2"
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/evil-tools/evilwallet"
+	"github.com/iotaledger/evil-tools/pkg/evilwallet"
+	"github.com/iotaledger/evil-tools/pkg/spammer"
 	"github.com/iotaledger/evil-tools/programs"
-	"github.com/iotaledger/evil-tools/spammer"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/iota.go/v4/nodeclient"

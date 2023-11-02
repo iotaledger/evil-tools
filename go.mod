@@ -6,6 +6,7 @@ require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/google/martian v2.1.0+incompatible
 	github.com/iotaledger/hive.go/app v0.0.0-20231020115340-13da292c580b
+	github.com/iotaledger/hive.go/core v1.0.0-rc.3.0.20231020115340-13da292c580b
 	github.com/iotaledger/hive.go/ds v0.0.0-20231020115340-13da292c580b
 	github.com/iotaledger/hive.go/ierrors v0.0.0-20231024193930-47c6046e38a8
 	github.com/iotaledger/hive.go/lo v0.0.0-20231020115340-13da292c580b
@@ -39,7 +40,6 @@ require (
 	github.com/iotaledger/grocksdb v1.7.5-0.20230220105546-5162e18885c7 // indirect
 	github.com/iotaledger/hive.go/ads v0.0.0-20231020115340-13da292c580b // indirect
 	github.com/iotaledger/hive.go/constraints v0.0.0-20231020115340-13da292c580b // indirect
-	github.com/iotaledger/hive.go/core v1.0.0-rc.3.0.20231020115340-13da292c580b // indirect
 	github.com/iotaledger/hive.go/crypto v0.0.0-20231020115340-13da292c580b // indirect
 	github.com/iotaledger/hive.go/kvstore v0.0.0-20231020115340-13da292c580b // indirect
 	github.com/iotaledger/hive.go/log v0.0.0-20231020115340-13da292c580b // indirect

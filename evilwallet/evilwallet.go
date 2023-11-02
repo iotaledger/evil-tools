@@ -9,6 +9,7 @@ import (
 	evillogger "github.com/iotaledger/evil-tools/logger"
 	"github.com/iotaledger/evil-tools/models"
 	"github.com/iotaledger/evil-tools/utils"
+	"github.com/iotaledger/hive.go/core/safemath"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
@@ -23,7 +24,7 @@ import (
 
 const (
 	// FaucetRequestSplitNumber defines the number of outputs to split from a faucet request.
-	FaucetRequestSplitNumber                  = 120
+	FaucetRequestSplitNumber                  = 125
 	faucetTokensPerRequest   iotago.BaseToken = 432_000_000
 )
 
@@ -286,7 +287,11 @@ func (e *EvilWallet) requestFaucetFunds(wallet *Wallet) (output *models.Output, 
 }
 
 func (e *EvilWallet) splitOutput(splitOutput *models.Output, inputWallet, outputWallet *Wallet) (iotago.TransactionID, error) {
-	outputs := e.createSplitOutputs(splitOutput, FaucetRequestSplitNumber, outputWallet)
+	outputs, err := e.createSplitOutputs(splitOutput, outputWallet)
+	if err != nil {
+		return iotago.EmptyTransactionID, ierrors.Wrapf(err, "failed to create splitted outputs")
+	}
+
 	faucetAccount, err := e.accWallet.GetAccount(accountwallet.FaucetAccountAlias)
 	if err != nil {
 		return iotago.EmptyTransactionID, err
@@ -359,14 +364,43 @@ func (e *EvilWallet) splitOutputs(inputWallet, outputWallet *Wallet) ([]iotago.T
 	return txIDs, nil
 }
 
-func (e *EvilWallet) createSplitOutputs(input *models.Output, splitNumber int, receiveWallet *Wallet) []*OutputOption {
+func (e *EvilWallet) createSplitOutputs(input *models.Output, receiveWallet *Wallet) ([]*OutputOption, error) {
+	clt := e.Connector().GetClient()
+	totalAmount := input.Balance
+	splitNumber := FaucetRequestSplitNumber
+
+	// make sure the amount of output covers the min deposit
+	minDeposit, err := clt.CommittedAPI().StorageScoreStructure().MinDeposit(input.OutputStruct)
+	if err != nil {
+		e.log.Errorf("Failed to get min deposit: %s", err)
+
+		return nil, ierrors.Wrapf(err, "failed to get min deposit for basic output")
+	}
+
+	amountPerOutput, err := safemath.SafeDiv(totalAmount, iotago.BaseToken(splitNumber))
+	if err != nil {
+		e.log.Errorf("Failed to calculate amount per output, total amount %d, splitted amount %d: %s", totalAmount, 128, err)
+	}
+
+	if amountPerOutput < minDeposit {
+		minDeposit = iotago.BaseToken(float64(minDeposit) * 1.1)
+		outputsNum, err := safemath.SafeDiv(totalAmount, minDeposit)
+		if err != nil {
+			e.log.Errorf("Failed to calculate split number, total amount %d, splitted amount %d: %s", totalAmount, minDeposit, err)
+
+			return nil, ierrors.Wrapf(err, "failed to calculate split number")
+		}
+
+		splitNumber = int(outputsNum)
+	}
+
 	balances := utils.SplitBalanceEqually(splitNumber, input.Balance)
 	outputs := make([]*OutputOption, splitNumber)
 	for i, bal := range balances {
 		outputs[i] = &OutputOption{amount: bal, address: receiveWallet.Address(), outputType: iotago.OutputBasic}
 	}
 
-	return outputs
+	return outputs, nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

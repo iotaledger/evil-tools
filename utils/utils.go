@@ -14,7 +14,7 @@ import (
 	"github.com/iotaledger/iota.go/v4/nodeclient/apimodels"
 )
 
-var UtilsLogger = evillogger.New("Utils")
+var log = evillogger.New("Utils")
 
 const (
 	MaxRetries    = 100
@@ -39,19 +39,19 @@ func SplitBalanceEqually(splitNumber int, balance iotago.BaseToken) []iotago.Bas
 	return outputBalances
 }
 
-// AwaitTransactionToBeAccepted awaits for acceptance of a single transaction.
+// AwaitBlockToBeConfirmed awaits for acceptance of a single transaction.
 func AwaitBlockToBeConfirmed(clt models.Client, blkID iotago.BlockID) error {
 	for i := 0; i < MaxRetries; i++ {
 		state := clt.GetBlockConfirmationState(blkID)
 		if state == apimodels.BlockStateConfirmed.String() || state == apimodels.BlockStateFinalized.String() {
-			UtilsLogger.Debugf("Block confirmed: %s", blkID.ToHex())
+			log.Debugf("Block confirmed: %s", blkID.ToHex())
 			return nil
 		}
 
 		time.Sleep(AwaitInterval)
 	}
 
-	UtilsLogger.Debugf("Block not confirmed: %s", blkID.ToHex())
+	log.Debugf("Block not confirmed: %s", blkID.ToHex())
 
 	return ierrors.Errorf("Block not confirmed: %s", blkID.ToHex())
 }
@@ -61,6 +61,7 @@ func AwaitTransactionToBeAccepted(clt models.Client, txID iotago.TransactionID, 
 	for i := 0; i < MaxRetries; i++ {
 		resp, _ := clt.GetBlockStateFromTransaction(txID)
 		if resp == nil {
+			time.Sleep(AwaitInterval)
 
 			continue
 		}
@@ -78,7 +79,7 @@ func AwaitTransactionToBeAccepted(clt models.Client, txID iotago.TransactionID, 
 
 		confirmationState := resp.TransactionState
 
-		UtilsLogger.Debugf("Tx %s confirmationState: %s, tx left: %d", txID.ToHex(), confirmationState, txLeft.Load())
+		log.Debugf("Tx %s confirmationState: %s, tx left: %d", txID.ToHex(), confirmationState, txLeft.Load())
 		if confirmationState == apimodels.TransactionStateAccepted.String() ||
 			confirmationState == apimodels.TransactionStateConfirmed.String() ||
 			confirmationState == apimodels.TransactionStateFinalized.String() {
@@ -114,7 +115,7 @@ func AwaitAddressUnspentOutputToBeAccepted(clt models.Client, addr iotago.Addres
 			}
 
 			if len(unspents) == 0 {
-				UtilsLogger.Debugf("no unspent outputs found in indexer for address: %s", addrBech)
+				log.Debugf("no unspent outputs found in indexer for address: %s", addrBech)
 				break
 			}
 

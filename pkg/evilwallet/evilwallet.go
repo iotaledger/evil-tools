@@ -1,7 +1,6 @@
 package evilwallet
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -22,8 +21,15 @@ import (
 
 const (
 	// FaucetRequestSplitNumber defines the number of outputs to split from a faucet request.
-	FaucetRequestSplitNumber                  = 120
-	faucetTokensPerRequest   iotago.BaseToken = 432_000_000
+	FaucetRequestSplitNumber = 50
+	// MaxBigWalletsCreatedAtOnce is maximum of evil wallets that can be created at once for non-infinite spam.
+	MaxBigWalletsCreatedAtOnce = 10
+	// BigFaucetWalletDeposit indicates the minimum outputs left number that triggers funds requesting in the background.
+	BigFaucetWalletDeposit = 4
+	// CheckFundsLeftInterval is the interval to check funds left in the background for requesting funds triggering.
+	CheckFundsLeftInterval = time.Second * 5
+	// BigFaucetWalletsAtOnce number of faucet wallets requested at once in the background.
+	BigFaucetWalletsAtOnce = 2
 )
 
 var (
@@ -213,7 +219,7 @@ func (e *EvilWallet) RequestFreshBigFaucetWallets(numberOfWallets int) bool {
 	}
 	wg.Wait()
 
-	e.log.Debugf("Finished requesting %d wallets from faucet", numberOfWallets)
+	e.log.Debugf("Finished requesting %d wallets from faucet, outputs available: %d", numberOfWallets, e.UnspentOutputsLeft(Fresh))
 
 	return success
 }
@@ -464,26 +470,9 @@ func (e *EvilWallet) CreateTransaction(options ...Option) (*models.PayloadIssuan
 	e.addOutputsToOutputManager(signedTx, buildOptions.outputWallet, tempWallet, tempAddresses)
 	e.registerOutputAliases(signedTx, addrAliasMap)
 
-	e.log.Debugf("\n %s", printTransaction(signedTx))
+	//e.log.Debugf("\n %s", printTransaction(signedTx))
 
 	return txData, nil
-}
-
-func printTransaction(tx *iotago.SignedTransaction) string {
-	txDetails := ""
-	txDetails += fmt.Sprintf("Transaction ID; %s, slotCreation: %d\n", lo.PanicOnErr(tx.ID()).ToHex(), tx.Transaction.CreationSlot)
-	for index, out := range tx.Transaction.Outputs {
-		txDetails += fmt.Sprintf("Output index: %d, base token: %d, stored mana: %d\n", index, out.BaseTokenAmount(), out.StoredMana())
-	}
-	txDetails += fmt.Sprintln("Allotments:")
-	for _, allotment := range tx.Transaction.Allotments {
-		txDetails += fmt.Sprintf("AllotmentID: %s, value: %d\n", allotment.AccountID, allotment.Mana)
-	}
-	for _, allotment := range tx.Transaction.TransactionEssence.Allotments {
-		txDetails += fmt.Sprintf("al 2 AllotmentID: %s, value: %d\n", allotment.AccountID, allotment.Mana)
-	}
-
-	return txDetails
 }
 
 // addOutputsToOutputManager adds output to the OutputManager if.
@@ -762,7 +751,6 @@ func (e *EvilWallet) updateOutputBalances(buildOptions *Options) (err error) {
 }
 
 func (e *EvilWallet) makeTransaction(inputs []*models.Output, outputs iotago.Outputs[iotago.Output], w *Wallet, congestionResponse *apimodels.CongestionResponse, issuerAccountID iotago.AccountID) (tx *iotago.SignedTransaction, err error) {
-	e.log.Debugf("makeTransaction len(outputs): %d", len(outputs))
 	clt := e.Connector().GetClient()
 	currentTime := time.Now()
 	targetSlot := clt.LatestAPI().TimeProvider().SlotFromTime(currentTime)

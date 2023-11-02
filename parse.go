@@ -4,12 +4,12 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/iotaledger/evil-tools/pkg/accountwallet"
 	"github.com/iotaledger/evil-tools/pkg/evilwallet"
+	"github.com/iotaledger/evil-tools/pkg/spammer"
 	"github.com/iotaledger/hive.go/ierrors"
 )
 
@@ -56,12 +56,11 @@ func parseOptionFlagSet(flagSet *flag.FlagSet, args ...[]string) {
 
 func parseBasicSpamFlags() {
 	urls := optionFlagSet.String("urls", "", "API urls for clients used in test separated with commas")
-	spamTypes := optionFlagSet.String("spammer", "", "Spammers used during test. Format: strings separated with comma, available options: 'blk' - block,"+
+	spamType := optionFlagSet.String("spammer", "", "Spammers used during test. Format: strings separated with comma, available options: 'blk' - block,"+
 		" 'tx' - transaction, 'ds' - double spends spammers, 'nds' - n-spends spammer, 'custom' - spams with provided scenario, 'bb' - blowball")
-	rate := optionFlagSet.String("rate", "", "Spamming rate for provided 'spammer'. Format: numbers separated with comma, e.g. 10,100,1 if three spammers were provided for 'spammer' parameter.")
-	duration := optionFlagSet.String("duration", "", "Spam duration. Cannot be combined with flag 'blkNum'. Format: separated by commas list of decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
-	blkNum := optionFlagSet.String("blkNum", "", "Spam duration in seconds. Cannot be combined with flag 'duration'. Format: numbers separated with comma, e.g. 10,100,1 if three spammers were provided for 'spammer' parameter.")
-	timeunit := optionFlagSet.Duration("tu", customSpamParams.TimeUnit, "Time unit for the spamming rate. Format: decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
+	rate := optionFlagSet.Int("rate", customSpamParams.Rate, "Spamming rate for provided 'spammer'. Format: numbers separated with comma, e.g. 10,100,1 if three spammers were provided for 'spammer' parameter.")
+	duration := optionFlagSet.String("duration", "", "Spam duration. If not provided spam will lats infinitely. Format: separated by commas list of decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
+	timeunit := optionFlagSet.Duration("unit", customSpamParams.TimeUnit, "Time unit for the spamming rate. Format: decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
 	delayBetweenConflicts := optionFlagSet.Duration("dbc", customSpamParams.DelayBetweenConflicts, "delayBetweenConflicts - Time delay between conflicts in double spend spamming")
 	scenario := optionFlagSet.String("scenario", "", "Name of the EvilBatch that should be used for the spam. By default uses Scenario1. Possible scenarios can be found in evilwallet/customscenarion.go.")
 	deepSpam := optionFlagSet.Bool("deep", customSpamParams.DeepSpam, "Enable the deep spam, by reusing outputs created during the spam.")
@@ -74,26 +73,18 @@ func parseBasicSpamFlags() {
 		parsedUrls := parseCommaSepString(*urls)
 		customSpamParams.ClientURLs = parsedUrls
 	}
-	if *spamTypes != "" {
-		parsedSpamTypes := parseCommaSepString(*spamTypes)
-		customSpamParams.SpamTypes = parsedSpamTypes
-	}
-	if *rate != "" {
-		parsedRates := parseCommaSepInt(*rate)
-		customSpamParams.Rates = parsedRates
-	}
+	customSpamParams.SpamType = *spamType
+	customSpamParams.Rate = *rate
 	if *duration != "" {
-		parsedDurations := parseDurations(*duration)
-		customSpamParams.Durations = parsedDurations
-	}
-	if *blkNum != "" {
-		parsedBlkNums := parseCommaSepInt(*blkNum)
-		customSpamParams.BlkToBeSent = parsedBlkNums
+		customSpamParams.Duration, _ = time.ParseDuration(*duration)
+	} else {
+		customSpamParams.Duration = spammer.InfiniteDuration
 	}
 	if *scenario != "" {
 		conflictBatch, ok := evilwallet.GetScenario(*scenario)
 		if ok {
 			customSpamParams.Scenario = conflictBatch
+			customSpamParams.ScenarioName = *scenario
 		}
 	}
 
@@ -103,14 +94,6 @@ func parseBasicSpamFlags() {
 	customSpamParams.DelayBetweenConflicts = *delayBetweenConflicts
 	if *account != "" {
 		customSpamParams.AccountAlias = *account
-	}
-
-	// fill in unused parameter: blkNum or duration with zeros
-	if *duration == "" && *blkNum != "" {
-		customSpamParams.Durations = make([]time.Duration, len(customSpamParams.BlkToBeSent))
-	}
-	if *blkNum == "" && *duration != "" {
-		customSpamParams.BlkToBeSent = make([]int, len(customSpamParams.Durations))
 	}
 }
 
@@ -435,24 +418,4 @@ func parseCommaSepString(urls string) []string {
 	split := strings.Split(urls, ",")
 
 	return split
-}
-
-func parseCommaSepInt(nums string) []int {
-	split := strings.Split(nums, ",")
-	parsed := make([]int, len(split))
-	for i, num := range split {
-		parsed[i], _ = strconv.Atoi(num)
-	}
-
-	return parsed
-}
-
-func parseDurations(durations string) []time.Duration {
-	split := strings.Split(durations, ",")
-	parsed := make([]time.Duration, len(split))
-	for i, dur := range split {
-		parsed[i], _ = time.ParseDuration(dur)
-	}
-
-	return parsed
 }

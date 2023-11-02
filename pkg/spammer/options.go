@@ -64,19 +64,6 @@ func WithRateSetter(enable bool) Options {
 	}
 }
 
-// WithBatchesSent provides spammer with options regarding rate, time unit, and finishing spam criteria. Provide 0 to one of max parameters to skip it.
-func WithBatchesSent(maxBatchesSent int) Options {
-	return func(s *Spammer) {
-		if s.SpamDetails == nil {
-			s.SpamDetails = &SpamDetails{
-				MaxBatchesSent: maxBatchesSent,
-			}
-		} else {
-			s.SpamDetails.MaxBatchesSent = maxBatchesSent
-		}
-	}
-}
-
 // WithEvilWallet provides evil wallet instance, that will handle all spam logic according to provided EvilScenario.
 func WithEvilWallet(initWallets *evilwallet.EvilWallet) Options {
 	return func(s *Spammer) {
@@ -113,9 +100,10 @@ func WithBlowballSize(size int) Options {
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type SpamDetails struct {
-	Rate           int
-	TimeUnit       time.Duration
-	MaxDuration    time.Duration
+	Rate        int
+	TimeUnit    time.Duration
+	MaxDuration time.Duration
+	// calculated based on duration, 0 for infinite spamming
 	MaxBatchesSent int
 	BlowballSize   int
 }

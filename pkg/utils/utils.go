@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"go.uber.org/atomic"
@@ -15,7 +16,7 @@ import (
 
 const (
 	MaxRetries    = 20
-	AwaitInterval = 1 * time.Second
+	AwaitInterval = 2 * time.Second
 )
 
 // SplitBalanceEqually splits the balance equally between `splitNumber` outputs.
@@ -36,7 +37,7 @@ func SplitBalanceEqually(splitNumber int, balance iotago.BaseToken) []iotago.Bas
 	return outputBalances
 }
 
-// AwaitTransactionToBeAccepted awaits for acceptance of a single transaction.
+// AwaitBlockToBeConfirmed awaits for acceptance of a single transaction.
 func AwaitBlockToBeConfirmed(clt models.Client, blkID iotago.BlockID) error {
 	for i := 0; i < MaxRetries; i++ {
 		state := clt.GetBlockConfirmationState(blkID)
@@ -56,9 +57,9 @@ func AwaitBlockToBeConfirmed(clt models.Client, blkID iotago.BlockID) error {
 // AwaitTransactionToBeAccepted awaits for acceptance of a single transaction.
 func AwaitTransactionToBeAccepted(clt models.Client, txID iotago.TransactionID, txLeft *atomic.Int64) error {
 	for i := 0; i < MaxRetries; i++ {
-		resp, err := clt.GetBlockStateFromTransaction(txID)
+		resp, _ := clt.GetBlockStateFromTransaction(txID)
 		if resp == nil {
-			UtilsLogger.Debugf("Block state API error: %v", err)
+			time.Sleep(AwaitInterval)
 
 			continue
 		}
@@ -138,4 +139,21 @@ func AwaitOutputToBeAccepted(clt models.Client, outputID iotago.OutputID) bool {
 	}
 
 	return false
+}
+
+func PrintTransaction(tx *iotago.SignedTransaction) string {
+	txDetails := ""
+	txDetails += fmt.Sprintf("Transaction ID; %s, slotCreation: %d\n", lo.PanicOnErr(tx.ID()).ToHex(), tx.Transaction.CreationSlot)
+	for index, out := range tx.Transaction.Outputs {
+		txDetails += fmt.Sprintf("Output index: %d, base token: %d, stored mana: %d\n", index, out.BaseTokenAmount(), out.StoredMana())
+	}
+	txDetails += fmt.Sprintln("Allotments:")
+	for _, allotment := range tx.Transaction.Allotments {
+		txDetails += fmt.Sprintf("AllotmentID: %s, value: %d\n", allotment.AccountID, allotment.Mana)
+	}
+	for _, allotment := range tx.Transaction.TransactionEssence.Allotments {
+		txDetails += fmt.Sprintf("al 2 AllotmentID: %s, value: %d\n", allotment.AccountID, allotment.Mana)
+	}
+
+	return txDetails
 }

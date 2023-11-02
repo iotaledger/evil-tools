@@ -10,23 +10,18 @@ import (
 	"github.com/iotaledger/evil-tools/spammer"
 )
 
-const (
-	maxBigWalletsCreatedAtOnce = 10
-	checkFundsLeftInterval     = time.Second * 20
-)
-
 var log = logger.New("customSpam")
 
 func requestFaucetFunds(params *CustomSpamParams, w *evilwallet.EvilWallet) <-chan bool {
 	if params.SpamType == spammer.TypeBlock {
 		return nil
 	}
-	var numOfBigWallets = 2
+	var numOfBigWallets = evilwallet.BigFaucetWalletsAtOnce
 	if params.Duration >= 0 {
 		numOfBigWallets = spammer.BigWalletsNeeded(params.Rate, params.TimeUnit, params.Duration)
-		if numOfBigWallets > maxBigWalletsCreatedAtOnce {
-			numOfBigWallets = maxBigWalletsCreatedAtOnce
-			log.Warnf("Reached maximum number of big wallets created at once: %d, use infinite spam instead", maxBigWalletsCreatedAtOnce)
+		if numOfBigWallets > evilwallet.MaxBigWalletsCreatedAtOnce {
+			numOfBigWallets = evilwallet.MaxBigWalletsCreatedAtOnce
+			log.Warnf("Reached maximum number of big wallets created at once: %d, use infinite spam instead", evilwallet.MaxBigWalletsCreatedAtOnce)
 		}
 	}
 	success := w.RequestFreshBigFaucetWallets(numOfBigWallets)
@@ -41,13 +36,14 @@ func requestFaucetFunds(params *CustomSpamParams, w *evilwallet.EvilWallet) <-ch
 		return nil
 	}
 	var requestingChan = make(<-chan bool)
+	var errorChan = make(chan<- error)
 	log.Debugf("Start requesting faucet funds infinitely...")
-	go requestInfinitely(w, requestingChan)
+	go requestInfinitely(w, requestingChan, errorChan)
 
 	return requestingChan
 }
 
-func requestInfinitely(w *evilwallet.EvilWallet, done <-chan bool) {
+func requestInfinitely(w *evilwallet.EvilWallet, done <-chan bool, errChan chan<- error) {
 	for {
 		select {
 		case <-done:
@@ -55,14 +51,14 @@ func requestInfinitely(w *evilwallet.EvilWallet, done <-chan bool) {
 
 			return
 
-		case <-time.After(checkFundsLeftInterval):
+		case <-time.After(evilwallet.CheckFundsLeftInterval):
 			outputsLeft := w.UnspentOutputsLeft(evilwallet.Fresh)
-			// less than one big wallet left
-			if outputsLeft < evilwallet.FaucetRequestSplitNumber*evilwallet.FaucetRequestSplitNumber {
+			// keep requesting over and over until we have at least deposit
+			if outputsLeft < evilwallet.BigFaucetWalletDeposit*evilwallet.FaucetRequestSplitNumber*evilwallet.FaucetRequestSplitNumber {
 				log.Debugf("Requesting new faucet funds, outputs left: %d", outputsLeft)
-				err := w.RequestFreshBigFaucetWallet()
-				if err != nil {
-					log.Errorf("Failed to request faucet wallet: %s, stopping next requests...", err)
+				success := w.RequestFreshBigFaucetWallets(evilwallet.BigFaucetWalletsAtOnce)
+				if !success {
+					log.Errorf("Failed to request faucet wallet: %s, stopping next requests..., stopping spammer")
 
 					return
 				}

@@ -5,8 +5,8 @@ import (
 
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/evil-tools/evilwallet"
-	"github.com/iotaledger/evil-tools/models"
+	"github.com/iotaledger/evil-tools/pkg/evilwallet"
+	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/app/configuration"
 	appLogger "github.com/iotaledger/hive.go/app/logger"
 	"github.com/iotaledger/hive.go/ds/types"
@@ -24,6 +24,10 @@ const (
 	TypeCustom   = "custom"
 	TypeAccounts = "accounts"
 	TypeBlowball = "bb"
+)
+
+const (
+	InfiniteDuration = time.Duration(-1)
 )
 
 // region Spammer //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -147,12 +151,8 @@ func (s *Spammer) setupSpamDetails() {
 	if s.SpamDetails.TimeUnit == 0 {
 		s.SpamDetails.TimeUnit = time.Second
 	}
-	// provided only maxBlkSent, calculating the default max for maxDuration
-	if s.SpamDetails.MaxDuration == 0 && s.SpamDetails.MaxBatchesSent > 0 {
-		s.SpamDetails.MaxDuration = time.Hour * 100
-	}
 	// provided only maxDuration, calculating the default max for maxBlkSent
-	if s.SpamDetails.MaxBatchesSent == 0 && s.SpamDetails.MaxDuration > 0 {
+	if s.SpamDetails.MaxDuration > 0 {
 		s.SpamDetails.MaxBatchesSent = int(s.SpamDetails.MaxDuration.Seconds()/s.SpamDetails.TimeUnit.Seconds()*float64(s.SpamDetails.Rate)) + 1
 	}
 }
@@ -178,7 +178,12 @@ func (s *Spammer) Spam() {
 	s.log.Infof("Start spamming transactions with %d rate", s.SpamDetails.Rate)
 
 	s.State.spamStartTime = time.Now()
-	timeExceeded := time.After(s.SpamDetails.MaxDuration)
+
+	var timeExceeded <-chan time.Time
+	// if duration less than zero then spam infinitely
+	if s.SpamDetails.MaxDuration >= 0 {
+		timeExceeded = time.After(s.SpamDetails.MaxDuration)
+	}
 
 	go func() {
 		goroutineCount := atomic.NewInt32(0)
@@ -212,7 +217,7 @@ func (s *Spammer) Spam() {
 }
 
 func (s *Spammer) CheckIfAllSent() {
-	if s.State.batchPrepared.Load() >= int64(s.SpamDetails.MaxBatchesSent) {
+	if s.SpamDetails.MaxDuration >= 0 && s.State.batchPrepared.Load() >= int64(s.SpamDetails.MaxBatchesSent) {
 		s.log.Infof("Maximum number of blocks sent, stopping spammer...")
 		s.done <- true
 	}
@@ -300,7 +305,10 @@ func (s *Spammer) PrepareAndPostBlock(txData *models.PayloadIssuanceData, issuer
 		}
 	}
 	count := s.State.txSent.Add(1)
-	s.log.Debugf("Last block sent, ID: %s, txCount: %d", blockID.ToHex(), count)
+	//s.log.Debugf("Last block sent, ID: %s, txCount: %d", blockID.ToHex(), count)
+	if count%200 == 0 {
+		s.log.Infof("Blocks issued so far: %d, errors encountered: %d", count, s.ErrCounter.GetTotalErrorCount())
+	}
 
 	return blockID
 }

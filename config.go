@@ -3,10 +3,10 @@ package main
 import (
 	"time"
 
-	"github.com/iotaledger/evil-tools/accountwallet"
-	"github.com/iotaledger/evil-tools/evilwallet"
+	"github.com/iotaledger/evil-tools/pkg/accountwallet"
+	"github.com/iotaledger/evil-tools/pkg/evilwallet"
+	"github.com/iotaledger/evil-tools/pkg/spammer"
 	"github.com/iotaledger/evil-tools/programs"
-	"github.com/iotaledger/evil-tools/spammer"
 )
 
 // Nodes used during the test, use at least two nodes to be able to double spend.
@@ -21,14 +21,13 @@ var (
 	customSpamParams = programs.CustomSpamParams{
 		ClientURLs:            urls,
 		FaucetURL:             "http://localhost:8088",
-		SpamTypes:             []string{spammer.TypeBlock},
-		Rates:                 []int{1},
-		Durations:             []time.Duration{time.Second * 20},
-		BlkToBeSent:           []int{0},
+		SpamType:              spammer.TypeBlock,
+		Rate:                  1,
 		TimeUnit:              time.Second,
 		DelayBetweenConflicts: 0,
 		NSpend:                2,
 		Scenario:              evilwallet.Scenario1(),
+		ScenarioName:          "guava",
 		DeepSpam:              false,
 		EnableRateSetter:      false,
 		AccountAlias:          accountwallet.FaucetAccountAlias,

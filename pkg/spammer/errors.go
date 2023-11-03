@@ -52,6 +52,9 @@ func (e *ErrorCounter) GetTotalErrorCount() int64 {
 }
 
 func (e *ErrorCounter) GetErrorsSummary() string {
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+
 	if len(e.errorsMap) == 0 {
 		return "No errors encountered"
 	}

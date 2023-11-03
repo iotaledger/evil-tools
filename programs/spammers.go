@@ -1,98 +1,142 @@
 package programs
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
-	"github.com/iotaledger/evil-tools/accountwallet"
-	"github.com/iotaledger/evil-tools/evilwallet"
-	"github.com/iotaledger/evil-tools/logger"
-	"github.com/iotaledger/evil-tools/spammer"
+	"github.com/iotaledger/evil-tools/pkg/accountwallet"
+	"github.com/iotaledger/evil-tools/pkg/evilwallet"
+	"github.com/iotaledger/evil-tools/pkg/spammer"
+	"github.com/iotaledger/evil-tools/pkg/utils"
 )
 
-var log = logger.New("customSpam")
+var log = utils.NewLogger("customSpam")
+
+func requestFaucetFunds(params *CustomSpamParams, w *evilwallet.EvilWallet) <-chan bool {
+	if params.SpamType == spammer.TypeBlock {
+		return nil
+	}
+	var numOfBigWallets = evilwallet.BigFaucetWalletsAtOnce
+	if params.Duration != spammer.InfiniteDuration {
+		numOfBigWallets = spammer.BigWalletsNeeded(params.Rate, params.TimeUnit, params.Duration)
+		if numOfBigWallets > evilwallet.MaxBigWalletsCreatedAtOnce {
+			numOfBigWallets = evilwallet.MaxBigWalletsCreatedAtOnce
+			log.Warnf("Reached maximum number of big wallets created at once: %d, use infinite spam instead", evilwallet.MaxBigWalletsCreatedAtOnce)
+		}
+	}
+	success := w.RequestFreshBigFaucetWallets(numOfBigWallets)
+	if !success {
+		log.Errorf("Failed to request faucet wallet")
+		return nil
+	}
+	if params.Duration != spammer.InfiniteDuration {
+		unspentOutputsLeft := w.UnspentOutputsLeft(evilwallet.Fresh)
+		log.Debugf("Prepared %d unspent outputs for spamming.", unspentOutputsLeft)
+
+		return nil
+	}
+	var requestingChan = make(<-chan bool)
+	log.Debugf("Start requesting faucet funds infinitely...")
+	go requestInfinitely(w, requestingChan)
+
+	return requestingChan
+}
+
+func requestInfinitely(w *evilwallet.EvilWallet, done <-chan bool) {
+	for {
+		select {
+		case <-done:
+			log.Debug("Shutdown signal. Stopping requesting faucet funds for spam: %d", 0)
+
+			return
+
+		case <-time.After(evilwallet.CheckFundsLeftInterval):
+			outputsLeft := w.UnspentOutputsLeft(evilwallet.Fresh)
+			// keep requesting over and over until we have at least deposit
+			if outputsLeft < evilwallet.BigFaucetWalletDeposit*evilwallet.FaucetRequestSplitNumber*evilwallet.FaucetRequestSplitNumber {
+				log.Debugf("Requesting new faucet funds, outputs left: %d", outputsLeft)
+				success := w.RequestFreshBigFaucetWallets(evilwallet.BigFaucetWalletsAtOnce)
+				if !success {
+					log.Errorf("Failed to request faucet wallet: %s, stopping next requests..., stopping spammer")
+
+					return
+				}
+
+				log.Debugf("Requesting finished, currently available: %d unspent outputs for spamming.", w.UnspentOutputsLeft(evilwallet.Fresh))
+			}
+		}
+	}
+}
 
 func CustomSpam(params *CustomSpamParams, accWallet *accountwallet.AccountWallet) {
 	w := evilwallet.NewEvilWallet(evilwallet.WithClients(params.ClientURLs...), evilwallet.WithAccountsWallet(accWallet))
 	wg := sync.WaitGroup{}
 
-	for i, sType := range params.SpamTypes {
-		log.Infof("Start spamming with rate: %d, time unit: %s, and spamming type: %s.", params.Rates[i], params.TimeUnit.String(), sType)
+	log.Infof("Start spamming with rate: %d, time unit: %s, and spamming type: %s.", params.Rate, params.TimeUnit.String(), params.SpamType)
 
-		if sType != spammer.TypeBlock && sType != spammer.TypeBlowball {
-			numOfBigWallets := spammer.BigWalletsNeeded(params.Rates[i], params.TimeUnit, params.Durations[i])
-			fmt.Println("numOfBigWallets: ", numOfBigWallets)
-			success := w.RequestFreshBigFaucetWallets(numOfBigWallets)
-			if !success {
-				log.Errorf("Failed to request faucet wallet")
+	// TODO here we can shutdown requesting when we will have evil-tools running in the background.
+	_ = requestFaucetFunds(params, w)
 
+	sType := params.SpamType
+
+	switch sType {
+	case spammer.TypeBlock:
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			s := SpamBlocks(w, params.Rate, params.TimeUnit, params.Duration, params.EnableRateSetter, params.AccountAlias)
+			if s == nil {
 				return
 			}
+			s.Spam()
+		}()
+	case spammer.TypeBlowball:
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
 
-			unspentOutputsLeft := w.UnspentOutputsLeft(evilwallet.Fresh)
-			log.Debugf("Prepared %d unspent outputs for spamming.", unspentOutputsLeft)
-		}
+			s := SpamBlowball(w, params.Rate, params.TimeUnit, params.Duration, params.BlowballSize, params.EnableRateSetter, params.AccountAlias)
+			if s == nil {
+				return
+			}
+			s.Spam()
+		}()
+	case spammer.TypeTx:
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			SpamTransaction(w, params.Rate, params.TimeUnit, params.Duration, params.DeepSpam, params.EnableRateSetter, params.AccountAlias)
+		}()
+	case spammer.TypeDs:
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			SpamDoubleSpends(w, params.Rate, params.NSpend, params.TimeUnit, params.Duration, params.DelayBetweenConflicts, params.DeepSpam, params.EnableRateSetter, params.AccountAlias)
+		}()
+	case spammer.TypeCustom:
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			s := SpamNestedConflicts(w, params.Rate, params.TimeUnit, params.Duration, params.Scenario, params.DeepSpam, false, params.EnableRateSetter, params.AccountAlias)
+			if s == nil {
+				return
+			}
+			s.Spam()
+		}()
+	case spammer.TypeAccounts:
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
 
-		switch sType {
-		case spammer.TypeBlock:
-			wg.Add(1)
-			go func(i int) {
-				defer wg.Done()
-				s := SpamBlocks(w, params.Rates[i], params.TimeUnit, params.Durations[i], params.BlkToBeSent[i], params.EnableRateSetter, params.AccountAlias)
-				if s == nil {
-					return
-				}
-				s.Spam()
-			}(i)
-		case spammer.TypeBlowball:
-			wg.Add(1)
-			go func(i int) {
-				defer wg.Done()
+			s := SpamAccounts(w, params.Rate, params.TimeUnit, params.Duration, params.EnableRateSetter, params.AccountAlias)
+			if s == nil {
+				return
+			}
+			s.Spam()
+		}()
 
-				s := SpamBlowball(w, params.Rates[i], params.TimeUnit, params.Durations[i], params.BlowballSize, params.EnableRateSetter, params.AccountAlias)
-				if s == nil {
-					return
-				}
-				s.Spam()
-			}(i)
-		case spammer.TypeTx:
-			wg.Add(1)
-			go func(i int) {
-				defer wg.Done()
-				SpamTransaction(w, params.Rates[i], params.TimeUnit, params.Durations[i], params.DeepSpam, params.EnableRateSetter, params.AccountAlias)
-			}(i)
-		case spammer.TypeDs:
-			wg.Add(1)
-			go func(i int) {
-				defer wg.Done()
-				SpamDoubleSpends(w, params.Rates[i], params.NSpend, params.TimeUnit, params.Durations[i], params.DelayBetweenConflicts, params.DeepSpam, params.EnableRateSetter, params.AccountAlias)
-			}(i)
-		case spammer.TypeCustom:
-			wg.Add(1)
-			go func(i int) {
-				defer wg.Done()
-				s := SpamNestedConflicts(w, params.Rates[i], params.TimeUnit, params.Durations[i], params.Scenario, params.DeepSpam, false, params.EnableRateSetter, params.AccountAlias)
-				if s == nil {
-					return
-				}
-				s.Spam()
-			}(i)
-		case spammer.TypeAccounts:
-			wg.Add(1)
-			go func(i int) {
-				defer wg.Done()
-
-				s := SpamAccounts(w, params.Rates[i], params.TimeUnit, params.Durations[i], params.EnableRateSetter, params.AccountAlias)
-				if s == nil {
-					return
-				}
-				s.Spam()
-			}(i)
-
-		default:
-			log.Warn("Spamming type not recognized. Try one of following: tx, ds, blk, custom, commitments")
-		}
+	default:
+		log.Warn("Spamming type not recognized. Try one of following: tx, ds, blk, custom, commitments")
 	}
 
 	wg.Wait()
@@ -194,7 +238,7 @@ func SpamNestedConflicts(w *evilwallet.EvilWallet, rate int, timeUnit, duration 
 	return spammer.NewSpammer(options...)
 }
 
-func SpamBlocks(w *evilwallet.EvilWallet, rate int, timeUnit, duration time.Duration, numBlkToSend int, enableRateSetter bool, accountAlias string) *spammer.Spammer {
+func SpamBlocks(w *evilwallet.EvilWallet, rate int, timeUnit, duration time.Duration, enableRateSetter bool, accountAlias string) *spammer.Spammer {
 	if w.NumOfClient() < 1 {
 		log.Infof("Warning: At least one client is needed to spam.")
 	}
@@ -202,7 +246,6 @@ func SpamBlocks(w *evilwallet.EvilWallet, rate int, timeUnit, duration time.Dura
 	options := []spammer.Options{
 		spammer.WithSpamRate(rate, timeUnit),
 		spammer.WithSpamDuration(duration),
-		spammer.WithBatchesSent(numBlkToSend),
 		spammer.WithRateSetter(enableRateSetter),
 		spammer.WithEvilWallet(w),
 		spammer.WithSpammingFunc(spammer.DataSpammingFunction),

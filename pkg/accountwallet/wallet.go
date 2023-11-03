@@ -10,8 +10,8 @@ import (
 
 	"github.com/mr-tron/base58"
 
-	"github.com/iotaledger/evil-tools/logger"
-	"github.com/iotaledger/evil-tools/models"
+	"github.com/iotaledger/evil-tools/pkg/models"
+	"github.com/iotaledger/evil-tools/pkg/utils"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/timeutil"
@@ -22,7 +22,7 @@ import (
 	"github.com/iotaledger/iota.go/v4/tpkg"
 )
 
-var log = logger.New("AccountWallet")
+var log = utils.NewLogger("AccountWallet")
 
 func Run(config *Configuration) (*AccountWallet, error) {
 	var opts []options.Option[AccountWallet]

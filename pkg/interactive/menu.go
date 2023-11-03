@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/iotaledger/evil-tools/evilwallet"
+	"github.com/iotaledger/evil-tools/pkg/evilwallet"
 )
 
 // region Printer /////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -75,7 +75,7 @@ func (p *Printer) EvilWalletStatus() {
 
 func (p *Printer) SpammerSettings() {
 	rateUnit := "[mpm]"
-	if p.mode.Config.timeUnit == time.Second {
+	if p.mode.innerConfig.timeUnit == time.Second {
 		rateUnit = "[mps]"
 	}
 	p.PrintTopLine()
@@ -83,7 +83,7 @@ func (p *Printer) SpammerSettings() {
 	p.PrintlnPoint(fmt.Sprintf("Scenario: %s", p.mode.Config.Scenario), level2)
 	p.PrintlnPoint(fmt.Sprintf("Deep: %v, Reuse: %v", p.mode.Config.Deep, p.mode.Config.Reuse), level2)
 	p.PrintlnPoint(fmt.Sprintf("Use rate-setter: %v", p.mode.Config.UseRateSetter), level2)
-	p.PrintlnPoint(fmt.Sprintf("Rate: %d%s, Duration: %d[s]", p.mode.Config.Rate, rateUnit, int(p.mode.Config.duration.Seconds())), level2)
+	p.PrintlnPoint(fmt.Sprintf("Rate: %d%s, Duration: %d[s]", p.mode.Config.Rate, rateUnit, int(p.mode.innerConfig.duration.Seconds())), level2)
 	p.PrintLine()
 	fmt.Println()
 }
@@ -128,7 +128,7 @@ func (p *Printer) NotEnoughClientsWarning(numOfClient int) {
 
 func (p *Printer) clients() {
 	p.Println(p.colorString("Provided clients:", "cyan"), level1)
-	for url := range p.mode.Config.clientURLs {
+	for url := range p.mode.innerConfig.clientURLs {
 		p.PrintlnPoint(url, level2)
 	}
 }
@@ -175,7 +175,7 @@ func (p *Printer) CurrentSpams() {
 	for id := range p.mode.activeSpammers {
 		details := p.mode.spammerLog.SpamDetails(id)
 		startTime := p.mode.spammerLog.StartTime(id)
-		endTime := startTime.Add(details.duration)
+		endTime := startTime.Add(p.mode.innerConfig.duration)
 		timeLeft := int(time.Until(endTime).Seconds())
 		lines = append(lines, fmt.Sprintf("ID: %d, scenario: %s, time left: %d [s]", id, details.Scenario, timeLeft))
 	}

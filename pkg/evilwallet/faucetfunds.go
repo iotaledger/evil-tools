@@ -227,25 +227,17 @@ func (e *EvilWallet) splitOutputs(inputWallet, outputWallet *Wallet) ([]iotago.T
 }
 
 func (e *EvilWallet) createSplitOutputs(input *models.Output, receiveWallet *Wallet) ([]*OutputOption, error) {
-	clt := e.Connector().GetClient()
 	totalAmount := input.Balance
 	splitNumber := FaucetRequestSplitNumber
+	minDeposit := e.minOutputStorageDeposit
 
 	// make sure the amount of output covers the min deposit
-	minDeposit, err := clt.CommittedAPI().StorageScoreStructure().MinDeposit(input.OutputStruct)
-	if err != nil {
-		e.log.Errorf("Failed to get min deposit: %s", err)
-
-		return nil, ierrors.Wrapf(err, "failed to get min deposit for basic output")
-	}
-
 	amountPerOutput, err := safemath.SafeDiv(totalAmount, iotago.BaseToken(splitNumber))
 	if err != nil {
 		e.log.Errorf("Failed to calculate amount per output, total amount %d, splitted amount %d: %s", totalAmount, 128, err)
 	}
 
 	if amountPerOutput < minDeposit {
-		minDeposit = iotago.BaseToken(float64(minDeposit) * 1.1)
 		outputsNum, err := safemath.SafeDiv(totalAmount, minDeposit)
 		if err != nil {
 			e.log.Errorf("Failed to calculate split number, total amount %d, splitted amount %d: %s", totalAmount, minDeposit, err)

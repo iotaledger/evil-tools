@@ -19,6 +19,7 @@ import (
 )
 
 const (
+	MinOutputStorageDeposit = iotago.BaseToken(500)
 	// MaxBigWalletsCreatedAtOnce is maximum of evil wallets that can be created at once for non-infinite spam.
 	MaxBigWalletsCreatedAtOnce = 10
 	// BigFaucetWalletDeposit indicates the minimum outputs left number that triggers funds requesting in the background.
@@ -44,6 +45,8 @@ type EvilWallet struct {
 	outputManager *OutputManager
 	aliasManager  *AliasManager
 
+	minOutputStorageDeposit iotago.BaseToken
+
 	optsClientURLs []string
 	optsFaucetURL  string
 	log            *logger.Logger
@@ -52,15 +55,22 @@ type EvilWallet struct {
 // NewEvilWallet creates an EvilWallet instance.
 func NewEvilWallet(opts ...options.Option[EvilWallet]) *EvilWallet {
 	return options.Apply(&EvilWallet{
-		wallets:        NewWallets(),
-		aliasManager:   NewAliasManager(),
-		optsClientURLs: defaultClientsURLs,
-		optsFaucetURL:  defaultFaucetURL,
-		log:            utils.NewLogger("EvilWallet"),
+		wallets:                 NewWallets(),
+		aliasManager:            NewAliasManager(),
+		minOutputStorageDeposit: MinOutputStorageDeposit,
+		optsClientURLs:          defaultClientsURLs,
+		optsFaucetURL:           defaultFaucetURL,
+		log:                     utils.NewLogger("EvilWallet"),
 	}, opts, func(w *EvilWallet) {
 		connector := models.NewWebClients(w.optsClientURLs, w.optsFaucetURL)
 		w.connector = connector
 		w.outputManager = NewOutputManager(connector, w.wallets, w.log)
+
+		// Get output storage deposit at start
+		minOutputStorageDeposit, err := w.connector.GetClient().CommittedAPI().StorageScoreStructure().MinDeposit(tpkg.RandBasicOutput(iotago.AddressEd25519))
+		if err == nil {
+			w.minOutputStorageDeposit = minOutputStorageDeposit
+		}
 	})
 }
 

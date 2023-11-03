@@ -24,8 +24,7 @@ import (
 
 const (
 	// FaucetRequestSplitNumber defines the number of outputs to split from a faucet request.
-	FaucetRequestSplitNumber                  = 125
-	faucetTokensPerRequest   iotago.BaseToken = 432_000_000
+	FaucetRequestSplitNumber = 125
 )
 
 var (

@@ -1,7 +1,6 @@
 package evilwallet
 
 import (
-	"sync"
 	"time"
 
 	"github.com/iotaledger/evil-tools/pkg/accountwallet"
@@ -20,8 +19,7 @@ import (
 )
 
 const (
-	// FaucetRequestSplitNumber defines the number of outputs to split from a faucet request.
-	FaucetRequestSplitNumber = 50
+	MinOutputStorageDeposit = iotago.BaseToken(500)
 	// MaxBigWalletsCreatedAtOnce is maximum of evil wallets that can be created at once for non-infinite spam.
 	MaxBigWalletsCreatedAtOnce = 10
 	// BigFaucetWalletDeposit indicates the minimum outputs left number that triggers funds requesting in the background.
@@ -41,13 +39,13 @@ var (
 
 // EvilWallet provides a user-friendly way to do complicated double spend scenarios.
 type EvilWallet struct {
-	// faucet is the wallet of faucet
-	faucet        *Wallet
 	wallets       *Wallets
 	accWallet     *accountwallet.AccountWallet
 	connector     models.Connector
 	outputManager *OutputManager
 	aliasManager  *AliasManager
+
+	minOutputStorageDeposit iotago.BaseToken
 
 	optsClientURLs []string
 	optsFaucetURL  string
@@ -57,23 +55,23 @@ type EvilWallet struct {
 // NewEvilWallet creates an EvilWallet instance.
 func NewEvilWallet(opts ...options.Option[EvilWallet]) *EvilWallet {
 	return options.Apply(&EvilWallet{
-		wallets:        NewWallets(),
-		aliasManager:   NewAliasManager(),
-		optsClientURLs: defaultClientsURLs,
-		optsFaucetURL:  defaultFaucetURL,
-		log:            utils.NewLogger("EvilWallet"),
+		wallets:                 NewWallets(),
+		aliasManager:            NewAliasManager(),
+		minOutputStorageDeposit: MinOutputStorageDeposit,
+		optsClientURLs:          defaultClientsURLs,
+		optsFaucetURL:           defaultFaucetURL,
+		log:                     utils.NewLogger("EvilWallet"),
 	}, opts, func(w *EvilWallet) {
 		connector := models.NewWebClients(w.optsClientURLs, w.optsFaucetURL)
 		w.connector = connector
 		w.outputManager = NewOutputManager(connector, w.wallets, w.log)
+
+		// Get output storage deposit at start
+		minOutputStorageDeposit, err := w.connector.GetClient().CommittedAPI().StorageScoreStructure().MinDeposit(tpkg.RandBasicOutput(iotago.AddressEd25519))
+		if err == nil {
+			w.minOutputStorageDeposit = minOutputStorageDeposit
+		}
 	})
-}
-
-func (e *EvilWallet) LastFaucetUnspentOutput() iotago.OutputID {
-	faucetAddr := e.faucet.AddressOnIndex(0)
-	unspentFaucet := e.faucet.UnspentOutput(faucetAddr.String())
-
-	return unspentFaucet.OutputID
 }
 
 // NewWallet creates a new wallet of the given wallet type.
@@ -162,225 +160,6 @@ func (e *EvilWallet) PrepareAndPostBlock(clt models.Client, payload iotago.Paylo
 	}
 
 	return blockID, nil
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// region EvilWallet Faucet Requests ///////////////////////////////////////////////////////////////////////////////////
-
-// RequestFundsFromFaucet requests funds from the faucet, then track the confirmed status of unspent output,
-// also register the alias name for the unspent output if provided.
-func (e *EvilWallet) RequestFundsFromFaucet(options ...FaucetRequestOption) (initWallet *Wallet, err error) {
-	initWallet = e.NewWallet(Fresh)
-	buildOptions := NewFaucetRequestOptions(options...)
-
-	output, err := e.requestFaucetFunds(initWallet)
-	if err != nil {
-		return
-	}
-
-	if buildOptions.outputAliasName != "" {
-		e.aliasManager.AddInputAlias(output, buildOptions.outputAliasName)
-	}
-
-	e.log.Debug("Funds requested successfully")
-
-	return
-}
-
-// RequestFreshBigFaucetWallets creates n new wallets, each wallet is created from one faucet request and contains 1000 outputs.
-func (e *EvilWallet) RequestFreshBigFaucetWallets(numberOfWallets int) bool {
-	e.log.Debugf("Requesting %d wallets from faucet", numberOfWallets)
-	success := true
-	// channel to block the number of concurrent goroutines
-	semaphore := make(chan bool, 1)
-	wg := sync.WaitGroup{}
-
-	for reqNum := 0; reqNum < numberOfWallets; reqNum++ {
-		wg.Add(1)
-
-		// block if full
-		semaphore <- true
-		go func() {
-			defer wg.Done()
-			defer func() {
-				// release
-				<-semaphore
-			}()
-
-			err := e.RequestFreshBigFaucetWallet()
-			if err != nil {
-				success = false
-				e.log.Errorf("Failed to request wallet from faucet: %s", err)
-
-				return
-			}
-		}()
-	}
-	wg.Wait()
-
-	e.log.Debugf("Finished requesting %d wallets from faucet, outputs available: %d", numberOfWallets, e.UnspentOutputsLeft(Fresh))
-
-	return success
-}
-
-// RequestFreshBigFaucetWallet creates a new wallet and fills the wallet with 1000 outputs created from funds
-// requested from the Faucet.
-func (e *EvilWallet) RequestFreshBigFaucetWallet() error {
-	initWallet := NewWallet()
-	receiveWallet := e.NewWallet(Fresh)
-	_, err := e.requestAndSplitFaucetFunds(initWallet, receiveWallet)
-	if err != nil {
-		return ierrors.Wrap(err, "failed to request big funds from faucet")
-	}
-
-	e.log.Debug("First level of splitting finished, now split each output once again")
-	bigOutputWallet := e.NewWallet(Fresh)
-	_, err = e.splitOutputs(receiveWallet, bigOutputWallet)
-	if err != nil {
-		return ierrors.Wrap(err, "failed to again split outputs for the big wallet")
-	}
-
-	e.wallets.SetWalletReady(bigOutputWallet)
-
-	return nil
-}
-
-// RequestFreshFaucetWallet creates a new wallet and fills the wallet with 100 outputs created from funds
-// requested from the Faucet.
-func (e *EvilWallet) RequestFreshFaucetWallet() error {
-	initWallet := NewWallet()
-	receiveWallet := e.NewWallet(Fresh)
-	txID, err := e.requestAndSplitFaucetFunds(initWallet, receiveWallet)
-	if err != nil {
-		return ierrors.Wrap(err, "failed to request funds from faucet")
-	}
-
-	e.outputManager.AwaitTransactionsAcceptance(txID)
-
-	e.wallets.SetWalletReady(receiveWallet)
-
-	return err
-}
-
-func (e *EvilWallet) requestAndSplitFaucetFunds(initWallet, receiveWallet *Wallet) (txID iotago.TransactionID, err error) {
-	splitOutput, err := e.requestFaucetFunds(initWallet)
-	if err != nil {
-		return iotago.EmptyTransactionID, err
-	}
-
-	e.log.Debugf("Faucet funds received, continue spliting output: %s", splitOutput.OutputID.ToHex())
-
-	splitTransactionsID, err := e.splitOutput(splitOutput, initWallet, receiveWallet)
-	if err != nil {
-		return iotago.EmptyTransactionID, ierrors.Wrap(err, "failed to split faucet funds")
-	}
-
-	return splitTransactionsID, nil
-}
-
-func (e *EvilWallet) requestFaucetFunds(wallet *Wallet) (output *models.Output, err error) {
-	receiveAddr := wallet.AddressOnIndex(0)
-	clt := e.connector.GetIndexerClient()
-
-	err = clt.RequestFaucetFunds(receiveAddr)
-	if err != nil {
-		return nil, ierrors.Wrap(err, "failed to request funds from faucet")
-	}
-
-	outputID, iotaOutput, err := utils.AwaitAddressUnspentOutputToBeAccepted(clt, receiveAddr)
-	if err != nil {
-		return nil, ierrors.Wrap(err, "failed to await faucet output acceptance")
-	}
-
-	// update wallet with newly created output
-	output = e.outputManager.createOutputFromAddress(wallet, receiveAddr, iotaOutput.BaseTokenAmount(), outputID, iotaOutput)
-
-	return output, nil
-}
-
-func (e *EvilWallet) splitOutput(splitOutput *models.Output, inputWallet, outputWallet *Wallet) (iotago.TransactionID, error) {
-	outputs := e.createSplitOutputs(splitOutput, FaucetRequestSplitNumber, outputWallet)
-	faucetAccount, err := e.accWallet.GetAccount(accountwallet.FaucetAccountAlias)
-	if err != nil {
-		return iotago.EmptyTransactionID, err
-	}
-	txData, err := e.CreateTransaction(
-		WithInputs(splitOutput),
-		WithOutputs(outputs),
-		WithInputWallet(inputWallet),
-		WithOutputWallet(outputWallet),
-		WithIssuanceStrategy(models.AllotmentStrategyAll, faucetAccount.Account.ID()),
-	)
-	if err != nil {
-		return iotago.EmptyTransactionID, err
-	}
-
-	_, err = e.PrepareAndPostBlock(e.connector.GetClient(), txData.Payload, txData.CongestionResponse, faucetAccount.Account)
-	if err != nil {
-		return iotago.TransactionID{}, err
-	}
-
-	if txData.Payload.PayloadType() != iotago.PayloadSignedTransaction {
-		return iotago.EmptyTransactionID, ierrors.New("payload type is not signed transaction")
-	}
-
-	signedTx, ok := txData.Payload.(*iotago.SignedTransaction)
-	if !ok {
-		return iotago.EmptyTransactionID, ierrors.New("type assertion error: payload is not a signed transaction")
-	}
-	txID := lo.PanicOnErr(signedTx.Transaction.ID())
-	e.log.Debugf("Splitting output %s finished with tx: %s", splitOutput.OutputID.ToHex(), txID.ToHex())
-
-	return txID, nil
-}
-
-// splitOutputs splits all outputs from the provided input wallet, outputs are saved to the outputWallet.
-func (e *EvilWallet) splitOutputs(inputWallet, outputWallet *Wallet) ([]iotago.TransactionID, error) {
-	if inputWallet.IsEmpty() {
-		return nil, ierrors.New("failed to split outputs, inputWallet is empty")
-	}
-
-	if outputWallet == nil {
-		return nil, ierrors.New("failed to split outputs, outputWallet is nil")
-	}
-
-	e.log.Debugf("Splitting %d outputs from wallet no %d", len(inputWallet.UnspentOutputs()), inputWallet.ID)
-	txIDs := make([]iotago.TransactionID, 0)
-	wg := sync.WaitGroup{}
-	// split all outputs stored in the input wallet
-	for addr := range inputWallet.UnspentOutputs() {
-		wg.Add(1)
-
-		go func(addr string) {
-			defer wg.Done()
-
-			input := inputWallet.UnspentOutput(addr)
-			txID, err := e.splitOutput(input, inputWallet, outputWallet)
-			if err != nil {
-				e.log.Errorf("Failed to split output %s: %s", input.OutputID.ToHex(), err)
-
-				return
-			}
-			txIDs = append(txIDs, txID)
-		}(addr)
-	}
-	wg.Wait()
-	e.log.Debug("All blocks with splitting transactions were posted")
-
-	e.outputManager.AwaitTransactionsAcceptance(txIDs...)
-
-	return txIDs, nil
-}
-
-func (e *EvilWallet) createSplitOutputs(input *models.Output, splitNumber int, receiveWallet *Wallet) []*OutputOption {
-	balances := utils.SplitBalanceEqually(splitNumber, input.Balance)
-	outputs := make([]*OutputOption, splitNumber)
-	for i, bal := range balances {
-		outputs[i] = &OutputOption{amount: bal, address: receiveWallet.Address(), outputType: iotago.OutputBasic}
-	}
-
-	return outputs
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////

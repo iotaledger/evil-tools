@@ -9,18 +9,17 @@ go build
 
 ### `spammer`
 Usage of script flag set:
-- account string - Account alias to be used for the spam. Account should be created first with accounts tool.
-- dbc duration - delayBetweenConflicts - Time delay between conflicts in double spend spamming
-- deep - Enable the deep spam, by reusing outputs created during the spam.
-- duration string - 
-Spam duration. If not provided spam will lats infinitely. Format: separated by commas list of decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.
+- `account`:  _string_ - Account alias to be used for the spam. Account should be created first with accounts tool.
+- `dbc`: _duration_ - delayBetweenConflicts - Time delay between conflicts in double spend spamming
+- `deep`: _bool_ - Enable the deep spam, by reusing outputs created during the spam.
+- `duration`: _string_ - Spam duration. If not provided spam will lats infinitely. Format: separated by commas list of decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.
 Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.
-- rate int - Spamming rate for provided 'spammer'. Format: numbers separated with comma, e.g. 10,100,1 if three spammers were provided for 'spammer' parameter. (default 1)
-- scenario string - Name of the EvilBatch that should be used for the spam. By default uses Scenario1. Possible scenarios can be found in evilwallet/customscenarion.go.
-- spammer string - Spammers used during test. Format: strings separated with comma, available options: 'blk' - block, 'tx' - transaction, 'ds' - double spends spammers, 'nds' - n-spends spammer, 'custom' - spams with provided scenario, 'bb' - blowball
-- unit duration - Time unit for the spamming rate. Format: decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.
+- `rate`: _int_ - Spamming rate for provided 'spammer'. Format: numbers separated with comma, e.g. 10,100,1 if three spammers were provided for 'spammer' parameter. (default 1)
+- `scenario`: _string_ - Name of the EvilBatch that should be used for the spam. By default uses Scenario1. Possible scenarios can be found in evilwallet/customscenarion.go.
+- `spammer`: _string_ - Spammers used during test. Format: strings separated with comma, available options: 'blk' - block, 'tx' - transaction, 'ds' - double spends spammers, 'nds' - n-spends spammer, 'custom' - spams with provided scenario, 'bb' - blowball
+- `unit`: _duration_ - Time unit for the spamming rate. Format: decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.
 Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'. (default 1s)
-- urls string - API urls for clients used in test separated with commas
+- `urls`: _string_ - API urls for clients used in test separated with commas
 
 Possible spam scenarios:
 `blk, tx, peace, bb, ds, conflict-circle, guava ,orange, mango, pear, lemon, banana, kiwi`

@@ -15,7 +15,6 @@ import (
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/timeutil"
-	"github.com/iotaledger/iota-core/pkg/blockhandler"
 	"github.com/iotaledger/iota-core/pkg/testsuite/mock"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/builder"
@@ -185,7 +184,7 @@ func (a *AccountWallet) registerAccount(alias string, outputID iotago.OutputID, 
 	defer a.accountAliasesMutex.Unlock()
 
 	accountID := iotago.AccountIDFromOutputID(outputID)
-	account := blockhandler.NewEd25519Account(accountID, privKey)
+	account := mock.NewEd25519Account(accountID, privKey)
 
 	a.accountsAliases[alias] = &models.AccountData{
 		Alias:    alias,
@@ -298,7 +297,7 @@ func (a *AccountWallet) destroyAccount(alias string) error {
 	if err != nil {
 		return err
 	}
-	hdWallet := mock.NewHDWallet("", a.seed[:], accData.Index)
+	hdWallet := mock.NewKeyManager(a.seed[:], accData.Index)
 
 	issuingTime := time.Now()
 	issuingSlot := a.client.LatestAPI().TimeProvider().SlotFromTime(issuingTime)

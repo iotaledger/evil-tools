@@ -201,7 +201,7 @@ type Client interface {
 	// URL returns a client API url.
 	URL() (cltID string)
 	// PostBlock sends a block to the Tangle via a given client.
-	PostBlock(block *iotago.ProtocolBlock) (iotago.BlockID, error)
+	PostBlock(block *iotago.Block) (iotago.BlockID, error)
 	// PostData sends the given data (payload) by creating a block in the backend.
 	PostData(data []byte) (blkID string, err error)
 	// GetBlockConfirmationState returns the AcceptanceState of a given block ID.
@@ -306,7 +306,7 @@ func (c *WebClient) RequestFaucetFunds(address iotago.Address) (err error) {
 	return nil
 }
 
-func (c *WebClient) PostBlock(block *iotago.ProtocolBlock) (blockID iotago.BlockID, err error) {
+func (c *WebClient) PostBlock(block *iotago.Block) (blockID iotago.BlockID, err error) {
 	return c.client.SubmitBlock(context.Background(), block)
 }
 

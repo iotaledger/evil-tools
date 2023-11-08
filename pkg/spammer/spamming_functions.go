@@ -108,7 +108,7 @@ func BlowballSpammingFunction(s *Spammer) {
 	for _, blk := range blowballs {
 		// send transactions in parallel
 		wg.Add(1)
-		go func(clt models.Client, blk *iotago.ProtocolBlock) {
+		go func(clt models.Client, blk *iotago.Block) {
 			defer wg.Done()
 
 			// sleep randomly to avoid issuing blocks in different goroutines at once
@@ -143,8 +143,8 @@ func createBlowBallCenter(s *Spammer) (iotago.BlockID, error) {
 	return centerID, err
 }
 
-func createBlowBall(center iotago.BlockID, s *Spammer) []*iotago.ProtocolBlock {
-	blowBallBlocks := make([]*iotago.ProtocolBlock, 0)
+func createBlowBall(center iotago.BlockID, s *Spammer) []*iotago.Block {
+	blowBallBlocks := make([]*iotago.Block, 0)
 	// default to 30, if blowball size is not set
 	size := lo.Max(s.SpamDetails.BlowballSize, 30)
 
@@ -156,7 +156,7 @@ func createBlowBall(center iotago.BlockID, s *Spammer) []*iotago.ProtocolBlock {
 	return blowBallBlocks
 }
 
-func createSideBlock(parent iotago.BlockID, s *Spammer) *iotago.ProtocolBlock {
+func createSideBlock(parent iotago.BlockID, s *Spammer) *iotago.Block {
 	// create a new message
 	clt := s.Clients.GetClient()
 

@@ -12,7 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/iota-core/pkg/protocol/snapshotcreator"
+	"github.com/iotaledger/iota-core/pkg/testsuite/snapshotcreator"
 	"github.com/iotaledger/iota-core/tools/genesis-snapshot/presets"
 	iotago "github.com/iotaledger/iota.go/v4"
 )
@@ -232,7 +232,7 @@ func (s *Spammer) StopSpamming() {
 	s.shutdown <- types.Void
 }
 
-func (s *Spammer) PrepareBlock(txData *models.PayloadIssuanceData, issuerAlias string, clt models.Client, strongParents ...iotago.BlockID) *iotago.ProtocolBlock {
+func (s *Spammer) PrepareBlock(txData *models.PayloadIssuanceData, issuerAlias string, clt models.Client, strongParents ...iotago.BlockID) *iotago.Block {
 	if txData.Payload == nil {
 		s.log.Debug(ErrPayloadIsNil)
 		s.ErrCounter.CountError(ErrPayloadIsNil)

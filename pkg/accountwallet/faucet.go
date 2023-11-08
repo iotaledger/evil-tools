@@ -11,7 +11,6 @@ import (
 	"github.com/iotaledger/evil-tools/pkg/utils"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
-	"github.com/iotaledger/iota-core/pkg/blockhandler"
 	"github.com/iotaledger/iota-core/pkg/testsuite/mock"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/builder"
@@ -59,7 +58,7 @@ func (a *AccountWallet) RequestFaucetFunds(clt models.Client, receiveAddr iotago
 	}, nil
 }
 
-func (a *AccountWallet) PostWithBlock(clt models.Client, payload iotago.Payload, issuer blockhandler.Account, congestionResp *apimodels.CongestionResponse, issuerResp *apimodels.IssuanceBlockHeaderResponse, version iotago.Version, strongParents ...iotago.BlockID) (iotago.BlockID, error) {
+func (a *AccountWallet) PostWithBlock(clt models.Client, payload iotago.Payload, issuer mock.Account, congestionResp *apimodels.CongestionResponse, issuerResp *apimodels.IssuanceBlockHeaderResponse, version iotago.Version, strongParents ...iotago.BlockID) (iotago.BlockID, error) {
 	signedBlock, err := a.CreateBlock(payload, issuer, congestionResp, issuerResp, version, strongParents...)
 	if err != nil {
 		log.Errorf("failed to create block: %s", err)
@@ -77,7 +76,7 @@ func (a *AccountWallet) PostWithBlock(clt models.Client, payload iotago.Payload,
 	return blockID, nil
 }
 
-func (a *AccountWallet) CreateBlock(payload iotago.Payload, issuer blockhandler.Account, congestionResp *apimodels.CongestionResponse, issuerResp *apimodels.IssuanceBlockHeaderResponse, version iotago.Version, strongParents ...iotago.BlockID) (*iotago.ProtocolBlock, error) {
+func (a *AccountWallet) CreateBlock(payload iotago.Payload, issuer mock.Account, congestionResp *apimodels.CongestionResponse, issuerResp *apimodels.IssuanceBlockHeaderResponse, version iotago.Version, strongParents ...iotago.BlockID) (*iotago.Block, error) {
 	issuingTime := time.Now()
 	issuingSlot := a.client.LatestAPI().TimeProvider().SlotFromTime(issuingTime)
 	apiForSlot := a.client.APIForSlot(issuingSlot)
@@ -124,8 +123,8 @@ type faucetParams struct {
 
 type faucet struct {
 	unspentOutput   *models.Output
-	account         blockhandler.Account
-	genesisHdWallet *mock.HDWallet
+	account         mock.Account
+	genesisHdWallet *mock.KeyManager
 
 	clt models.Client
 
@@ -137,12 +136,12 @@ func newFaucet(clt models.Client, faucetParams *faucetParams) (*faucet, error) {
 	if err != nil {
 		log.Warnf("failed to decode base58 seed, using the default one: %v", err)
 	}
-	faucetAddr := mock.NewHDWallet("", genesisSeed, 0).Address(iotago.AddressEd25519)
+	faucetAddr := mock.NewKeyManager(genesisSeed, 0).Address(iotago.AddressEd25519)
 
 	f := &faucet{
 		clt:             clt,
-		account:         blockhandler.AccountFromParams(faucetParams.faucetAccountID, faucetParams.faucetPrivateKey),
-		genesisHdWallet: mock.NewHDWallet("", genesisSeed, 0),
+		account:         mock.AccountFromParams(faucetParams.faucetAccountID, faucetParams.faucetPrivateKey),
+		genesisHdWallet: mock.NewKeyManager(genesisSeed, 0),
 	}
 
 	faucetUnspentOutput, faucetUnspentOutputID, faucetAmount, err := f.getGenesisOutputFromIndexer(clt, faucetAddr)

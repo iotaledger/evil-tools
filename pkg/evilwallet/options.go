@@ -149,7 +149,7 @@ func WithOutputs(outputsOptions []*OutputOption) Option {
 				outputBuilder := builder.NewBasicOutputBuilder(outputOptions.address, outputOptions.amount)
 				output = outputBuilder.MustBuild()
 			case iotago.OutputAccount:
-				outputBuilder := builder.NewAccountOutputBuilder(outputOptions.address, outputOptions.address, outputOptions.amount)
+				outputBuilder := builder.NewAccountOutputBuilder(outputOptions.address, outputOptions.amount)
 				output = outputBuilder.MustBuild()
 			}
 

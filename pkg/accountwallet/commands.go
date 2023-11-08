@@ -61,7 +61,7 @@ func (a *AccountWallet) transitionImplicitAccount(
 	_ *CreateAccountParams,
 ) (iotago.AccountID, error) {
 	// transition from implicit to regular account
-	accountOutput := builder.NewAccountOutputBuilder(accAddr, accAddr, implicitAccountOutput.Balance).
+	accountOutput := builder.NewAccountOutputBuilder(accAddr, implicitAccountOutput.Balance).
 		Mana(implicitAccountOutput.OutputStruct.StoredMana()).
 		AccountID(iotago.AccountIDFromOutputID(implicitAccountOutput.OutputID)).
 		BlockIssuer(blockIssuerKeys, iotago.MaxSlotIndex).MustBuild()
@@ -117,7 +117,7 @@ func (a *AccountWallet) createTransactionBuilder(input *models.Output, address i
 
 func (a *AccountWallet) getAddress(addressType iotago.AddressType) (iotago.DirectUnlockableAddress, ed25519.PrivateKey, uint64) {
 	newIndex := a.latestUsedIndex.Inc()
-	hdWallet := mock.NewHDWallet("", a.seed[:], newIndex)
+	hdWallet := mock.NewKeyManager(a.seed[:], newIndex)
 	privKey, _ := hdWallet.KeyPair()
 	receiverAddr := hdWallet.Address(addressType)
 

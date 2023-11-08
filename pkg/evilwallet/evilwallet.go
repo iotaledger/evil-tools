@@ -11,7 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/runtime/options"
-	"github.com/iotaledger/iota-core/pkg/blockhandler"
+	"github.com/iotaledger/iota-core/pkg/testsuite/mock"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/builder"
 	"github.com/iotaledger/iota.go/v4/nodeclient/apimodels"
@@ -111,7 +111,7 @@ func (e *EvilWallet) RemoveClient(clientURL string) {
 	e.connector.RemoveClient(clientURL)
 }
 
-func (e *EvilWallet) GetAccount(alias string) (blockhandler.Account, error) {
+func (e *EvilWallet) GetAccount(alias string) (mock.Account, error) {
 	account, err := e.accWallet.GetAccount(alias)
 	if err != nil {
 		return nil, err
@@ -120,7 +120,7 @@ func (e *EvilWallet) GetAccount(alias string) (blockhandler.Account, error) {
 	return account.Account, nil
 }
 
-func (e *EvilWallet) CreateBlock(clt models.Client, payload iotago.Payload, congestionResp *apimodels.CongestionResponse, issuer blockhandler.Account, strongParents ...iotago.BlockID) (*iotago.ProtocolBlock, error) {
+func (e *EvilWallet) CreateBlock(clt models.Client, payload iotago.Payload, congestionResp *apimodels.CongestionResponse, issuer mock.Account, strongParents ...iotago.BlockID) (*iotago.Block, error) {
 	var congestionSlot iotago.SlotIndex
 	version := clt.CommittedAPI().Version()
 	if congestionResp != nil {
@@ -141,7 +141,7 @@ func (e *EvilWallet) CreateBlock(clt models.Client, payload iotago.Payload, cong
 	return block, nil
 }
 
-func (e *EvilWallet) PrepareAndPostBlock(clt models.Client, payload iotago.Payload, congestionResp *apimodels.CongestionResponse, issuer blockhandler.Account) (iotago.BlockID, error) {
+func (e *EvilWallet) PrepareAndPostBlock(clt models.Client, payload iotago.Payload, congestionResp *apimodels.CongestionResponse, issuer mock.Account) (iotago.BlockID, error) {
 	var congestionSlot iotago.SlotIndex
 	version := clt.CommittedAPI().Version()
 	if congestionResp != nil {
@@ -433,7 +433,7 @@ func (e *EvilWallet) matchOutputsWithAliases(buildOptions *Options, tempWallet *
 			outputBuilder := builder.NewBasicOutputBuilder(addr, output.BaseTokenAmount())
 			outputs = append(outputs, outputBuilder.MustBuild())
 		case iotago.OutputAccount:
-			outputBuilder := builder.NewAccountOutputBuilder(addr, addr, output.BaseTokenAmount())
+			outputBuilder := builder.NewAccountOutputBuilder(addr, output.BaseTokenAmount())
 			outputs = append(outputs, outputBuilder.MustBuild())
 		}
 

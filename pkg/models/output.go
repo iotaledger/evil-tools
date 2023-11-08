@@ -3,7 +3,7 @@ package models
 import (
 	"crypto/ed25519"
 
-	"github.com/iotaledger/iota-core/pkg/blockhandler"
+	"github.com/iotaledger/iota-core/pkg/testsuite/mock"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/nodeclient/apimodels"
 )
@@ -37,7 +37,7 @@ const (
 type AccountData struct {
 	Alias    string
 	Status   AccountStatus
-	Account  blockhandler.Account
+	Account  mock.Account
 	OutputID iotago.OutputID
 	Index    uint64
 }
@@ -63,7 +63,7 @@ func AccountStateFromAccountData(acc *AccountData) *AccountState {
 func (a *AccountState) ToAccountData() *AccountData {
 	return &AccountData{
 		Alias:    a.Alias,
-		Account:  blockhandler.NewEd25519Account(a.AccountID, a.PrivateKey),
+		Account:  mock.NewEd25519Account(a.AccountID, a.PrivateKey),
 		OutputID: a.OutputID,
 		Index:    a.Index,
 	}

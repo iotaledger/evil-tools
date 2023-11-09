@@ -150,6 +150,25 @@ func (o *OutputManager) AddOutput(w *Wallet, output *models.Output) *models.Outp
 		Balance:      output.Balance,
 		OutputStruct: output.OutputStruct,
 	}
+
+	if w.walletType == Reuse {
+		go func(clt models.Client, wallet *Wallet, outputID iotago.OutputID) {
+			// Reuse wallet should only keep accepted outputs
+			accepted := utils.AwaitOutputToBeAccepted(clt, outputID)
+			if !accepted {
+				o.log.Errorf("Output %s not accepted in time", outputID.String())
+
+				return
+			}
+
+			w.AddUnspentOutput(out)
+			o.setOutputIDWalletMap(out.OutputID.ToHex(), wallet)
+			o.setOutputIDAddrMap(out.OutputID.ToHex(), output.Address.String())
+		}(o.connector.GetClient(), w, out.OutputID)
+
+		return out
+	}
+
 	w.AddUnspentOutput(out)
 	o.setOutputIDWalletMap(out.OutputID.ToHex(), w)
 	o.setOutputIDAddrMap(out.OutputID.ToHex(), output.Address.String())

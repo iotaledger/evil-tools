@@ -392,6 +392,8 @@ func (e *EvilWallet) useFreshIfInputWalletNotProvided(buildOptions *Options) (*W
 	if buildOptions.reuse {
 		outputsNeeded := len(buildOptions.inputs)
 		if wallet := e.wallets.reuseWallet(outputsNeeded); wallet != nil {
+			e.log.Debug("actually using reused wallet")
+
 			return wallet, nil
 		}
 	}
@@ -423,6 +425,7 @@ func (e *EvilWallet) matchOutputsWithAliases(buildOptions *Options, tempWallet *
 		var addr *iotago.Ed25519Address
 		if _, ok := buildOptions.outputBatchAliases[alias]; ok {
 			addr = buildOptions.outputWallet.Address()
+			e.log.Debugf("use reuse wallet ID: %s, with address: %s", buildOptions.outputWallet.ID, addr.String())
 		} else {
 			addr = tempWallet.Address()
 			tempAddresses[addr.String()] = types.Void

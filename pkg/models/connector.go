@@ -205,7 +205,7 @@ type Client interface {
 	// PostData sends the given data (payload) by creating a block in the backend.
 	PostData(data []byte) (blkID string, err error)
 	// GetBlockConfirmationState returns the AcceptanceState of a given block ID.
-	GetBlockConfirmationState(blkID iotago.BlockID) string
+	GetBlockConfirmationState(blkID iotago.BlockID) (resp *apimodels.BlockMetadataResponse, err error)
 	// GetBlockStateFromTransaction returns the AcceptanceState of a given transaction ID.
 	GetBlockStateFromTransaction(txID iotago.TransactionID) (resp *apimodels.BlockMetadataResponse, err error)
 	// GetOutput gets the output of a given outputID.
@@ -218,8 +218,10 @@ type Client interface {
 	GetBlockIssuance(...iotago.SlotIndex) (resp *apimodels.IssuanceBlockHeaderResponse, err error)
 	// GetCongestion returns congestion data such as rmc or issuing readiness.
 	GetCongestion(id iotago.AccountID) (resp *apimodels.CongestionResponse, err error)
-	// RequestFaucetFunds
+	// RequestFaucetFunds requests funds from the faucet.
 	RequestFaucetFunds(address iotago.Address) (err error)
+	// GetAccountFromIndexer returns the outputID, accountOutput and slotIndex of a given accountID.
+	GetAccountFromIndexer(accountID iotago.AccountID) (*iotago.OutputID, *iotago.AccountOutput, iotago.SlotIndex, error)
 
 	iotago.APIProvider
 }
@@ -353,14 +355,18 @@ func (c *WebClient) GetOutput(outputID iotago.OutputID) iotago.Output {
 	return res
 }
 
-// GetBlockConfirmationState returns the AcceptanceState of a given block ID.
-func (c *WebClient) GetBlockConfirmationState(blkID iotago.BlockID) string {
-	resp, err := c.client.BlockMetadataByBlockID(context.Background(), blkID)
+func (c *WebClient) GetAccountFromIndexer(accountID iotago.AccountID) (*iotago.OutputID, *iotago.AccountOutput, iotago.SlotIndex, error) {
+	indexer, err := c.Indexer()
 	if err != nil {
-		return ""
+		return nil, nil, 0, ierrors.Errorf("unable to get indexer client: %w", err)
 	}
 
-	return resp.BlockState
+	return indexer.Account(context.Background(), accountID)
+}
+
+// GetBlockConfirmationState returns the AcceptanceState of a given block ID.
+func (c *WebClient) GetBlockConfirmationState(blkID iotago.BlockID) (*apimodels.BlockMetadataResponse, error) {
+	return c.client.BlockMetadataByBlockID(context.Background(), blkID)
 }
 
 // GetBlockStateFromTransaction returns the AcceptanceState of a given transaction ID.

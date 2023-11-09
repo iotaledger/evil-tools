@@ -15,8 +15,10 @@ import (
 )
 
 const (
-	MaxRetries    = 20
-	AwaitInterval = 2 * time.Second
+	MaxRetries              = 20
+	AwaitInterval           = 2 * time.Second
+	MaxCommitmentAwait      = time.Minute
+	AwaitCommitmentInterval = 5 * time.Second
 )
 
 // SplitBalanceEqually splits the balance equally between `splitNumber` outputs.
@@ -40,10 +42,21 @@ func SplitBalanceEqually(splitNumber int, balance iotago.BaseToken) []iotago.Bas
 // AwaitBlockToBeConfirmed awaits for acceptance of a single transaction.
 func AwaitBlockToBeConfirmed(clt models.Client, blkID iotago.BlockID) error {
 	for i := 0; i < MaxRetries; i++ {
-		state := clt.GetBlockConfirmationState(blkID)
-		if state == apimodels.BlockStateConfirmed.String() || state == apimodels.BlockStateFinalized.String() {
+		resp, err := clt.GetBlockConfirmationState(blkID)
+		if err != nil {
+			UtilsLogger.Debugf("Failed to get block confirmation state: %s", err)
+			time.Sleep(AwaitInterval)
+
+			continue
+		}
+
+		if resp.BlockState == apimodels.BlockStateConfirmed.String() || resp.BlockState == apimodels.BlockStateFinalized.String() {
 			UtilsLogger.Debugf("Block confirmed: %s", blkID.ToHex())
 			return nil
+		}
+		if resp.BlockState == apimodels.BlockStateFailed.String() || resp.BlockState == apimodels.BlockStateRejected.String() {
+			UtilsLogger.Debugf("Block failed: %s", blkID.ToHex())
+			return ierrors.Errorf("block %s failed", blkID.ToHex())
 		}
 
 		time.Sleep(AwaitInterval)
@@ -141,7 +154,23 @@ func AwaitOutputToBeAccepted(clt models.Client, outputID iotago.OutputID) bool {
 	return false
 }
 
-func PrintTransaction(tx *iotago.SignedTransaction) string {
+func AwaitCommitment(clt models.Client, slot iotago.SlotIndex) error {
+	for t := time.Now(); time.Since(t) < MaxCommitmentAwait; time.Sleep(AwaitCommitmentInterval) {
+		resp, err := clt.GetBlockIssuance(slot)
+		if err != nil {
+			continue
+		}
+
+		latestCommittedSlot := resp.Commitment.Slot
+		if slot >= latestCommittedSlot {
+			return nil
+		}
+	}
+
+	return ierrors.Errorf("slot %d not committed in time %s", slot, MaxCommitmentAwait)
+}
+
+func SprintTransaction(tx *iotago.SignedTransaction) string {
 	txDetails := ""
 	txDetails += fmt.Sprintf("Transaction ID; %s, slotCreation: %d\n", lo.PanicOnErr(tx.ID()).ToHex(), tx.Transaction.CreationSlot)
 	for index, out := range tx.Transaction.Outputs {
@@ -156,4 +185,22 @@ func PrintTransaction(tx *iotago.SignedTransaction) string {
 	}
 
 	return txDetails
+}
+
+func SprintAccount(acc *iotago.AccountOutput) string {
+	accountStr := ""
+	accountStr += fmt.Sprintf("Account ID: %s\n", acc.AccountID.ToHex())
+	accountStr += fmt.Sprintf("Account token balance: %d\n", acc.Amount)
+	accountStr += fmt.Sprintf("Account stored mana: %d\n", acc.Mana)
+
+	blockIssuerFeature := acc.FeatureSet().BlockIssuer()
+	if blockIssuerFeature != nil {
+		accountStr += fmt.Sprintf("Block Issuer Feature, number of keys: %d\n", len(blockIssuerFeature.BlockIssuerKeys))
+	}
+	stakingFeature := acc.FeatureSet().Staking()
+	if stakingFeature != nil {
+		accountStr += fmt.Sprintf("Staking Feature, number of keys:\n")
+		accountStr += fmt.Sprintf("Staked Amount: %d, Fixed Cost: %d, Start Epoch Start: %d, End Epoch: %d", stakingFeature.StakedAmount, stakingFeature.FixedCost, stakingFeature.StartEpoch, stakingFeature.EndEpoch)
+	}
+	return accountStr
 }

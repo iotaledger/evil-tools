@@ -38,13 +38,13 @@ func (a *AccountWallet) RequestBlockBuiltData(clt *nodeclient.Client, issuerID i
 	return congestionResp, issuerResp, version, nil
 }
 
-func (a *AccountWallet) RequestFaucetFunds(clt models.Client, receiveAddr iotago.Address) (*models.Output, error) {
-	err := clt.RequestFaucetFunds(receiveAddr)
+func (a *AccountWallet) RequestFaucetFunds(receiveAddr iotago.Address) (*models.Output, error) {
+	err := a.client.RequestFaucetFunds(receiveAddr)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to request funds from faucet")
 	}
 
-	outputID, outputStruct, err := utils.AwaitAddressUnspentOutputToBeAccepted(clt, receiveAddr)
+	outputID, outputStruct, err := utils.AwaitAddressUnspentOutputToBeAccepted(a.client, receiveAddr)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to await faucet funds")
 	}

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/iotaledger/evil-tools/pkg/models"
+	"github.com/iotaledger/evil-tools/pkg/utils"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/iota-core/pkg/testsuite/mock"
 	iotago "github.com/iotaledger/iota.go/v4"
@@ -22,6 +23,7 @@ func (a *AccountWallet) CreateAccount(params *CreateAccountParams) (iotago.Accou
 }
 
 func (a *AccountWallet) createAccountImplicitly(params *CreateAccountParams) (iotago.AccountID, error) {
+	log.Debug("Creating an implicit account")
 	// An implicit account has an implicitly defined Block Issuer Key, corresponding to the address itself.
 	// Thus, implicit accounts can issue blocks by signing them with the private key corresponding to the public key
 	// from which the Implicit Account Creation Address was derived.
@@ -57,8 +59,8 @@ func (a *AccountWallet) transitionImplicitAccount(
 	implicitAccAddr *iotago.ImplicitAccountCreationAddress,
 	accAddr iotago.Address,
 	blockIssuerKeys iotago.BlockIssuerKeys,
-	_ ed25519.PrivateKey,
-	_ *CreateAccountParams,
+	privateKey ed25519.PrivateKey,
+	params *CreateAccountParams,
 ) (iotago.AccountID, error) {
 	// transition from implicit to regular account
 	accountOutput := builder.NewAccountOutputBuilder(accAddr, implicitAccountOutput.Balance).
@@ -66,19 +68,48 @@ func (a *AccountWallet) transitionImplicitAccount(
 		AccountID(iotago.AccountIDFromOutputID(implicitAccountOutput.OutputID)).
 		BlockIssuer(blockIssuerKeys, iotago.MaxSlotIndex).MustBuild()
 
-	log.Infof("Created account %s with %d tokens\n", accountOutput.AccountID.ToHex())
+	log.Infof("Created account %s with %d tokens\n", accountOutput.AccountID.ToHex(), accountOutput.Amount)
 	txBuilder := a.createTransactionBuilder(implicitAccountOutput, implicitAccAddr, accountOutput)
-
-	// TODO get congestionResponse from API
-	var rmc iotago.Mana
+	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(a.client.Client(), a.faucet.account.ID())
+	if err != nil {
+		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to request block built data for the faucet account")
+	}
 	var implicitAccountID iotago.AccountID
-	txBuilder.AllotRequiredManaAndStoreRemainingManaInOutput(txBuilder.CreationSlot(), rmc, implicitAccountID, 0)
+	txBuilder.AllotRequiredManaAndStoreRemainingManaInOutput(txBuilder.CreationSlot(), congestionResp.ReferenceManaCost, implicitAccountID, 0)
 
-	//signedTx, err := txBuilder.Build(a.genesisHdWallet.AddressSigner())
+	signedTx, err := txBuilder.Build(a.faucet.genesisHdWallet.AddressSigner())
+	if err != nil {
+		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to build tx")
+	}
+	accountID := a.registerAccount(params.Alias, implicitAccountOutput.OutputID, implicitAccountOutput.AddressIndex, privateKey)
+	accountHandler := mock.NewEd25519Account(accountID, privateKey)
+	blkID, err := a.PostWithBlock(a.client, signedTx, accountHandler, congestionResp, issuerResp, version)
+	if err != nil {
+		log.Errorf("Failed to post account with block: %s", err)
 
-	//accountID := a.registerAccount(params.Alias, implicitAccountOutput.OutputID, a.latestUsedIndex, privateKey)
+		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to post transaction")
+	}
+	err = utils.AwaitBlockToBeConfirmed(a.client, blkID)
+	if err != nil {
+		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to await block to be confirmed")
+	}
 
-	//fmt.Printf("Created account %s with %d tokens\n", accountID.ToHex(), params.Amount)
+	log.Infof("Created account %s with %d tokens, blk ID %s\n", accountID.ToHex(), accountOutput.Amount, blkID.ToHex())
+
+	err = utils.AwaitCommitment(a.client, blkID.Slot())
+	if err != nil {
+		return iotago.EmptyAccountID, err
+	}
+
+	log.Infof("Slot %d of block %s is committed\n", blkID.Slot(), blkID.ToHex())
+
+	outputID, account, slot, err := a.client.GetAccountFromIndexer(accountID)
+	if err != nil {
+		return iotago.EmptyAccountID, ierrors.Wrapf(err, "failed to get account from indexer, even after slot %d is already committed", blkID.Slot())
+	}
+	log.Infof("Account created, ID: %s, outputID: %s, slot: %d\n", accountID.ToHex(), outputID.ToHex(), slot)
+	log.Infof(utils.SprintAccount(account))
+
 	return iotago.EmptyAccountID, nil
 }
 

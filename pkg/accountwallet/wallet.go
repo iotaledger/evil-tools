@@ -282,7 +282,7 @@ func (a *AccountWallet) isAccountReady(accData *models.AccountData) bool {
 func (a *AccountWallet) getFunds(addressType iotago.AddressType) (*models.Output, ed25519.PrivateKey, error) {
 	receiverAddr, privKey, usedIndex := a.getAddress(addressType)
 
-	createdOutput, err := a.RequestFaucetFunds(a.client, receiverAddr)
+	createdOutput, err := a.RequestFaucetFunds(receiverAddr)
 	if err != nil {
 		return nil, nil, ierrors.Wrap(err, "failed to request funds from Faucet")
 	}

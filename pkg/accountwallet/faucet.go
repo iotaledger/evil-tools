@@ -19,7 +19,8 @@ import (
 )
 
 const (
-	FaucetAccountAlias = "faucet"
+	FaucetAccountAlias    = "faucet"
+	MaxFaucetManaRequests = 10
 )
 
 func (a *AccountWallet) RequestBlockBuiltData(clt *nodeclient.Client, issuerID iotago.AccountID) (*apimodels.CongestionResponse, *apimodels.IssuanceBlockHeaderResponse, iotago.Version, error) {
@@ -39,12 +40,13 @@ func (a *AccountWallet) RequestBlockBuiltData(clt *nodeclient.Client, issuerID i
 }
 
 func (a *AccountWallet) RequestFaucetFunds(receiveAddr iotago.Address) (*models.Output, error) {
-	err := a.client.RequestFaucetFunds(receiveAddr)
+	addr, _, _ := a.getAddress(iotago.AddressEd25519)
+	err := a.client.RequestFaucetFunds(addr)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to request funds from faucet")
 	}
 
-	outputID, outputStruct, err := utils.AwaitAddressUnspentOutputToBeAccepted(a.client, receiveAddr)
+	outputID, outputStruct, err := utils.AwaitAddressUnspentOutputToBeAccepted(a.client, addr)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to await faucet funds")
 	}
@@ -126,12 +128,15 @@ type faucet struct {
 	account         mock.Account
 	genesisHdWallet *mock.KeyManager
 
+	RequestTokenAmount iotago.BaseToken
+	RequestManaAmount  iotago.Mana
+
 	clt models.Client
 
 	sync.Mutex
 }
 
-func newFaucet(clt models.Client, faucetParams *faucetParams) (*faucet, error) {
+func newFaucet(clt models.Client, faucetParams *faucetParams, requestTokenAmount iotago.BaseToken, requestManaAmount iotago.Mana) (*faucet, error) {
 	genesisSeed, err := base58.Decode(faucetParams.genesisSeed)
 	if err != nil {
 		log.Warnf("failed to decode base58 seed, using the default one: %v", err)
@@ -139,9 +144,11 @@ func newFaucet(clt models.Client, faucetParams *faucetParams) (*faucet, error) {
 	faucetAddr := mock.NewKeyManager(genesisSeed, 0).Address(iotago.AddressEd25519)
 
 	f := &faucet{
-		clt:             clt,
-		account:         mock.AccountFromParams(faucetParams.faucetAccountID, faucetParams.faucetPrivateKey),
-		genesisHdWallet: mock.NewKeyManager(genesisSeed, 0),
+		clt:                clt,
+		account:            mock.AccountFromParams(faucetParams.faucetAccountID, faucetParams.faucetPrivateKey),
+		genesisHdWallet:    mock.NewKeyManager(genesisSeed, 0),
+		RequestTokenAmount: requestTokenAmount,
+		RequestManaAmount:  requestManaAmount,
 	}
 
 	faucetUnspentOutput, faucetUnspentOutputID, faucetAmount, err := f.getGenesisOutputFromIndexer(clt, faucetAddr)

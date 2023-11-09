@@ -3,6 +3,7 @@ package accountwallet
 import (
 	"crypto/ed25519"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/iotaledger/evil-tools/pkg/models"
@@ -11,6 +12,7 @@ import (
 	"github.com/iotaledger/iota-core/pkg/testsuite/mock"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/builder"
+	"github.com/iotaledger/iota.go/v4/tpkg"
 )
 
 // CreateAccount creates an implicit account and immediately transition it to a regular account.
@@ -62,6 +64,19 @@ func (a *AccountWallet) transitionImplicitAccount(
 	privateKey ed25519.PrivateKey,
 	params *CreateAccountParams,
 ) (iotago.AccountID, error) {
+	requiredMana, err := a.estimateMinimumRequiredMana(1, 0, true)
+	if err != nil {
+		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to estimate number of faucet requests to cover minimum required mana")
+	}
+	log.Debugf("Mana required for account creation: %d, requesting additional mana from the faucet", requiredMana)
+	additionalBasicInputs, err := a.RequestManaFromTheFaucet(requiredMana, implicitAccAddr)
+	if err != nil {
+		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to request mana from the faucet")
+	}
+	if len(additionalBasicInputs) > 0 {
+		log.Debugf("successfully requested %d new outputs from the faucet", len(additionalBasicInputs))
+	}
+
 	// transition from implicit to regular account
 	accountOutput := builder.NewAccountOutputBuilder(accAddr, implicitAccountOutput.Balance).
 		Mana(implicitAccountOutput.OutputStruct.StoredMana()).
@@ -69,18 +84,21 @@ func (a *AccountWallet) transitionImplicitAccount(
 		BlockIssuer(blockIssuerKeys, iotago.MaxSlotIndex).MustBuild()
 
 	log.Infof("Created account %s with %d tokens\n", accountOutput.AccountID.ToHex(), accountOutput.Amount)
-	txBuilder := a.createTransactionBuilder(implicitAccountOutput, implicitAccAddr, accountOutput)
 	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(a.client.Client(), a.faucet.account.ID())
 	if err != nil {
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to request block built data for the faucet account")
 	}
-	var implicitAccountID iotago.AccountID
+	inputs := append([]*models.Output{implicitAccountOutput}, additionalBasicInputs...)
+	implicitAccountID := iotago.AccountIDFromOutputID(implicitAccountOutput.OutputID)
+	txBuilder := a.createTransactionBuilder(inputs, implicitAccAddr, accountOutput)
+	a.logMissingMana(txBuilder, congestionResp.ReferenceManaCost, implicitAccountID)
 	txBuilder.AllotRequiredManaAndStoreRemainingManaInOutput(txBuilder.CreationSlot(), congestionResp.ReferenceManaCost, implicitAccountID, 0)
 
 	signedTx, err := txBuilder.Build(a.faucet.genesisHdWallet.AddressSigner())
 	if err != nil {
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to build tx")
 	}
+
 	accountID := a.registerAccount(params.Alias, implicitAccountOutput.OutputID, implicitAccountOutput.AddressIndex, privateKey)
 	accountHandler := mock.NewEd25519Account(accountID, privateKey)
 	blkID, err := a.PostWithBlock(a.client, signedTx, accountHandler, congestionResp, issuerResp, version)
@@ -89,19 +107,14 @@ func (a *AccountWallet) transitionImplicitAccount(
 
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to post transaction")
 	}
-	err = utils.AwaitBlockToBeConfirmed(a.client, blkID)
-	if err != nil {
-		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to await block to be confirmed")
-	}
-
-	log.Infof("Created account %s with %d tokens, blk ID %s\n", accountID.ToHex(), accountOutput.Amount, blkID.ToHex())
+	log.Infof("Created account %s with %d tokens, blk ID %s, awaiting the commitment.\n", accountID.ToHex(), accountOutput.Amount, blkID.ToHex())
 
 	err = utils.AwaitCommitment(a.client, blkID.Slot())
 	if err != nil {
 		return iotago.EmptyAccountID, err
 	}
 
-	log.Infof("Slot %d of block %s is committed\n", blkID.Slot(), blkID.ToHex())
+	log.Infof("Slot %d is committed\n", blkID.Slot())
 
 	outputID, account, slot, err := a.client.GetAccountFromIndexer(accountID)
 	if err != nil {
@@ -111,6 +124,32 @@ func (a *AccountWallet) transitionImplicitAccount(
 	log.Infof(utils.SprintAccount(account))
 
 	return iotago.EmptyAccountID, nil
+}
+
+func (a *AccountWallet) RequestManaFromTheFaucet(minManaAmount iotago.Mana, addr iotago.Address) ([]*models.Output, error) {
+	if minManaAmount/a.faucet.RequestManaAmount > MaxFaucetManaRequests {
+		return nil, ierrors.Errorf("required mana is too large, needs more than %d faucet requests", MaxFaucetManaRequests)
+	}
+
+	outputs := make([]*models.Output, 0)
+	wg := sync.WaitGroup{}
+	// if there is not enough mana to pay for account creation, request mana from the faucet
+	for requested := iotago.Mana(0); requested < minManaAmount; requested += a.faucet.RequestManaAmount {
+		wg.Add(1)
+		go func(requested iotago.Mana) {
+			defer wg.Done()
+
+			log.Debugf("Requesting %d mana from the faucet, already requested %d", a.faucet.RequestManaAmount, requested)
+			out, err := a.RequestFaucetFunds(addr)
+			if err != nil {
+				log.Errorf("failed to request funds from the faucet: %v", err)
+			}
+			outputs = append(outputs, out)
+		}(requested)
+	}
+	wg.Wait()
+
+	return outputs, nil
 }
 
 func (a *AccountWallet) createAccountWithFaucet(_ *CreateAccountParams) (iotago.AccountID, error) {
@@ -128,22 +167,78 @@ func (a *AccountWallet) createAccountWithFaucet(_ *CreateAccountParams) (iotago.
 	return iotago.EmptyAccountID, nil
 }
 
-func (a *AccountWallet) createTransactionBuilder(input *models.Output, address iotago.Address, accountOutput *iotago.AccountOutput) *builder.TransactionBuilder {
+func (a *AccountWallet) createTransactionBuilder(inputs []*models.Output, address iotago.Address, accountOutput *iotago.AccountOutput) *builder.TransactionBuilder {
 	currentTime := time.Now()
 	currentSlot := a.client.LatestAPI().TimeProvider().SlotFromTime(currentTime)
 
 	apiForSlot := a.client.APIForSlot(currentSlot)
 	txBuilder := builder.NewTransactionBuilder(apiForSlot)
+	for _, output := range inputs {
+		txBuilder.AddInput(&builder.TxInput{
+			UnlockTarget: address,
+			InputID:      output.OutputID,
+			Input:        output.OutputStruct,
+		})
+	}
 
-	txBuilder.AddInput(&builder.TxInput{
-		UnlockTarget: address,
-		InputID:      input.OutputID,
-		Input:        input.OutputStruct,
-	})
 	txBuilder.AddOutput(accountOutput)
 	txBuilder.SetCreationSlot(currentSlot)
 
 	return txBuilder
+}
+
+func (a *AccountWallet) estimateMinimumRequiredMana(basicInputCount, basicOutputCount int, accountOutput bool) (iotago.Mana, error) {
+	congestionResp, err := a.client.GetCongestion(a.faucet.account.ID())
+	if err != nil {
+		return 0, ierrors.Wrapf(err, "failed to get congestion data for faucet accountID")
+	}
+
+	if err != nil {
+		return 0, ierrors.Wrap(err, "failed to request block built data for the faucet account")
+	}
+
+	txBuilder := builder.NewTransactionBuilder(a.client.APIForSlot(congestionResp.Slot))
+	txBuilder.SetCreationSlot(congestionResp.Slot)
+	for i := 0; i < basicInputCount; i++ {
+		txBuilder.AddInput(&builder.TxInput{
+			UnlockTarget: tpkg.RandEd25519Address(),
+			InputID:      iotago.EmptyOutputID,
+			Input:        tpkg.RandBasicOutput(iotago.AddressEd25519),
+		})
+	}
+	for i := 0; i < basicOutputCount; i++ {
+		txBuilder.AddOutput(tpkg.RandBasicOutput(iotago.AddressEd25519))
+	}
+	if accountOutput {
+		out := builder.NewAccountOutputBuilder(tpkg.RandAccountAddress(), 100).
+			Mana(100).
+			BlockIssuer(tpkg.RandomBlockIssuerKeysEd25519(1), iotago.MaxSlotIndex).MustBuild()
+		txBuilder.AddOutput(out)
+	}
+
+	minRequiredAllottedMana, err := txBuilder.MinRequiredAllotedMana(a.client.APIForSlot(congestionResp.Slot).ProtocolParameters().WorkScoreParameters(), congestionResp.ReferenceManaCost, iotago.EmptyAccountID)
+	if err != nil {
+		return 0, ierrors.Wrap(err, "could not calculate min required allotted mana")
+	}
+
+	return minRequiredAllottedMana, nil
+}
+
+func (a *AccountWallet) logMissingMana(finishedTxBuilder *builder.TransactionBuilder, rmc iotago.Mana, issuerAccountID iotago.AccountID) {
+	availableMana, err := finishedTxBuilder.CalculateAvailableMana(finishedTxBuilder.CreationSlot())
+	if err != nil {
+		log.Error("could not calculate available mana")
+
+		return
+	}
+	log.Debug(utils.SprintAvailableManaResult(availableMana))
+	minRequiredAllottedMana, err := finishedTxBuilder.MinRequiredAllotedMana(a.client.APIForSlot(finishedTxBuilder.CreationSlot()).ProtocolParameters().WorkScoreParameters(), rmc, issuerAccountID)
+	if err != nil {
+		log.Error("could not calculate min required allotted mana")
+
+		return
+	}
+	log.Debugf("Min required allotted mana: %d\n", minRequiredAllottedMana)
 }
 
 func (a *AccountWallet) getAddress(addressType iotago.AddressType) (iotago.DirectUnlockableAddress, ed25519.PrivateKey, uint64) {

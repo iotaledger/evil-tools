@@ -11,6 +11,7 @@ import (
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
 	iotago "github.com/iotaledger/iota.go/v4"
+	"github.com/iotaledger/iota.go/v4/builder"
 	"github.com/iotaledger/iota.go/v4/nodeclient/apimodels"
 )
 
@@ -199,8 +200,13 @@ func SprintAccount(acc *iotago.AccountOutput) string {
 	}
 	stakingFeature := acc.FeatureSet().Staking()
 	if stakingFeature != nil {
-		accountStr += fmt.Sprintf("Staking Feature, number of keys:\n")
+		accountStr += "Staking Feature, number of keys:\n"
 		accountStr += fmt.Sprintf("Staked Amount: %d, Fixed Cost: %d, Start Epoch Start: %d, End Epoch: %d", stakingFeature.StakedAmount, stakingFeature.FixedCost, stakingFeature.StartEpoch, stakingFeature.EndEpoch)
 	}
+
 	return accountStr
+}
+
+func SprintAvailableManaResult(results *builder.AvailableManaResult) string {
+	return fmt.Sprintf("Available mana results:\nTotal: %d Unbound: %d\nPotential:%d Unbound: %d\nStored: %d Undound: %d", results.TotalMana, results.UnboundMana, results.PotentialMana, results.UnboundPotentialMana, results.StoredMana, results.UnboundStoredMana)
 }

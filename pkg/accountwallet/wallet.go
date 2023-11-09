@@ -93,8 +93,14 @@ func NewAccountWallet(opts ...options.Option[AccountWallet]) (*AccountWallet, er
 			return
 		}
 
+		out, err := w.RequestFaucetFunds(tpkg.RandAddress())
+		if err != nil {
+			log.Errorf("failed to request faucet funds: %s, faucet not initiated", err.Error())
+
+			return
+		}
 		var f *faucet
-		f, initErr = newFaucet(w.client, w.optsFaucetParams)
+		f, initErr = newFaucet(w.client, w.optsFaucetParams, out.Balance, out.OutputStruct.StoredMana())
 		if initErr != nil {
 			return
 		}

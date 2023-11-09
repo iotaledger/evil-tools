@@ -71,6 +71,7 @@ func AwaitTransactionToBeAccepted(clt models.Client, txID iotago.TransactionID, 
 
 		if resp.TransactionState == apimodels.TransactionStateFailed.String() {
 			failureReason, _, _ := apimodels.TransactionFailureReasonFromBytes(lo.PanicOnErr(resp.TransactionFailureReason.Bytes()))
+			UtilsLogger.Warnf("transaction %s failed: %d", txID, failureReason)
 
 			return ierrors.Errorf("transaction %s failed: %d", txID, failureReason)
 		}

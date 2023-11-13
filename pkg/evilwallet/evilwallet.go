@@ -475,7 +475,7 @@ func (e *EvilWallet) prepareRemainderOutput(buildOptions *Options, outputs []iot
 	if outputBalance < inputBalance {
 		remainderOutput = &iotago.BasicOutput{
 			Amount: inputBalance - outputBalance,
-			Conditions: iotago.BasicOutputUnlockConditions{
+			UnlockConditions: iotago.BasicOutputUnlockConditions{
 				&iotago.AddressUnlockCondition{Address: remainderAddress},
 			},
 		}

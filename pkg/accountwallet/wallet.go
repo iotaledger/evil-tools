@@ -326,7 +326,7 @@ func (a *AccountWallet) destroyAccount(alias string) error {
 	//nolint:all,forcetypassert
 	txBuilder.AddOutput(&iotago.BasicOutput{
 		Amount: accountOutput.BaseTokenAmount(),
-		Conditions: iotago.BasicOutputUnlockConditions{
+		UnlockConditions: iotago.BasicOutputUnlockConditions{
 			&iotago.AddressUnlockCondition{Address: a.faucet.genesisHdWallet.Address(iotago.AddressEd25519).(*iotago.Ed25519Address)},
 		},
 	})

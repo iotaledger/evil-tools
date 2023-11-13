@@ -44,11 +44,11 @@ type AccountData struct {
 }
 
 type AccountState struct {
-	Alias      string             `serix:"0,lengthPrefixType=uint8"`
-	AccountID  iotago.AccountID   `serix:"2"`
-	PrivateKey ed25519.PrivateKey `serix:"3,lengthPrefixType=uint8"`
-	OutputID   iotago.OutputID    `serix:"4"`
-	Index      uint64             `serix:"5"`
+	Alias      string             `serix:",lenPrefix=uint8"`
+	AccountID  iotago.AccountID   `serix:""`
+	PrivateKey ed25519.PrivateKey `serix:",lenPrefix=uint8"`
+	OutputID   iotago.OutputID    `serix:""`
+	Index      uint64             `serix:""`
 }
 
 func AccountStateFromAccountData(acc *AccountData) *AccountState {

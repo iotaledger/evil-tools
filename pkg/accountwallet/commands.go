@@ -76,9 +76,9 @@ func (a *AccountWallet) transitionImplicitAccount(
 	if len(additionalBasicInputs) > 0 {
 		log.Debugf("successfully requested %d new outputs from the faucet", len(additionalBasicInputs))
 	}
-
+	balance := implicitAccountOutput.Balance + utils.SumOutputsBalance(additionalBasicInputs)
 	// transition from implicit to regular account
-	accountOutput := builder.NewAccountOutputBuilder(accAddr, implicitAccountOutput.Balance).
+	accountOutput := builder.NewAccountOutputBuilder(accAddr, balance).
 		Mana(implicitAccountOutput.OutputStruct.StoredMana()).
 		AccountID(iotago.AccountIDFromOutputID(implicitAccountOutput.OutputID)).
 		BlockIssuer(blockIssuerKeys, iotago.MaxSlotIndex).MustBuild()
@@ -91,10 +91,17 @@ func (a *AccountWallet) transitionImplicitAccount(
 	inputs := append([]*models.Output{implicitAccountOutput}, additionalBasicInputs...)
 	implicitAccountID := iotago.AccountIDFromOutputID(implicitAccountOutput.OutputID)
 	txBuilder := a.createTransactionBuilder(inputs, implicitAccAddr, accountOutput)
+	commitmentID, _ := issuerResp.Commitment.ID()
+	txBuilder.AddContextInput(&iotago.CommitmentInput{CommitmentID: commitmentID})
+
 	a.logMissingMana(txBuilder, congestionResp.ReferenceManaCost, implicitAccountID)
 	txBuilder.AllotRequiredManaAndStoreRemainingManaInOutput(txBuilder.CreationSlot(), congestionResp.ReferenceManaCost, implicitAccountID, 0)
+	addrSigner, err := a.getAddrSignerForIndexes(inputs...)
+	if err != nil {
+		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to get address signer")
+	}
 
-	signedTx, err := txBuilder.Build(a.faucet.genesisHdWallet.AddressSigner())
+	signedTx, err := txBuilder.Build(addrSigner)
 	if err != nil {
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to build tx")
 	}
@@ -140,11 +147,11 @@ func (a *AccountWallet) RequestManaFromTheFaucet(minManaAmount iotago.Mana, addr
 			defer wg.Done()
 
 			log.Debugf("Requesting %d mana from the faucet, already requested %d", a.faucet.RequestManaAmount, requested)
-			out, err := a.RequestFaucetFunds(addr)
+			faucetOutput, _, err := a.getFunds(iotago.AddressEd25519)
 			if err != nil {
 				log.Errorf("failed to request funds from the faucet: %v", err)
 			}
-			outputs = append(outputs, out)
+			outputs = append(outputs, faucetOutput)
 		}(requested)
 	}
 	wg.Wait()
@@ -248,6 +255,22 @@ func (a *AccountWallet) getAddress(addressType iotago.AddressType) (iotago.Direc
 	receiverAddr := hdWallet.Address(addressType)
 
 	return receiverAddr, privKey, newIndex
+}
+
+func (a *AccountWallet) getAddrSignerForIndexes(outputs ...*models.Output) (iotago.AddressSigner, error) {
+	var addrKeys []iotago.AddressKeys
+	for _, out := range outputs {
+		switch out.Address.Type() {
+		case iotago.AddressEd25519:
+			ed25519Addr := out.Address.(*iotago.Ed25519Address)
+			addrKeys = append(addrKeys, iotago.NewAddressKeysForEd25519Address(ed25519Addr, out.PrivKey))
+		case iotago.AddressImplicitAccountCreation:
+			implicitAccountCreationAddr := out.Address.(*iotago.ImplicitAccountCreationAddress)
+			addrKeys = append(addrKeys, iotago.NewAddressKeysForImplicitAccountCreationAddress(implicitAccountCreationAddr, out.PrivKey))
+		}
+	}
+
+	return iotago.NewInMemoryAddressSigner(addrKeys...), nil
 }
 
 func (a *AccountWallet) DestroyAccount(params *DestroyAccountParams) error {

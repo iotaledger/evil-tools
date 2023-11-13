@@ -188,6 +188,15 @@ func SprintTransaction(tx *iotago.SignedTransaction) string {
 	return txDetails
 }
 
+func SumOutputsBalance(outputs []*models.Output) iotago.BaseToken {
+	balance := iotago.BaseToken(0)
+	for _, out := range outputs {
+		balance += out.Balance
+	}
+
+	return balance
+}
+
 func SprintAccount(acc *iotago.AccountOutput) string {
 	accountStr := ""
 	accountStr += fmt.Sprintf("Account ID: %s\n", acc.AccountID.ToHex())

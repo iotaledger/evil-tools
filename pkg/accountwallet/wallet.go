@@ -294,6 +294,7 @@ func (a *AccountWallet) getFunds(addressType iotago.AddressType) (*models.Output
 	}
 
 	createdOutput.AddressIndex = usedIndex
+	createdOutput.PrivKey = privKey
 
 	return createdOutput, privKey, nil
 }

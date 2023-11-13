@@ -13,7 +13,6 @@ import (
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
-	"github.com/iotaledger/inx-faucet/pkg/faucet"
 	"github.com/iotaledger/iota-core/pkg/model"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/builder"
@@ -281,9 +280,15 @@ func NewWebClient(url, faucetURL string, opts ...options.Option[WebClient]) (*We
 	}), initErr
 }
 
+// FaucetEnqueueRequest defines the request for a POST RouteFaucetEnqueue REST API call.
+type FaucetEnqueueRequest struct {
+	// The bech32 address.
+	Address string `json:"address"`
+}
+
 func (c *WebClient) RequestFaucetFunds(address iotago.Address) (err error) {
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, c.faucetURL+"/api/enqueue", func() io.Reader {
-		jsonData, _ := json.Marshal(&faucet.EnqueueRequest{
+		jsonData, _ := json.Marshal(&FaucetEnqueueRequest{
 			Address: address.Bech32(c.client.CommittedAPI().ProtocolParameters().Bech32HRP()),
 		})
 

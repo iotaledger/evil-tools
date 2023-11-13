@@ -253,13 +253,17 @@ func (o *OutputManager) AwaitTransactionsAcceptance(txIDs ...iotago.TransactionI
 			defer func() {
 				<-semaphore
 			}()
-			err := utils.AwaitTransactionToBeAccepted(clt, txID, txLeft)
+
+			confirmationState, err := utils.AwaitTransactionToBeAccepted(clt, txID)
 			txLeft.Dec()
 			if err != nil {
 				o.log.Errorf("Error awaiting transaction %s to be accepted: %s", txID.String(), err)
 
 				return
 			}
+
+			o.log.Debugf("Tx %s confirmationState: %s, tx left: %d", txID.ToHex(), confirmationState, txLeft.Load())
+
 		}(txID, o.connector.GetClient())
 	}
 	wg.Wait()

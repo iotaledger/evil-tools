@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"time"
 
-	"go.uber.org/atomic"
-
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
@@ -55,7 +53,7 @@ func AwaitBlockToBeConfirmed(clt models.Client, blkID iotago.BlockID) error {
 }
 
 // AwaitTransactionToBeAccepted awaits for acceptance of a single transaction.
-func AwaitTransactionToBeAccepted(clt models.Client, txID iotago.TransactionID, txLeft *atomic.Int64) error {
+func AwaitTransactionToBeAccepted(clt models.Client, txID iotago.TransactionID) (string, error) {
 	for i := 0; i < MaxRetries; i++ {
 		resp, _ := clt.GetBlockStateFromTransaction(txID)
 		if resp == nil {
@@ -66,29 +64,27 @@ func AwaitTransactionToBeAccepted(clt models.Client, txID iotago.TransactionID, 
 		if resp.BlockState == apimodels.BlockStateFailed.String() || resp.BlockState == apimodels.BlockStateRejected.String() {
 			failureReason, _, _ := apimodels.BlockFailureReasonFromBytes(lo.PanicOnErr(resp.BlockFailureReason.Bytes()))
 
-			return ierrors.Errorf("tx %s failed because block failure: %d", txID, failureReason)
+			return resp.BlockState, ierrors.Errorf("tx %s failed because block failure: %d", txID, failureReason)
 		}
 
 		if resp.TransactionState == apimodels.TransactionStateFailed.String() {
 			failureReason, _, _ := apimodels.TransactionFailureReasonFromBytes(lo.PanicOnErr(resp.TransactionFailureReason.Bytes()))
 			UtilsLogger.Warnf("transaction %s failed: %d", txID, failureReason)
 
-			return ierrors.Errorf("transaction %s failed: %d", txID, failureReason)
+			return resp.TransactionState, ierrors.Errorf("transaction %s failed: %d", txID, failureReason)
 		}
 
 		confirmationState := resp.TransactionState
-
-		UtilsLogger.Debugf("Tx %s confirmationState: %s, tx left: %d", txID.ToHex(), confirmationState, txLeft.Load())
 		if confirmationState == apimodels.TransactionStateAccepted.String() ||
 			confirmationState == apimodels.TransactionStateConfirmed.String() ||
 			confirmationState == apimodels.TransactionStateFinalized.String() {
-			return nil
+			return confirmationState, nil
 		}
 
 		time.Sleep(AwaitInterval)
 	}
 
-	return ierrors.Errorf("Transaction %s not accepted in time", txID)
+	return "", ierrors.Errorf("Transaction %s not accepted in time", txID)
 }
 
 func AwaitAddressUnspentOutputToBeAccepted(clt models.Client, addr iotago.Address) (outputID iotago.OutputID, output iotago.Output, err error) {

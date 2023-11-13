@@ -153,8 +153,6 @@ func SpamTransaction(w *evilwallet.EvilWallet, rate int, timeUnit, duration time
 	}
 	if deepSpam {
 		outWallet := w.NewWallet(evilwallet.Reuse)
-		log.Infof("created reuse wallet, ID: %d", outWallet.ID)
-
 		scenarioOptions = append(scenarioOptions,
 			evilwallet.WithScenarioDeepSpamEnabled(),
 			evilwallet.WithScenarioReuseOutputWallet(outWallet),
@@ -189,8 +187,6 @@ func SpamDoubleSpends(w *evilwallet.EvilWallet, rate, nSpent int, timeUnit, dura
 
 	if deepSpam {
 		outWallet := w.NewWallet(evilwallet.Reuse)
-		log.Infof("created reuse wallet, ID: %d", outWallet.ID)
-
 		scenarioOptions = append(scenarioOptions,
 			evilwallet.WithScenarioDeepSpamEnabled(),
 			evilwallet.WithScenarioReuseOutputWallet(outWallet),
@@ -218,8 +214,6 @@ func SpamNestedConflicts(w *evilwallet.EvilWallet, rate int, timeUnit, duration 
 	}
 	if deepSpam {
 		outWallet := w.NewWallet(evilwallet.Reuse)
-		log.Infof("created reuse wallet, ID: %d", outWallet.ID)
-
 		scenarioOptions = append(scenarioOptions,
 			evilwallet.WithScenarioDeepSpamEnabled(),
 			evilwallet.WithScenarioReuseOutputWallet(outWallet),

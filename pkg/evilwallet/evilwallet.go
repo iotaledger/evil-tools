@@ -392,8 +392,6 @@ func (e *EvilWallet) useFreshIfInputWalletNotProvided(buildOptions *Options) (*W
 	if buildOptions.reuse {
 		outputsNeeded := len(buildOptions.inputs)
 		if wallet := e.wallets.reuseWallet(outputsNeeded); wallet != nil {
-			e.log.Debug("actually using reused wallet")
-
 			return wallet, nil
 		}
 	}

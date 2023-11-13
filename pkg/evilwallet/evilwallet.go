@@ -423,7 +423,6 @@ func (e *EvilWallet) matchOutputsWithAliases(buildOptions *Options, tempWallet *
 		var addr *iotago.Ed25519Address
 		if _, ok := buildOptions.outputBatchAliases[alias]; ok {
 			addr = buildOptions.outputWallet.Address()
-			e.log.Debugf("use reuse wallet ID: %s, with address: %s", buildOptions.outputWallet.ID, addr.String())
 		} else {
 			addr = tempWallet.Address()
 			tempAddresses[addr.String()] = types.Void

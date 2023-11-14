@@ -30,16 +30,19 @@ func SplitBalanceEqually(splitNumber int, balance iotago.BaseToken) []iotago.Bas
 
 func SprintTransaction(tx *iotago.SignedTransaction) string {
 	txDetails := ""
-	txDetails += fmt.Sprintf("Transaction ID; %s, slotCreation: %d\n", lo.PanicOnErr(tx.ID()).ToHex(), tx.Transaction.CreationSlot)
+	txDetails += fmt.Sprintf("\tTransaction ID; %s, slotCreation: %d\n", lo.PanicOnErr(tx.ID()).ToHex(), tx.Transaction.CreationSlot)
+	for index, out := range tx.Transaction.TransactionEssence.Inputs {
+		txDetails += fmt.Sprintf("\tInput index: %d, type: %s, ID: %s\n", index, out.Type())
+	}
+	for _, out := range tx.Transaction.TransactionEssence.ContextInputs {
+		txDetails += fmt.Sprintf("\tContext input: %s\n", out.Type())
+	}
 	for index, out := range tx.Transaction.Outputs {
-		txDetails += fmt.Sprintf("Output index: %d, base token: %d, stored mana: %d\n", index, out.BaseTokenAmount(), out.StoredMana())
+		txDetails += fmt.Sprintf("\tOutput index: %d, base token: %d, stored mana: %d, type: %s\n", index, out.BaseTokenAmount(), out.StoredMana(), out.Type())
 	}
-	txDetails += fmt.Sprintln("Allotments:")
+	txDetails += fmt.Sprintln("\tAllotments:")
 	for _, allotment := range tx.Transaction.Allotments {
-		txDetails += fmt.Sprintf("AllotmentID: %s, value: %d\n", allotment.AccountID, allotment.Mana)
-	}
-	for _, allotment := range tx.Transaction.TransactionEssence.Allotments {
-		txDetails += fmt.Sprintf("al 2 AllotmentID: %s, value: %d\n", allotment.AccountID, allotment.Mana)
+		txDetails += fmt.Sprintf("\tAllotmentID: %s, value: %d\n", allotment.AccountID, allotment.Mana)
 	}
 
 	return txDetails
@@ -49,6 +52,34 @@ func SumOutputsBalance(outputs []*models.Output) iotago.BaseToken {
 	balance := iotago.BaseToken(0)
 	for _, out := range outputs {
 		balance += out.Balance
+	}
+
+	return balance
+}
+
+func PrepareDummyTransactionBuilder(api iotago.API, basicInputCount, basicOutputCount int, accountInput bool, accountOutput bool) *builder.TransactionBuilder {
+	txBuilder := builder.NewTransactionBuilder(api)
+	txBuilder.SetCreationSlot(100)
+	for i := 0; i < basicInputCount; i++ {
+		txBuilder.AddInput(&builder.TxInput{
+			UnlockTarget: tpkg.RandEd25519Address(),
+			InputID:      iotago.EmptyOutputID,
+			Input:        tpkg.RandBasicOutput(iotago.AddressEd25519),
+		})
+	}
+	for i := 0; i < basicOutputCount; i++ {
+		txBuilder.AddOutput(tpkg.RandBasicOutput(iotago.AddressEd25519))
+	}
+
+	if accountInput {
+		out := builder.NewAccountOutputBuilder(tpkg.RandAccountAddress(), 100).
+			Mana(100).
+			BlockIssuer(tpkg.RandomBlockIssuerKeysEd25519(1), iotago.MaxSlotIndex).MustBuild()
+		txBuilder.AddInput(&builder.TxInput{
+			UnlockTarget: tpkg.RandEd25519Address(),
+			InputID:      iotago.EmptyOutputID,
+			Input:        out,
+		})
 	}
 
 	if accountOutput {

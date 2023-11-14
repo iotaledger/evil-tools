@@ -11,7 +11,7 @@ go build
 Usage of script flag set:
 - `account`:  _string_ - Account alias to be used for the spam. Account should be created first with accounts tool.
 - `dbc`: _duration_ - delayBetweenConflicts - Time delay between conflicts in double spend spamming
-- `deep`: _bool_ - Enable the deep spam, by reusing outputs created during the spam.
+- `deep`: _bool_ - Enable the deep spam, by reusing outputs created during the spam. To enable provide an empty flag.
 - `duration`: _string_ - Spam duration. If not provided spam will lats infinitely. Format: separated by commas list of decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.
 Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.
 - `rate`: _int_ - Spamming rate for provided 'spammer'. Format: numbers separated with comma, e.g. 10,100,1 if three spammers were provided for 'spammer' parameter. (default 1)
@@ -43,6 +43,10 @@ Infinite spam is enabled when no duration flag is provided.
 You can provide urls for clients:
 ```bash
 ./evil-tools spammer -urls "http://localhost:8050,http://localhost:8060" -spammer custom -scenario tx -rate 1
+```
+Enable deep spam:
+```bash
+./evil-tools spammer -spammer custom -scenario tx -unit 1m -rate 1 -deep
 ```
 
 ### Scenario diagrams:

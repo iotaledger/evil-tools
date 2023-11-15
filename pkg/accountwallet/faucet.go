@@ -135,7 +135,7 @@ type faucet struct {
 	sync.Mutex
 }
 
-func newFaucet(clt models.Client, faucetParams *faucetParams, requestTokenAmount iotago.BaseToken, requestManaAmount iotago.Mana) (*faucet, error) {
+func newFaucet(clt models.Client, faucetParams *faucetParams) (*faucet, error) {
 	genesisSeed, err := base58.Decode(faucetParams.genesisSeed)
 	if err != nil {
 		log.Warnf("failed to decode base58 seed, using the default one: %v", err)
@@ -143,11 +143,9 @@ func newFaucet(clt models.Client, faucetParams *faucetParams, requestTokenAmount
 	faucetAddr := mock.NewKeyManager(genesisSeed, 0).Address(iotago.AddressEd25519)
 
 	f := &faucet{
-		clt:                clt,
-		account:            mock.AccountFromParams(faucetParams.faucetAccountID, faucetParams.faucetPrivateKey),
-		genesisHdWallet:    mock.NewKeyManager(genesisSeed, 0),
-		RequestTokenAmount: requestTokenAmount,
-		RequestManaAmount:  requestManaAmount,
+		clt:             clt,
+		account:         mock.AccountFromParams(faucetParams.faucetAccountID, faucetParams.faucetPrivateKey),
+		genesisHdWallet: mock.NewKeyManager(genesisSeed, 0),
 	}
 
 	faucetUnspentOutput, faucetUnspentOutputID, faucetAmount, err := f.getGenesisOutputFromIndexer(clt, faucetAddr)

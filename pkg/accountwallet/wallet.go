@@ -93,19 +93,22 @@ func NewAccountWallet(opts ...options.Option[AccountWallet]) (*AccountWallet, er
 			return
 		}
 
-		out, err := w.RequestFaucetFunds(tpkg.RandAddress())
-		if err != nil {
-			log.Errorf("failed to request faucet funds: %s, faucet not initiated", err.Error())
-
-			return
-		}
-		var f *faucet
-		f, initErr = newFaucet(w.client, w.optsFaucetParams, out.Balance, out.OutputStruct.StoredMana())
+		w.faucet, initErr = newFaucet(w.client, w.optsFaucetParams)
 		if initErr != nil {
 			return
 		}
 
-		w.faucet = f
+		out, err := w.RequestFaucetFunds(tpkg.RandEd25519Address())
+		if err != nil {
+			initErr = err
+			log.Errorf("failed to request faucet funds: %s, faucet not initiated", err.Error())
+
+			return
+		}
+		w.faucet.RequestTokenAmount = out.Balance
+		w.faucet.RequestManaAmount = out.OutputStruct.StoredMana()
+
+		log.Debugf("faucet initiated with %d tokens and %d mana", w.faucet.RequestTokenAmount, w.faucet.RequestManaAmount)
 		w.accountsAliases[FaucetAccountAlias] = &models.AccountData{
 			Alias:    FaucetAccountAlias,
 			Status:   models.AccountReady,

@@ -152,7 +152,7 @@ func SpamTransaction(w *evilwallet.EvilWallet, rate int, timeUnit, duration time
 		evilwallet.WithScenarioCustomConflicts(evilwallet.SingleTransactionBatch()),
 	}
 	if deepSpam {
-		outWallet := evilwallet.NewWallet(evilwallet.Reuse)
+		outWallet := w.NewWallet(evilwallet.Reuse)
 		scenarioOptions = append(scenarioOptions,
 			evilwallet.WithScenarioDeepSpamEnabled(),
 			evilwallet.WithScenarioReuseOutputWallet(outWallet),
@@ -175,7 +175,8 @@ func SpamTransaction(w *evilwallet.EvilWallet, rate int, timeUnit, duration time
 }
 
 func SpamDoubleSpends(w *evilwallet.EvilWallet, rate, nSpent int, timeUnit, duration, delayBetweenConflicts time.Duration, deepSpam, enableRateSetter bool, accountAlias string) {
-	log.Debugf("Setting up double spend spammer with rate: %d, time unit: %s, and duration: %s.", rate, timeUnit.String(), duration.String())
+	log.Debugf("Setting up double spend spammer with rate: %d, time unit: %s, and duration: %s, deepspam: %v.", rate, timeUnit.String(), duration.String(), deepSpam)
+
 	if w.NumOfClient() < 2 {
 		log.Infof("Warning: At least two client are needed to spam, and %d was provided", w.NumOfClient())
 	}
@@ -183,8 +184,9 @@ func SpamDoubleSpends(w *evilwallet.EvilWallet, rate, nSpent int, timeUnit, dura
 	scenarioOptions := []evilwallet.ScenarioOption{
 		evilwallet.WithScenarioCustomConflicts(evilwallet.NSpendBatch(nSpent)),
 	}
+
 	if deepSpam {
-		outWallet := evilwallet.NewWallet(evilwallet.Reuse)
+		outWallet := w.NewWallet(evilwallet.Reuse)
 		scenarioOptions = append(scenarioOptions,
 			evilwallet.WithScenarioDeepSpamEnabled(),
 			evilwallet.WithScenarioReuseOutputWallet(outWallet),
@@ -211,7 +213,7 @@ func SpamNestedConflicts(w *evilwallet.EvilWallet, rate int, timeUnit, duration 
 		evilwallet.WithScenarioCustomConflicts(conflictBatch),
 	}
 	if deepSpam {
-		outWallet := evilwallet.NewWallet(evilwallet.Reuse)
+		outWallet := w.NewWallet(evilwallet.Reuse)
 		scenarioOptions = append(scenarioOptions,
 			evilwallet.WithScenarioDeepSpamEnabled(),
 			evilwallet.WithScenarioReuseOutputWallet(outWallet),

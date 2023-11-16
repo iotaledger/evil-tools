@@ -3,8 +3,6 @@ package evilwallet
 import (
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/evil-tools/pkg/models"
-	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
 )
 
@@ -109,15 +107,6 @@ func (w *Wallets) addReuseWallet(wallet *Wallet) {
 	w.reuseWallets[wallet.ID] = false
 }
 
-// GetUnspentOutput gets first found unspent output for a given walletType.
-func (w *Wallets) GetUnspentOutput(wallet *Wallet) *models.Output {
-	if wallet == nil {
-		return nil
-	}
-
-	return wallet.GetUnspentOutput()
-}
-
 // isFaucetWalletAvailable checks if there is any faucet wallet left.
 func (w *Wallets) isFaucetWalletAvailable() bool {
 	return len(w.faucetWallets) > 0
@@ -130,15 +119,14 @@ func (w *Wallets) freshWallet() (*Wallet, error) {
 	defer w.mu.Unlock()
 
 	if !w.isFaucetWalletAvailable() {
-
-		return nil, ierrors.New("no faucet wallets available, need to request more funds")
+		return nil, NoFreshOutputsAvailable
 	}
 
 	wallet := w.wallets[w.faucetWallets[0]]
 	if wallet.IsEmpty() {
 		w.removeFreshWallet()
 		if !w.isFaucetWalletAvailable() {
-			return nil, ierrors.New("no faucet wallets available, need to request more funds")
+			return nil, NoFreshOutputsAvailable
 		}
 
 		wallet = w.wallets[w.faucetWallets[0]]

@@ -22,13 +22,13 @@ const (
 	FaucetAccountAlias = "faucet"
 )
 
-func (a *AccountWallet) RequestBlockBuiltData(clt *nodeclient.Client, issuerID iotago.AccountID) (*apimodels.CongestionResponse, *apimodels.IssuanceBlockHeaderResponse, iotago.Version, error) {
-	congestionResp, err := clt.Congestion(context.Background(), issuerID)
+func (a *AccountWallet) RequestBlockBuiltData(ctx context.Context, clt *nodeclient.Client, issuerID iotago.AccountID) (*apimodels.CongestionResponse, *apimodels.IssuanceBlockHeaderResponse, iotago.Version, error) {
+	congestionResp, err := clt.Congestion(ctx, issuerID)
 	if err != nil {
 		return nil, nil, 0, ierrors.Wrapf(err, "failed to get congestion data for issuer %s", issuerID.ToHex())
 	}
 
-	issuerResp, err := clt.BlockIssuance(context.Background(), congestionResp.Slot)
+	issuerResp, err := clt.BlockIssuance(ctx, congestionResp.Slot)
 	if err != nil {
 		return nil, nil, 0, ierrors.Wrap(err, "failed to get block issuance data")
 	}
@@ -38,13 +38,13 @@ func (a *AccountWallet) RequestBlockBuiltData(clt *nodeclient.Client, issuerID i
 	return congestionResp, issuerResp, version, nil
 }
 
-func (a *AccountWallet) RequestFaucetFunds(clt models.Client, receiveAddr iotago.Address) (*models.Output, error) {
-	err := clt.RequestFaucetFunds(receiveAddr)
+func (a *AccountWallet) RequestFaucetFunds(ctx context.Context, clt models.Client, receiveAddr iotago.Address) (*models.Output, error) {
+	err := clt.RequestFaucetFunds(ctx, receiveAddr)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to request funds from faucet")
 	}
 
-	outputID, outputStruct, err := utils.AwaitAddressUnspentOutputToBeAccepted(clt, receiveAddr)
+	outputID, outputStruct, err := utils.AwaitAddressUnspentOutputToBeAccepted(ctx, clt, receiveAddr)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to await faucet funds")
 	}
@@ -58,15 +58,15 @@ func (a *AccountWallet) RequestFaucetFunds(clt models.Client, receiveAddr iotago
 	}, nil
 }
 
-func (a *AccountWallet) PostWithBlock(clt models.Client, payload iotago.Payload, issuer mock.Account, congestionResp *apimodels.CongestionResponse, issuerResp *apimodels.IssuanceBlockHeaderResponse, version iotago.Version, strongParents ...iotago.BlockID) (iotago.BlockID, error) {
-	signedBlock, err := a.CreateBlock(payload, issuer, congestionResp, issuerResp, version, strongParents...)
+func (a *AccountWallet) PostWithBlock(ctx context.Context, clt models.Client, payload iotago.Payload, issuer mock.Account, congestionResp *apimodels.CongestionResponse, issuerResp *apimodels.IssuanceBlockHeaderResponse, version iotago.Version, strongParents ...iotago.BlockID) (iotago.BlockID, error) {
+	signedBlock, err := a.CreateBlock(ctx, payload, issuer, congestionResp, issuerResp, version, strongParents...)
 	if err != nil {
 		log.Errorf("failed to create block: %s", err)
 
 		return iotago.EmptyBlockID, err
 	}
 
-	blockID, err := clt.PostBlock(signedBlock)
+	blockID, err := clt.PostBlock(ctx, signedBlock)
 	if err != nil {
 		log.Errorf("failed to post block: %s", err)
 
@@ -76,13 +76,13 @@ func (a *AccountWallet) PostWithBlock(clt models.Client, payload iotago.Payload,
 	return blockID, nil
 }
 
-func (a *AccountWallet) CreateBlock(payload iotago.Payload, issuer mock.Account, congestionResp *apimodels.CongestionResponse, issuerResp *apimodels.IssuanceBlockHeaderResponse, version iotago.Version, strongParents ...iotago.BlockID) (*iotago.Block, error) {
+func (a *AccountWallet) CreateBlock(ctx context.Context, payload iotago.Payload, issuer mock.Account, congestionResp *apimodels.CongestionResponse, issuerResp *apimodels.IssuanceBlockHeaderResponse, version iotago.Version, strongParents ...iotago.BlockID) (*iotago.Block, error) {
 	issuingTime := time.Now()
 	issuingSlot := a.client.LatestAPI().TimeProvider().SlotFromTime(issuingTime)
 	apiForSlot := a.client.APIForSlot(issuingSlot)
 	if congestionResp == nil {
 		var err error
-		congestionResp, err = a.client.GetCongestion(issuer.ID())
+		congestionResp, err = a.client.GetCongestion(ctx, issuer.ID())
 		if err != nil {
 			return nil, ierrors.Wrap(err, "failed to get congestion data")
 		}
@@ -162,7 +162,8 @@ func newFaucet(clt models.Client, faucetParams *faucetParams) (*faucet, error) {
 }
 
 func (f *faucet) getGenesisOutputFromIndexer(clt models.Client, faucetAddr iotago.DirectUnlockableAddress) (iotago.Output, iotago.OutputID, iotago.BaseToken, error) {
-	indexer, err := clt.Indexer()
+	ctx := context.Background()
+	indexer, err := clt.Indexer(ctx)
 	if err != nil {
 		log.Errorf("account wallet failed due to failure in connecting to indexer")
 

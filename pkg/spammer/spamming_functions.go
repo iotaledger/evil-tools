@@ -1,6 +1,7 @@
 package spammer
 
 import (
+	"context"
 	"math/rand"
 	"sync"
 	"time"
@@ -12,13 +13,13 @@ import (
 	iotago "github.com/iotaledger/iota.go/v4"
 )
 
-func DataSpammingFunction(s *Spammer) {
+func DataSpammingFunction(ctx context.Context, s *Spammer) error {
 	clt := s.Clients.GetClient()
 	// sleep randomly to avoid issuing blocks in different goroutines at once
 	//nolint:gosec
 	time.Sleep(time.Duration(rand.Float64()*20) * time.Millisecond)
 
-	s.PrepareAndPostBlock(&models.PayloadIssuanceData{
+	s.PrepareAndPostBlock(ctx, &models.PayloadIssuanceData{
 		Payload: &iotago.TaggedData{
 			Tag: []byte("SPAM"),
 		},
@@ -26,10 +27,12 @@ func DataSpammingFunction(s *Spammer) {
 
 	s.State.batchPrepared.Add(1)
 	s.CheckIfAllSent()
+
+	return nil
 }
 
-func CustomConflictSpammingFunc(s *Spammer) {
-	conflictBatch, aliases, err := s.EvilWallet.PrepareCustomConflictsSpam(s.EvilScenario, &models.IssuancePaymentStrategy{
+func CustomConflictSpammingFunc(ctx context.Context, s *Spammer) error {
+	conflictBatch, aliases, err := s.EvilWallet.PrepareCustomConflictsSpam(ctx, s.EvilScenario, &models.IssuancePaymentStrategy{
 		AllotmentStrategy: models.AllotmentStrategyAll,
 		IssuerAlias:       s.IssuerAlias,
 	})
@@ -37,6 +40,8 @@ func CustomConflictSpammingFunc(s *Spammer) {
 	if err != nil {
 		s.log.Debugf(ierrors.Wrap(ErrFailToPrepareBatch, err.Error()).Error())
 		s.ErrCounter.CountError(ierrors.Wrap(ErrFailToPrepareBatch, err.Error()))
+
+		return err
 	}
 
 	for _, txsData := range conflictBatch {
@@ -57,7 +62,7 @@ func CustomConflictSpammingFunc(s *Spammer) {
 				//nolint:gosec
 				time.Sleep(time.Duration(rand.Float64()*100) * time.Millisecond)
 
-				s.PrepareAndPostBlock(tx, s.IssuerAlias, clt)
+				s.PrepareAndPostBlock(ctx, tx, s.IssuerAlias, clt)
 			}(clients[i], txData)
 		}
 		wg.Wait()
@@ -65,36 +70,42 @@ func CustomConflictSpammingFunc(s *Spammer) {
 	s.State.batchPrepared.Add(1)
 	s.EvilWallet.ClearAliases(aliases)
 	s.CheckIfAllSent()
+
+	return nil
 }
 
-func AccountSpammingFunction(s *Spammer) {
+func AccountSpammingFunction(ctx context.Context, s *Spammer) error {
 	clt := s.Clients.GetClient()
 	// update scenario
-	txData, aliases, err := s.EvilWallet.PrepareAccountSpam(s.EvilScenario, &models.IssuancePaymentStrategy{
+	txData, aliases, err := s.EvilWallet.PrepareAccountSpam(ctx, s.EvilScenario, &models.IssuancePaymentStrategy{
 		AllotmentStrategy: models.AllotmentStrategyAll,
 		IssuerAlias:       s.IssuerAlias,
 	})
 	if err != nil {
 		s.log.Debugf(ierrors.Wrap(ErrFailToPrepareBatch, err.Error()).Error())
 		s.ErrCounter.CountError(ierrors.Wrap(ErrFailToPrepareBatch, err.Error()))
+
+		return err
 	}
-	s.PrepareAndPostBlock(txData, s.IssuerAlias, clt)
+	s.PrepareAndPostBlock(ctx, txData, s.IssuerAlias, clt)
 
 	s.State.batchPrepared.Add(1)
 	s.EvilWallet.ClearAliases(aliases)
 	s.CheckIfAllSent()
+
+	return nil
 }
 
-func BlowballSpammingFunction(s *Spammer) {
+func BlowballSpammingFunction(ctx context.Context, s *Spammer) error {
 	clt := s.Clients.GetClient()
 	// sleep randomly to avoid issuing blocks in different goroutines at once
 	//nolint:gosec
 	time.Sleep(time.Duration(rand.Float64()*20) * time.Millisecond)
 
-	centerID, err := createBlowBallCenter(s)
+	centerID, err := createBlowBallCenter(ctx, s)
 	if err != nil {
 		s.log.Errorf("failed to performe blowball attack", err)
-		return
+		return err
 	}
 	s.log.Infof("blowball center ID: %s", centerID.ToHex())
 
@@ -102,7 +113,7 @@ func BlowballSpammingFunction(s *Spammer) {
 	s.log.Infof("wait blowball center to get old...")
 	time.Sleep(30 * time.Second)
 
-	blowballs := createBlowBall(centerID, s)
+	blowballs := createBlowBall(ctx, centerID, s)
 
 	wg := sync.WaitGroup{}
 	for _, blk := range blowballs {
@@ -115,7 +126,7 @@ func BlowballSpammingFunction(s *Spammer) {
 			//nolint:gosec
 			time.Sleep(time.Duration(rand.Float64()*100) * time.Millisecond)
 
-			id, err := clt.PostBlock(blk)
+			id, err := clt.PostBlock(ctx, blk)
 			if err != nil {
 				s.log.Error("ereror to send blowball blocks")
 				return
@@ -127,40 +138,42 @@ func BlowballSpammingFunction(s *Spammer) {
 
 	s.State.batchPrepared.Add(1)
 	s.CheckIfAllSent()
+
+	return nil
 }
 
-func createBlowBallCenter(s *Spammer) (iotago.BlockID, error) {
+func createBlowBallCenter(ctx context.Context, s *Spammer) (iotago.BlockID, error) {
 	clt := s.Clients.GetClient()
 
-	centerID := s.PrepareAndPostBlock(&models.PayloadIssuanceData{
+	centerID := s.PrepareAndPostBlock(ctx, &models.PayloadIssuanceData{
 		Payload: &iotago.TaggedData{
 			Tag: []byte("DS"),
 		},
 	}, s.IssuerAlias, clt)
 
-	err := utils.AwaitBlockToBeConfirmed(clt, centerID)
+	err := utils.AwaitBlockToBeConfirmed(ctx, clt, centerID)
 
 	return centerID, err
 }
 
-func createBlowBall(center iotago.BlockID, s *Spammer) []*iotago.Block {
+func createBlowBall(ctx context.Context, center iotago.BlockID, s *Spammer) []*iotago.Block {
 	blowBallBlocks := make([]*iotago.Block, 0)
 	// default to 30, if blowball size is not set
 	size := lo.Max(s.SpamDetails.BlowballSize, 30)
 
 	for i := 0; i < size; i++ {
-		blk := createSideBlock(center, s)
+		blk := createSideBlock(ctx, center, s)
 		blowBallBlocks = append(blowBallBlocks, blk)
 	}
 
 	return blowBallBlocks
 }
 
-func createSideBlock(parent iotago.BlockID, s *Spammer) *iotago.Block {
+func createSideBlock(ctx context.Context, parent iotago.BlockID, s *Spammer) *iotago.Block {
 	// create a new message
 	clt := s.Clients.GetClient()
 
-	return s.PrepareBlock(&models.PayloadIssuanceData{
+	return s.PrepareBlock(ctx, &models.PayloadIssuanceData{
 		Payload: &iotago.TaggedData{
 			Tag: []byte("DS"),
 		},

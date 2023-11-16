@@ -1,6 +1,7 @@
 package evilwallet
 
 import (
+	"context"
 	"sync"
 
 	"github.com/iotaledger/evil-tools/pkg/accountwallet"
@@ -19,11 +20,11 @@ const (
 
 // RequestFundsFromFaucet requests funds from the faucet, then track the confirmed status of unspent output,
 // also register the alias name for the unspent output if provided.
-func (e *EvilWallet) RequestFundsFromFaucet(options ...FaucetRequestOption) (initWallet *Wallet, err error) {
+func (e *EvilWallet) RequestFundsFromFaucet(ctx context.Context, options ...FaucetRequestOption) (initWallet *Wallet, err error) {
 	initWallet = e.NewWallet(Fresh)
 	buildOptions := NewFaucetRequestOptions(options...)
 
-	output, err := e.requestFaucetFunds(initWallet)
+	output, err := e.requestFaucetFunds(ctx, initWallet)
 	if err != nil {
 		return
 	}
@@ -38,7 +39,7 @@ func (e *EvilWallet) RequestFundsFromFaucet(options ...FaucetRequestOption) (ini
 }
 
 // RequestFreshBigFaucetWallets creates n new wallets, each wallet is created from one faucet request and contains 1000 outputs.
-func (e *EvilWallet) RequestFreshBigFaucetWallets(numberOfWallets int) bool {
+func (e *EvilWallet) RequestFreshBigFaucetWallets(ctx context.Context, numberOfWallets int) bool {
 	e.log.Debugf("Requesting %d wallets from faucet", numberOfWallets)
 	success := true
 	// channel to block the number of concurrent goroutines
@@ -57,7 +58,7 @@ func (e *EvilWallet) RequestFreshBigFaucetWallets(numberOfWallets int) bool {
 				<-semaphore
 			}()
 
-			err := e.RequestFreshBigFaucetWallet()
+			err := e.RequestFreshBigFaucetWallet(ctx)
 			if err != nil {
 				success = false
 				e.log.Errorf("Failed to request wallet from faucet: %s", err)
@@ -75,17 +76,17 @@ func (e *EvilWallet) RequestFreshBigFaucetWallets(numberOfWallets int) bool {
 
 // RequestFreshBigFaucetWallet creates a new wallet and fills the wallet with 1000 outputs created from funds
 // requested from the Faucet.
-func (e *EvilWallet) RequestFreshBigFaucetWallet() error {
+func (e *EvilWallet) RequestFreshBigFaucetWallet(ctx context.Context) error {
 	initWallet := NewWallet()
 	receiveWallet := e.NewWallet(Fresh)
-	_, err := e.requestAndSplitFaucetFunds(initWallet, receiveWallet)
+	_, err := e.requestAndSplitFaucetFunds(ctx, initWallet, receiveWallet)
 	if err != nil {
 		return ierrors.Wrap(err, "failed to request big funds from faucet")
 	}
 
 	e.log.Debug("First level of splitting finished, now split each output once again")
 	bigOutputWallet := e.NewWallet(Fresh)
-	_, err = e.splitOutputs(receiveWallet, bigOutputWallet)
+	_, err = e.splitOutputs(ctx, receiveWallet, bigOutputWallet)
 	if err != nil {
 		return ierrors.Wrap(err, "failed to again split outputs for the big wallet")
 	}
@@ -97,30 +98,30 @@ func (e *EvilWallet) RequestFreshBigFaucetWallet() error {
 
 // RequestFreshFaucetWallet creates a new wallet and fills the wallet with 100 outputs created from funds
 // requested from the Faucet.
-func (e *EvilWallet) RequestFreshFaucetWallet() error {
+func (e *EvilWallet) RequestFreshFaucetWallet(ctx context.Context) error {
 	initWallet := NewWallet()
 	receiveWallet := e.NewWallet(Fresh)
-	txID, err := e.requestAndSplitFaucetFunds(initWallet, receiveWallet)
+	txID, err := e.requestAndSplitFaucetFunds(ctx, initWallet, receiveWallet)
 	if err != nil {
 		return ierrors.Wrap(err, "failed to request funds from faucet")
 	}
 
-	e.outputManager.AwaitTransactionsAcceptance(txID)
+	e.outputManager.AwaitTransactionsAcceptance(ctx, txID)
 
 	e.wallets.SetWalletReady(receiveWallet)
 
 	return err
 }
 
-func (e *EvilWallet) requestAndSplitFaucetFunds(initWallet, receiveWallet *Wallet) (txID iotago.TransactionID, err error) {
-	splitOutput, err := e.requestFaucetFunds(initWallet)
+func (e *EvilWallet) requestAndSplitFaucetFunds(ctx context.Context, initWallet, receiveWallet *Wallet) (txID iotago.TransactionID, err error) {
+	splitOutput, err := e.requestFaucetFunds(ctx, initWallet)
 	if err != nil {
 		return iotago.EmptyTransactionID, err
 	}
 
 	e.log.Debugf("Faucet funds received, continue spliting output: %s", splitOutput.OutputID.ToHex())
 
-	splitTransactionsID, err := e.splitOutput(splitOutput, initWallet, receiveWallet)
+	splitTransactionsID, err := e.splitOutput(ctx, splitOutput, initWallet, receiveWallet)
 	if err != nil {
 		return iotago.EmptyTransactionID, ierrors.Wrap(err, "failed to split faucet funds")
 	}
@@ -128,16 +129,16 @@ func (e *EvilWallet) requestAndSplitFaucetFunds(initWallet, receiveWallet *Walle
 	return splitTransactionsID, nil
 }
 
-func (e *EvilWallet) requestFaucetFunds(wallet *Wallet) (output *models.Output, err error) {
+func (e *EvilWallet) requestFaucetFunds(ctx context.Context, wallet *Wallet) (output *models.Output, err error) {
 	receiveAddr := wallet.AddressOnIndex(0)
 	clt := e.connector.GetIndexerClient()
 
-	err = clt.RequestFaucetFunds(receiveAddr)
+	err = clt.RequestFaucetFunds(ctx, receiveAddr)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to request funds from faucet")
 	}
 
-	outputID, iotaOutput, err := utils.AwaitAddressUnspentOutputToBeAccepted(clt, receiveAddr)
+	outputID, iotaOutput, err := utils.AwaitAddressUnspentOutputToBeAccepted(ctx, clt, receiveAddr)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to await faucet output acceptance")
 	}
@@ -148,7 +149,7 @@ func (e *EvilWallet) requestFaucetFunds(wallet *Wallet) (output *models.Output, 
 	return output, nil
 }
 
-func (e *EvilWallet) splitOutput(splitOutput *models.Output, inputWallet, outputWallet *Wallet) (iotago.TransactionID, error) {
+func (e *EvilWallet) splitOutput(ctx context.Context, splitOutput *models.Output, inputWallet, outputWallet *Wallet) (iotago.TransactionID, error) {
 	outputs, err := e.createSplitOutputs(splitOutput, outputWallet)
 	if err != nil {
 		return iotago.EmptyTransactionID, ierrors.Wrapf(err, "failed to create splitted outputs")
@@ -158,7 +159,7 @@ func (e *EvilWallet) splitOutput(splitOutput *models.Output, inputWallet, output
 	if err != nil {
 		return iotago.EmptyTransactionID, err
 	}
-	txData, err := e.CreateTransaction(
+	txData, err := e.CreateTransaction(ctx,
 		WithInputs(splitOutput),
 		WithOutputs(outputs),
 		WithInputWallet(inputWallet),
@@ -169,7 +170,7 @@ func (e *EvilWallet) splitOutput(splitOutput *models.Output, inputWallet, output
 		return iotago.EmptyTransactionID, err
 	}
 
-	_, err = e.PrepareAndPostBlock(e.connector.GetClient(), txData.Payload, txData.CongestionResponse, faucetAccount.Account)
+	_, err = e.PrepareAndPostBlock(ctx, e.connector.GetClient(), txData.Payload, txData.CongestionResponse, faucetAccount.Account)
 	if err != nil {
 		return iotago.TransactionID{}, err
 	}
@@ -189,7 +190,7 @@ func (e *EvilWallet) splitOutput(splitOutput *models.Output, inputWallet, output
 }
 
 // splitOutputs splits all outputs from the provided input wallet, outputs are saved to the outputWallet.
-func (e *EvilWallet) splitOutputs(inputWallet, outputWallet *Wallet) ([]iotago.TransactionID, error) {
+func (e *EvilWallet) splitOutputs(ctx context.Context, inputWallet, outputWallet *Wallet) ([]iotago.TransactionID, error) {
 	if inputWallet.IsEmpty() {
 		return nil, ierrors.New("failed to split outputs, inputWallet is empty")
 	}
@@ -209,7 +210,7 @@ func (e *EvilWallet) splitOutputs(inputWallet, outputWallet *Wallet) ([]iotago.T
 			defer wg.Done()
 
 			input := inputWallet.UnspentOutput(addr)
-			txID, err := e.splitOutput(input, inputWallet, outputWallet)
+			txID, err := e.splitOutput(ctx, input, inputWallet, outputWallet)
 			if err != nil {
 				e.log.Errorf("Failed to split output %s: %s", input.OutputID.ToHex(), err)
 
@@ -221,7 +222,7 @@ func (e *EvilWallet) splitOutputs(inputWallet, outputWallet *Wallet) ([]iotago.T
 	wg.Wait()
 	e.log.Debug("All blocks with splitting transactions were posted")
 
-	e.outputManager.AwaitTransactionsAcceptance(txIDs...)
+	e.outputManager.AwaitTransactionsAcceptance(ctx, txIDs...)
 
 	return txIDs, nil
 }

@@ -1,6 +1,7 @@
 package accountwallet
 
 import (
+	"context"
 	"crypto/ed25519"
 	"os"
 	"sync"
@@ -216,7 +217,7 @@ func (a *AccountWallet) updateAccountStatus(alias string, status models.AccountS
 	return accData, true
 }
 
-func (a *AccountWallet) GetReadyAccount(alias string) (*models.AccountData, error) {
+func (a *AccountWallet) GetReadyAccount(ctx context.Context, alias string) (*models.AccountData, error) {
 	a.accountAliasesMutex.Lock()
 	defer a.accountAliasesMutex.Unlock()
 
@@ -226,7 +227,7 @@ func (a *AccountWallet) GetReadyAccount(alias string) (*models.AccountData, erro
 	}
 
 	// check if account is ready (to be included in a commitment)
-	ready := a.isAccountReady(accData)
+	ready := a.isAccountReady(ctx, accData)
 	if !ready {
 		return nil, ierrors.Errorf("account with alias %s is not ready", alias)
 	}
@@ -248,7 +249,7 @@ func (a *AccountWallet) GetAccount(alias string) (*models.AccountData, error) {
 	return accData, nil
 }
 
-func (a *AccountWallet) isAccountReady(accData *models.AccountData) bool {
+func (a *AccountWallet) isAccountReady(ctx context.Context, accData *models.AccountData) bool {
 	if accData.Status == models.AccountReady {
 		return true
 	}
@@ -258,7 +259,7 @@ func (a *AccountWallet) isAccountReady(accData *models.AccountData) bool {
 	// wait for the account to be committed
 	log.Infof("Waiting for account %s to be committed within slot %d...", accData.Alias, creationSlot)
 	err := a.retry(func() (bool, error) {
-		resp, err := a.client.GetBlockIssuance()
+		resp, err := a.client.GetBlockIssuance(ctx)
 		if err != nil {
 			return false, err
 		}
@@ -279,10 +280,10 @@ func (a *AccountWallet) isAccountReady(accData *models.AccountData) bool {
 	return true
 }
 
-func (a *AccountWallet) getFunds(addressType iotago.AddressType) (*models.Output, ed25519.PrivateKey, error) {
+func (a *AccountWallet) getFunds(ctx context.Context, addressType iotago.AddressType) (*models.Output, ed25519.PrivateKey, error) {
 	receiverAddr, privKey, usedIndex := a.getAddress(addressType)
 
-	createdOutput, err := a.RequestFaucetFunds(a.client, receiverAddr)
+	createdOutput, err := a.RequestFaucetFunds(ctx, a.client, receiverAddr)
 	if err != nil {
 		return nil, nil, ierrors.Wrap(err, "failed to request funds from Faucet")
 	}
@@ -292,7 +293,7 @@ func (a *AccountWallet) getFunds(addressType iotago.AddressType) (*models.Output
 	return createdOutput, privKey, nil
 }
 
-func (a *AccountWallet) destroyAccount(alias string) error {
+func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error {
 	accData, err := a.GetAccount(alias)
 	if err != nil {
 		return err
@@ -306,7 +307,7 @@ func (a *AccountWallet) destroyAccount(alias string) error {
 	// get output from node
 	// From TIP42: Indexers and node plugins shall map the account address of the output derived with Account ID to the regular address -> output mapping table, so that given an Account Address, its most recent unspent account output can be retrieved.
 	// TODO: use correct outputID
-	accountOutput := a.client.GetOutput(accData.OutputID)
+	accountOutput := a.client.GetOutput(ctx, accData.OutputID)
 
 	txBuilder := builder.NewTransactionBuilder(apiForSlot)
 	txBuilder.AddInput(&builder.TxInput{
@@ -329,12 +330,12 @@ func (a *AccountWallet) destroyAccount(alias string) error {
 		return ierrors.Wrapf(err, "failed to build transaction for account alias destruction %s", alias)
 	}
 
-	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(a.client.Client(), a.faucet.account.ID())
+	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(ctx, a.client.Client(), a.faucet.account.ID())
 	if err != nil {
 		return ierrors.Wrap(err, "failed to request block built data for the faucet account")
 	}
 
-	blockID, err := a.PostWithBlock(a.client, tx, a.faucet.account, congestionResp, issuerResp, version)
+	blockID, err := a.PostWithBlock(ctx, a.client, tx, a.faucet.account, congestionResp, issuerResp, version)
 	if err != nil {
 		return ierrors.Wrapf(err, "failed to post block with ID %s", blockID)
 	}

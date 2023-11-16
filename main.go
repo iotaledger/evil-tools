@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 
@@ -23,6 +24,7 @@ const (
 
 func main() {
 	help := parseFlags()
+	ctx := context.Background()
 
 	if help {
 		fmt.Printf("Usage of the Evil Spammer tool, provide the first argument for the selected mode:\n"+
@@ -62,25 +64,25 @@ func main() {
 	// run selected test scenario
 	switch Script {
 	case ScriptInteractive:
-		interactive.Run()
+		interactive.Run(ctx)
 	case ScriptSpammer:
 		dispatcher := programs.NewDispatcher(accWallet)
-		dispatcher.RunSpam(&customSpamParams)
+		dispatcher.RunSpam(ctx, &customSpamParams)
 	case ScriptAccounts:
-		accountsSubcommands(accWallet, accountsSubcommandsFlags)
+		accountsSubcommands(ctx, accWallet, accountsSubcommandsFlags)
 	default:
 		log.Warnf("Unknown parameter for script, possible values: interactive, spammer, accounts")
 	}
 }
 
-func accountsSubcommands(wallet *accountwallet.AccountWallet, subcommands []accountwallet.AccountSubcommands) {
+func accountsSubcommands(ctx context.Context, wallet *accountwallet.AccountWallet, subcommands []accountwallet.AccountSubcommands) {
 	for _, sub := range subcommands {
-		accountsSubcommand(wallet, sub)
+		accountsSubcommand(ctx, wallet, sub)
 	}
 }
 
 //nolint:all,forcetypassert
-func accountsSubcommand(wallet *accountwallet.AccountWallet, sub accountwallet.AccountSubcommands) {
+func accountsSubcommand(ctx context.Context, wallet *accountwallet.AccountWallet, sub accountwallet.AccountSubcommands) {
 	switch sub.Type() {
 	case accountwallet.OperationCreateAccount:
 		log.Infof("Run subcommand: %s, with parametetr set: %v", accountwallet.OperationCreateAccount.String(), sub)
@@ -91,7 +93,7 @@ func accountsSubcommand(wallet *accountwallet.AccountWallet, sub accountwallet.A
 			return
 		}
 
-		accountID, err := wallet.CreateAccount(params)
+		accountID, err := wallet.CreateAccount(ctx, params)
 		if err != nil {
 			log.Errorf("Type assertion error: creating account: %v", err)
 
@@ -109,7 +111,7 @@ func accountsSubcommand(wallet *accountwallet.AccountWallet, sub accountwallet.A
 			return
 		}
 
-		err := wallet.DestroyAccount(params)
+		err := wallet.DestroyAccount(ctx, params)
 		if err != nil {
 			log.Errorf("Error destroying account: %v", err)
 

@@ -5,6 +5,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/iotaledger/hive.go/ierrors"
+
 	"github.com/iotaledger/evil-tools/pkg/accountwallet"
 	"github.com/iotaledger/evil-tools/pkg/evilwallet"
 	"github.com/iotaledger/evil-tools/pkg/spammer"
@@ -13,10 +15,11 @@ import (
 
 var log = utils.NewLogger("customSpam")
 
-func requestFaucetFunds(ctx context.Context, params *CustomSpamParams, w *evilwallet.EvilWallet) context.CancelFunc {
+func requestFaucetFunds(ctx context.Context, params *CustomSpamParams, w *evilwallet.EvilWallet) (context.CancelFunc, error) {
 	if params.SpamType == spammer.TypeBlock {
-		return nil
+		return nil, nil
 	}
+
 	var numOfBigWallets = evilwallet.BigFaucetWalletsAtOnce
 	if params.Duration != spammer.InfiniteDuration {
 		numNeeded := spammer.BigWalletsNeeded(params.Rate, params.TimeUnit, params.Duration)
@@ -26,23 +29,25 @@ func requestFaucetFunds(ctx context.Context, params *CustomSpamParams, w *evilwa
 		}
 		numOfBigWallets = numNeeded
 	}
+
 	success := w.RequestFreshBigFaucetWallets(ctx, numOfBigWallets)
 	if !success {
 		log.Errorf("Failed to request faucet wallet")
-		return nil
+		return nil, ierrors.Errorf("failed to request faucet wallet")
 	}
+
 	if params.Duration != spammer.InfiniteDuration {
 		unspentOutputsLeft := w.UnspentOutputsLeft(evilwallet.Fresh)
 		log.Debugf("Prepared %d unspent outputs for spamming.", unspentOutputsLeft)
 
-		return nil
+		return nil, nil
 	}
 
 	log.Debugf("Start requesting faucet funds infinitely...")
 	infiniteCtx, cancel := context.WithCancel(ctx)
 	go requestInfinitely(infiniteCtx, w)
 
-	return cancel
+	return cancel, nil
 
 }
 
@@ -79,7 +84,12 @@ func CustomSpam(ctx context.Context, params *CustomSpamParams, accWallet *accoun
 	log.Infof("Start spamming with rate: %d, time unit: %s, and spamming type: %s.", params.Rate, params.TimeUnit.String(), params.SpamType)
 
 	// TODO here we can shutdown requesting when we will have evil-tools running in the background.
-	_ = requestFaucetFunds(ctx, params, w)
+	// cancel is a context.CancelFunc that can be used to cancel the infinite requesting goroutine.
+	_, err := requestFaucetFunds(ctx, params, w)
+	if err != nil {
+		log.Warnf("Failed to request faucet funds, stopping spammer: %v", err)
+		return
+	}
 
 	sType := params.SpamType
 

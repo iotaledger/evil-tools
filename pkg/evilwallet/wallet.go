@@ -133,7 +133,12 @@ func (w *Wallet) AddrIndexMap(address string) uint64 {
 func (w *Wallet) AddUnspentOutput(output *models.Output) {
 	w.Lock()
 	defer w.Unlock()
+
 	w.unspentOutputs[output.Address.String()] = output
+
+	if w.walletType == Reuse {
+		w.reuseAddressPool[output.Address.String()] = types.Void
+	}
 }
 
 // UnspentOutputBalance returns the balance on the unspent output sitting on the address specified.
@@ -151,18 +156,14 @@ func (w *Wallet) UnspentOutputBalance(addr string) iotago.BaseToken {
 
 // IsEmpty returns true if the wallet is empty.
 func (w *Wallet) IsEmpty() (empty bool) {
-	switch w.walletType {
-	case Reuse:
-		empty = len(w.reuseAddressPool) == 0
-	default:
-		empty = w.UnspentOutputsLeft() <= 0
-	}
-
-	return
+	return w.UnspentOutputsLeft() <= 0
 }
 
 // UnspentOutputsLeft returns how many unused outputs are available in wallet.
 func (w *Wallet) UnspentOutputsLeft() (left int) {
+	w.RLock()
+	defer w.RUnlock()
+
 	switch w.walletType {
 	case Reuse:
 		left = len(w.reuseAddressPool)

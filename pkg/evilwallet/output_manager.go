@@ -1,6 +1,7 @@
 package evilwallet
 
 import (
+	"context"
 	"sync"
 
 	"go.uber.org/atomic"
@@ -100,7 +101,7 @@ func (o *OutputManager) IssuerSolidOutIDMap(issuer string, outputID iotago.Outpu
 }
 
 // Track the confirmed statuses of the given outputIDs, it returns true if all of them are confirmed.
-func (o *OutputManager) Track(outputIDs ...iotago.OutputID) (allConfirmed bool) {
+func (o *OutputManager) Track(ctx context.Context, outputIDs ...iotago.OutputID) (allConfirmed bool) {
 	var (
 		wg                     sync.WaitGroup
 		unconfirmedOutputFound atomic.Bool
@@ -112,7 +113,7 @@ func (o *OutputManager) Track(outputIDs ...iotago.OutputID) (allConfirmed bool) 
 		go func(id iotago.OutputID, clt models.Client) {
 			defer wg.Done()
 
-			if !utils.AwaitOutputToBeAccepted(clt, id) {
+			if !utils.AwaitOutputToBeAccepted(ctx, clt, id) {
 				unconfirmedOutputFound.Store(true)
 			}
 		}(ID, o.connector.GetClient())
@@ -141,7 +142,7 @@ func (o *OutputManager) createOutputFromAddress(w *Wallet, addr *iotago.Ed25519A
 }
 
 // AddOutput adds existing output from wallet w to the OutputManager.
-func (o *OutputManager) AddOutput(w *Wallet, output *models.Output) *models.Output {
+func (o *OutputManager) AddOutput(ctx context.Context, w *Wallet, output *models.Output) *models.Output {
 	idx := w.AddrIndexMap(output.Address.String())
 	out := &models.Output{
 		Address:      output.Address,
@@ -150,6 +151,25 @@ func (o *OutputManager) AddOutput(w *Wallet, output *models.Output) *models.Outp
 		Balance:      output.Balance,
 		OutputStruct: output.OutputStruct,
 	}
+
+	if w.walletType == Reuse {
+		go func(clt models.Client, wallet *Wallet, outputID iotago.OutputID) {
+			// Reuse wallet should only keep accepted outputs
+			accepted := utils.AwaitOutputToBeAccepted(ctx, clt, outputID)
+			if !accepted {
+				o.log.Errorf("Output %s not accepted in time", outputID.String())
+
+				return
+			}
+
+			w.AddUnspentOutput(out)
+			o.setOutputIDWalletMap(out.OutputID.ToHex(), wallet)
+			o.setOutputIDAddrMap(out.OutputID.ToHex(), output.Address.String())
+		}(o.connector.GetClient(), w, out.OutputID)
+
+		return out
+	}
+
 	w.AddUnspentOutput(out)
 	o.setOutputIDWalletMap(out.OutputID.ToHex(), w)
 	o.setOutputIDAddrMap(out.OutputID.ToHex(), output.Address.String())
@@ -159,13 +179,13 @@ func (o *OutputManager) AddOutput(w *Wallet, output *models.Output) *models.Outp
 
 // GetOutput returns the Output of the given outputID.
 // Firstly checks if output can be retrieved by outputManager from wallet, if not does an API call.
-func (o *OutputManager) GetOutput(outputID iotago.OutputID) (output *models.Output) {
+func (o *OutputManager) GetOutput(ctx context.Context, outputID iotago.OutputID) (output *models.Output) {
 	output = o.getOutputFromWallet(outputID)
 
 	// get output info via web api
 	if output == nil {
 		clt := o.connector.GetClient()
-		out := clt.GetOutput(outputID)
+		out := clt.GetOutput(ctx, outputID)
 		if out == nil {
 			return nil
 		}
@@ -199,7 +219,7 @@ func (o *OutputManager) getOutputFromWallet(outputID iotago.OutputID) (output *m
 }
 
 // AwaitWalletOutputsToBeConfirmed awaits for all outputs in the wallet are confirmed.
-func (o *OutputManager) AwaitWalletOutputsToBeConfirmed(wallet *Wallet) {
+func (o *OutputManager) AwaitWalletOutputsToBeConfirmed(ctx context.Context, wallet *Wallet) {
 	wg := sync.WaitGroup{}
 	for _, output := range wallet.UnspentOutputs() {
 		wg.Add(1)
@@ -213,14 +233,14 @@ func (o *OutputManager) AwaitWalletOutputsToBeConfirmed(wallet *Wallet) {
 		go func(outs iotago.OutputIDs) {
 			defer wg.Done()
 
-			o.Track(outs...)
+			o.Track(ctx, outs...)
 		}(outs)
 	}
 	wg.Wait()
 }
 
 // AwaitTransactionsAcceptance awaits for transaction confirmation and updates wallet with outputIDs.
-func (o *OutputManager) AwaitTransactionsAcceptance(txIDs ...iotago.TransactionID) {
+func (o *OutputManager) AwaitTransactionsAcceptance(ctx context.Context, txIDs ...iotago.TransactionID) {
 	wg := sync.WaitGroup{}
 	semaphore := make(chan bool, 1)
 	txLeft := atomic.NewInt64(int64(len(txIDs)))
@@ -234,13 +254,17 @@ func (o *OutputManager) AwaitTransactionsAcceptance(txIDs ...iotago.TransactionI
 			defer func() {
 				<-semaphore
 			}()
-			err := utils.AwaitTransactionToBeAccepted(clt, txID, txLeft)
+
+			confirmationState, err := utils.AwaitTransactionToBeAccepted(ctx, clt, txID)
 			txLeft.Dec()
 			if err != nil {
 				o.log.Errorf("Error awaiting transaction %s to be accepted: %s", txID.String(), err)
 
 				return
 			}
+
+			o.log.Debugf("Tx %s confirmationState: %s, tx left: %d", txID.ToHex(), confirmationState, txLeft.Load())
+
 		}(txID, o.connector.GetClient())
 	}
 	wg.Wait()

@@ -2,6 +2,7 @@ package accountwallet
 
 import (
 	"crypto"
+	"context"
 	"crypto/ed25519"
 	"fmt"
 	"sync"
@@ -17,20 +18,20 @@ import (
 )
 
 // CreateAccount creates an implicit account and immediately transition it to a regular account.
-func (a *AccountWallet) CreateAccount(params *CreateAccountParams) (iotago.AccountID, error) {
+func (a *AccountWallet) CreateAccount(ctx context.Context, params *CreateAccountParams) (iotago.AccountID, error) {
 	if params.Implicit {
-		return a.createAccountImplicitly(params)
+		return a.createAccountImplicitly(ctx, params)
 	}
 
 	return a.createAccountWithFaucet(params)
 }
 
-func (a *AccountWallet) createAccountImplicitly(params *CreateAccountParams) (iotago.AccountID, error) {
+func (a *AccountWallet) createAccountImplicitly(ctx context.Context, params *CreateAccountParams) (iotago.AccountID, error) {
 	log.Debug("Creating an implicit account")
 	// An implicit account has an implicitly defined Block Issuer Key, corresponding to the address itself.
 	// Thus, implicit accounts can issue blocks by signing them with the private key corresponding to the public key
 	// from which the Implicit Account Creation Address was derived.
-	implicitAccountOutput, privateKey, err := a.getFunds(iotago.AddressImplicitAccountCreation)
+	implicitAccountOutput, privateKey, err := a.getFunds(ctx, iotago.AddressImplicitAccountCreation)
 	if err != nil {
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "Failed to create account")
 	}
@@ -338,8 +339,8 @@ func (a *AccountWallet) getAddrSignerForIndexes(outputs ...*models.Output) (iota
 	return iotago.NewInMemoryAddressSigner(addrKeys...), nil
 }
 
-func (a *AccountWallet) DestroyAccount(params *DestroyAccountParams) error {
-	return a.destroyAccount(params.AccountAlias)
+func (a *AccountWallet) DestroyAccount(ctx context.Context, params *DestroyAccountParams) error {
+	return a.destroyAccount(ctx, params.AccountAlias)
 }
 
 func (a *AccountWallet) ListAccount() error {

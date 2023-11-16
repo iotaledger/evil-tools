@@ -72,7 +72,7 @@ func NewWebClients(urls []string, faucetURL string, setters ...options.Option[We
 			return nil
 		}
 
-		if _, err := clients[i].client.Indexer(context.Background()); err == nil {
+		if _, err := clients[i].client.Indexer(context.TODO()); err == nil {
 			indexers = append(indexers, clients[i])
 		}
 	}
@@ -99,7 +99,7 @@ func (c *WebClients) ServersStatuses() ServerInfos {
 
 // ServerStatus retrieves the connected server status.
 func (c *WebClients) ServerStatus(cltIdx int) (status *ServerInfo, err error) {
-	response, err := c.clients[cltIdx].client.Info(context.Background())
+	response, err := c.clients[cltIdx].client.Info(context.TODO())
 	if err != nil {
 		return nil, err
 	}
@@ -196,29 +196,29 @@ func (c *WebClients) RemoveClient(url string) {
 
 type Client interface {
 	Client() *nodeclient.Client
-	Indexer() (nodeclient.IndexerClient, error)
+	Indexer(ctx context.Context) (nodeclient.IndexerClient, error)
 	// URL returns a client API url.
 	URL() (cltID string)
 	// PostBlock sends a block to the Tangle via a given client.
-	PostBlock(block *iotago.Block) (iotago.BlockID, error)
+	PostBlock(ctx context.Context, block *iotago.Block) (iotago.BlockID, error)
 	// PostData sends the given data (payload) by creating a block in the backend.
-	PostData(data []byte) (blkID string, err error)
+	PostData(ctx context.Context, data []byte) (blkID string, err error)
 	// GetBlockConfirmationState returns the AcceptanceState of a given block ID.
-	GetBlockConfirmationState(blkID iotago.BlockID) (resp *apimodels.BlockMetadataResponse, err error)
+	GetBlockConfirmationState(ctx context.Context, blkID iotago.BlockID) (resp *apimodels.BlockMetadataResponse, err error)
 	// GetBlockStateFromTransaction returns the AcceptanceState of a given transaction ID.
-	GetBlockStateFromTransaction(txID iotago.TransactionID) (resp *apimodels.BlockMetadataResponse, err error)
+	GetBlockStateFromTransaction(ctx context.Context, txID iotago.TransactionID) (resp *apimodels.BlockMetadataResponse, err error)
 	// GetOutput gets the output of a given outputID.
-	GetOutput(outputID iotago.OutputID) iotago.Output
+	GetOutput(ctx context.Context, outputID iotago.OutputID) iotago.Output
 	// GetOutputConfirmationState gets the first unspent outputs of a given address.
-	GetOutputConfirmationState(outputID iotago.OutputID) string
+	GetOutputConfirmationState(ctx context.Context, outputID iotago.OutputID) string
 	// GetTransaction gets the transaction.
-	GetTransaction(txID iotago.TransactionID) (resp *iotago.SignedTransaction, err error)
+	GetTransaction(ctx context.Context, txID iotago.TransactionID) (resp *iotago.SignedTransaction, err error)
 	// GetBlockIssuance returns the latest commitment and data needed to create a new block.
-	GetBlockIssuance(...iotago.SlotIndex) (resp *apimodels.IssuanceBlockHeaderResponse, err error)
+	GetBlockIssuance(ctx context.Context, slots ...iotago.SlotIndex) (resp *apimodels.IssuanceBlockHeaderResponse, err error)
 	// GetCongestion returns congestion data such as rmc or issuing readiness.
-	GetCongestion(id iotago.AccountID) (resp *apimodels.CongestionResponse, err error)
+	GetCongestion(ctx context.Context, id iotago.AccountID) (resp *apimodels.CongestionResponse, err error)
 	// RequestFaucetFunds requests funds from the faucet.
-	RequestFaucetFunds(address iotago.Address) (err error)
+	RequestFaucetFunds(ctx context.Context, address iotago.Address) (err error)
 	// GetAccountFromIndexer returns the outputID, accountOutput and slotIndex of a given accountID.
 	GetAccountFromIndexer(accountID iotago.AccountID) (*iotago.OutputID, *iotago.AccountOutput, iotago.SlotIndex, error)
 
@@ -236,8 +236,8 @@ func (c *WebClient) Client() *nodeclient.Client {
 	return c.client
 }
 
-func (c *WebClient) Indexer() (nodeclient.IndexerClient, error) {
-	return c.client.Indexer(context.Background())
+func (c *WebClient) Indexer(ctx context.Context) (nodeclient.IndexerClient, error) {
+	return c.client.Indexer(ctx)
 }
 
 func (c *WebClient) APIForVersion(version iotago.Version) (iotago.API, error) {
@@ -286,8 +286,8 @@ type FaucetEnqueueRequest struct {
 	Address string `json:"address"`
 }
 
-func (c *WebClient) RequestFaucetFunds(address iotago.Address) (err error) {
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, c.faucetURL+"/api/enqueue", func() io.Reader {
+func (c *WebClient) RequestFaucetFunds(ctx context.Context, address iotago.Address) (err error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.faucetURL+"/api/enqueue", func() io.Reader {
 		jsonData, _ := json.Marshal(&FaucetEnqueueRequest{
 			Address: address.Bech32(c.client.CommittedAPI().ProtocolParameters().Bech32HRP()),
 		})
@@ -313,12 +313,12 @@ func (c *WebClient) RequestFaucetFunds(address iotago.Address) (err error) {
 	return nil
 }
 
-func (c *WebClient) PostBlock(block *iotago.Block) (blockID iotago.BlockID, err error) {
-	return c.client.SubmitBlock(context.Background(), block)
+func (c *WebClient) PostBlock(ctx context.Context, block *iotago.Block) (blockID iotago.BlockID, err error) {
+	return c.client.SubmitBlock(ctx, block)
 }
 
 // PostData sends the given data (payload) by creating a block in the backend.
-func (c *WebClient) PostData(data []byte) (blkID string, err error) {
+func (c *WebClient) PostData(ctx context.Context, data []byte) (blkID string, err error) {
 	blockBuilder := builder.NewBasicBlockBuilder(c.client.CommittedAPI())
 	blockBuilder.IssuingTime(time.Time{})
 
@@ -331,7 +331,7 @@ func (c *WebClient) PostData(data []byte) (blkID string, err error) {
 		return iotago.EmptyBlockID.ToHex(), err
 	}
 
-	id, err := c.client.SubmitBlock(context.Background(), blk)
+	id, err := c.client.SubmitBlock(ctx, blk)
 	if err != nil {
 		return
 	}
@@ -340,9 +340,9 @@ func (c *WebClient) PostData(data []byte) (blkID string, err error) {
 }
 
 // GetOutputConfirmationState gets the first unspent outputs of a given address.
-func (c *WebClient) GetOutputConfirmationState(outputID iotago.OutputID) string {
+func (c *WebClient) GetOutputConfirmationState(ctx context.Context, outputID iotago.OutputID) string {
 	txID := outputID.TransactionID()
-	resp, err := c.GetBlockStateFromTransaction(txID)
+	resp, err := c.GetBlockStateFromTransaction(ctx, txID)
 	if err != nil {
 		return ""
 	}
@@ -351,8 +351,8 @@ func (c *WebClient) GetOutputConfirmationState(outputID iotago.OutputID) string 
 }
 
 // GetOutput gets the output of a given outputID.
-func (c *WebClient) GetOutput(outputID iotago.OutputID) iotago.Output {
-	res, err := c.client.OutputByID(context.Background(), outputID)
+func (c *WebClient) GetOutput(ctx context.Context, outputID iotago.OutputID) iotago.Output {
+	res, err := c.client.OutputByID(ctx, outputID)
 	if err != nil {
 		return nil
 	}
@@ -370,18 +370,18 @@ func (c *WebClient) GetAccountFromIndexer(accountID iotago.AccountID) (*iotago.O
 }
 
 // GetBlockConfirmationState returns the AcceptanceState of a given block ID.
-func (c *WebClient) GetBlockConfirmationState(blkID iotago.BlockID) (*apimodels.BlockMetadataResponse, error) {
-	return c.client.BlockMetadataByBlockID(context.Background(), blkID)
+func (c *WebClient) GetBlockConfirmationState(ctx context.Context, blkID iotago.BlockID)  (*apimodels.BlockMetadataResponse, error) {
+	return c.client.BlockMetadataByBlockID(ctx, blkID)
 }
 
 // GetBlockStateFromTransaction returns the AcceptanceState of a given transaction ID.
-func (c *WebClient) GetBlockStateFromTransaction(txID iotago.TransactionID) (*apimodels.BlockMetadataResponse, error) {
-	return c.client.TransactionIncludedBlockMetadata(context.Background(), txID)
+func (c *WebClient) GetBlockStateFromTransaction(ctx context.Context, txID iotago.TransactionID) (*apimodels.BlockMetadataResponse, error) {
+	return c.client.TransactionIncludedBlockMetadata(ctx, txID)
 }
 
 // GetTransaction gets the transaction.
-func (c *WebClient) GetTransaction(txID iotago.TransactionID) (tx *iotago.SignedTransaction, err error) {
-	resp, err := c.client.TransactionIncludedBlock(context.Background(), txID)
+func (c *WebClient) GetTransaction(ctx context.Context, txID iotago.TransactionID) (tx *iotago.SignedTransaction, err error) {
+	resp, err := c.client.TransactionIncludedBlock(ctx, txID)
 	if err != nil {
 		return
 	}
@@ -396,10 +396,10 @@ func (c *WebClient) GetTransaction(txID iotago.TransactionID) (tx *iotago.Signed
 	return tx, nil
 }
 
-func (c *WebClient) GetBlockIssuance(slotIndex ...iotago.SlotIndex) (resp *apimodels.IssuanceBlockHeaderResponse, err error) {
-	return c.client.BlockIssuance(context.Background(), slotIndex...)
+func (c *WebClient) GetBlockIssuance(ctx context.Context, slotIndex ...iotago.SlotIndex) (resp *apimodels.IssuanceBlockHeaderResponse, err error) {
+	return c.client.BlockIssuance(ctx, slotIndex...)
 }
 
-func (c *WebClient) GetCongestion(accountID iotago.AccountID) (resp *apimodels.CongestionResponse, err error) {
-	return c.client.Congestion(context.Background(), accountID)
+func (c *WebClient) GetCongestion(ctx context.Context, accountID iotago.AccountID) (resp *apimodels.CongestionResponse, err error) {
+	return c.client.Congestion(ctx, accountID)
 }

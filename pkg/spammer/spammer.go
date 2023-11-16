@@ -1,6 +1,7 @@
 package spammer
 
 import (
+	"context"
 	"time"
 
 	"go.uber.org/atomic"
@@ -9,7 +10,6 @@ import (
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/app/configuration"
 	appLogger "github.com/iotaledger/hive.go/app/logger"
-	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/iota-core/pkg/testsuite/snapshotcreator"
@@ -32,7 +32,7 @@ const (
 
 // region Spammer //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-type SpammingFunc func(*Spammer)
+type SpammingFunc func(context.Context, *Spammer) error
 
 type State struct {
 	spamTicker    *time.Ticker
@@ -72,7 +72,7 @@ type Spammer struct {
 
 	// accessed from spamming functions
 	done         chan bool
-	shutdown     chan types.Empty
+	failed       chan bool
 	spammingFunc SpammingFunc
 
 	TimeDelayBetweenConflicts time.Duration
@@ -98,7 +98,7 @@ func NewSpammer(options ...Options) *Spammer {
 		// CommitmentManager: NewCommitmentManager(),
 		UseRateSetter:  true,
 		done:           make(chan bool),
-		shutdown:       make(chan types.Empty),
+		failed:         make(chan bool),
 		NumberOfSpends: 2,
 		api:            api,
 	}
@@ -174,46 +174,62 @@ func (s *Spammer) initLogTicker() *time.Ticker {
 }
 
 // Spam runs the spammer. Function will stop after maxDuration time will pass or when maxBlkSent will be exceeded.
-func (s *Spammer) Spam() {
+func (s *Spammer) Spam(ctx context.Context) {
 	s.log.Infof("Start spamming transactions with %d rate", s.SpamDetails.Rate)
+	defer func() {
+		s.log.Info(s.ErrCounter.GetErrorsSummary())
+		s.log.Infof("Finishing spamming, total txns sent: %v, TotalTime: %v, Rate: %f", s.State.txSent.Load(), s.State.spamDuration.Seconds(), float64(s.State.txSent.Load())/s.State.spamDuration.Seconds())
+	}()
 
 	s.State.spamStartTime = time.Now()
+	var newContext context.Context
+	var cancel context.CancelFunc
 
-	var timeExceeded <-chan time.Time
-	// if duration less than zero then spam infinitely
-	if s.SpamDetails.MaxDuration >= 0 {
-		timeExceeded = time.After(s.SpamDetails.MaxDuration)
+	if s.SpamDetails.MaxDuration > 0 {
+		newContext, cancel = context.WithDeadline(ctx, s.State.spamStartTime.Add(s.SpamDetails.MaxDuration))
+	} else {
+		newContext, cancel = context.WithCancel(ctx)
 	}
+	defer cancel()
 
-	go func() {
+	go func(newContext context.Context, s *Spammer) {
 		goroutineCount := atomic.NewInt32(0)
 		for {
 			select {
 			case <-s.State.logTicker.C:
 				s.log.Infof("Blocks issued so far: %d, errors encountered: %d", s.State.txSent.Load(), s.ErrCounter.GetTotalErrorCount())
-			case <-timeExceeded:
+			case <-ctx.Done():
 				s.log.Infof("Maximum spam duration exceeded, stopping spammer....")
-				s.StopSpamming()
-
-				return
-			case <-s.done:
-				s.StopSpamming()
 				return
 			case <-s.State.spamTicker.C:
 				if goroutineCount.Load() > 100 {
 					break
 				}
-				go func() {
+				go func(newContext context.Context, s *Spammer) {
 					goroutineCount.Inc()
 					defer goroutineCount.Dec()
-					s.spammingFunc(s)
-				}()
+
+					err := s.spammingFunc(newContext, s)
+					// currently we stop the spammer when there's no fresh faucet outputs.
+					if ierrors.Is(err, evilwallet.NoFreshOutputsAvailable) {
+						s.failed <- true
+					}
+				}(newContext, s)
 			}
 		}
-	}()
-	<-s.shutdown
-	s.log.Info(s.ErrCounter.GetErrorsSummary())
-	s.log.Infof("Finishing spamming, total txns sent: %v, TotalTime: %v, Rate: %f", s.State.txSent.Load(), s.State.spamDuration.Seconds(), float64(s.State.txSent.Load())/s.State.spamDuration.Seconds())
+	}(newContext, s)
+
+	// await for shutdown signal
+	for {
+		select {
+		case <-s.done:
+			s.StopSpamming()
+			return
+		case <-s.failed:
+			s.StopSpamming()
+			return
+		}
+	}
 }
 
 func (s *Spammer) CheckIfAllSent() {
@@ -229,10 +245,9 @@ func (s *Spammer) StopSpamming() {
 	s.State.spamTicker.Stop()
 	s.State.logTicker.Stop()
 	// s.CommitmentManager.Shutdown()
-	s.shutdown <- types.Void
 }
 
-func (s *Spammer) PrepareBlock(txData *models.PayloadIssuanceData, issuerAlias string, clt models.Client, strongParents ...iotago.BlockID) *iotago.Block {
+func (s *Spammer) PrepareBlock(ctx context.Context, txData *models.PayloadIssuanceData, issuerAlias string, clt models.Client, strongParents ...iotago.BlockID) *iotago.Block {
 	if txData.Payload == nil {
 		s.log.Debug(ErrPayloadIsNil)
 		s.ErrCounter.CountError(ErrPayloadIsNil)
@@ -246,7 +261,7 @@ func (s *Spammer) PrepareBlock(txData *models.PayloadIssuanceData, issuerAlias s
 
 		return nil
 	}
-	block, err := s.EvilWallet.CreateBlock(clt, txData.Payload, txData.CongestionResponse, issuerAccount, strongParents...)
+	block, err := s.EvilWallet.CreateBlock(ctx, clt, txData.Payload, txData.CongestionResponse, issuerAccount, strongParents...)
 	if err != nil {
 		s.log.Debug(ierrors.Wrapf(ErrFailPostBlock, err.Error()))
 		s.ErrCounter.CountError(ierrors.Wrapf(ErrFailPostBlock, err.Error()))
@@ -257,7 +272,7 @@ func (s *Spammer) PrepareBlock(txData *models.PayloadIssuanceData, issuerAlias s
 	return block
 }
 
-func (s *Spammer) PrepareAndPostBlock(txData *models.PayloadIssuanceData, issuerAlias string, clt models.Client) iotago.BlockID {
+func (s *Spammer) PrepareAndPostBlock(ctx context.Context, txData *models.PayloadIssuanceData, issuerAlias string, clt models.Client) iotago.BlockID {
 	if txData.Payload == nil {
 		s.log.Debug(ErrPayloadIsNil)
 		s.ErrCounter.CountError(ErrPayloadIsNil)
@@ -271,7 +286,7 @@ func (s *Spammer) PrepareAndPostBlock(txData *models.PayloadIssuanceData, issuer
 
 		return iotago.EmptyBlockID
 	}
-	blockID, err := s.EvilWallet.PrepareAndPostBlock(clt, txData.Payload, txData.CongestionResponse, issuerAccount)
+	blockID, err := s.EvilWallet.PrepareAndPostBlock(ctx, clt, txData.Payload, txData.CongestionResponse, issuerAccount)
 	if err != nil {
 		s.log.Debug(ierrors.Wrapf(ErrFailPostBlock, err.Error()))
 		s.ErrCounter.CountError(ierrors.Wrapf(ErrFailPostBlock, err.Error()))

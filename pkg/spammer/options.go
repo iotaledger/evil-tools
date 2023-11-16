@@ -40,7 +40,7 @@ func WithSpamDuration(maxDuration time.Duration) Options {
 
 // WithSpammingFunc sets core function of the spammer with spamming logic, needs to use done spammer's channel to communicate.
 // end of spamming and errors. Default one is the CustomConflictSpammingFunc.
-func WithSpammingFunc(spammerFunc func(s *Spammer)) Options {
+func WithSpammingFunc(spammerFunc SpammingFunc) Options {
 	return func(s *Spammer) {
 		s.spammingFunc = spammerFunc
 	}

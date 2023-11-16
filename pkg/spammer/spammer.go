@@ -217,7 +217,7 @@ func (s *Spammer) Spam(ctx context.Context) {
 					goroutineCount.Inc()
 					defer goroutineCount.Dec()
 
-					err := s.spammingFunc(ctx, s)
+					err := s.spammingFunc(newContext, s)
 					// currently we stop the spammer when there's no fresh faucet outputs.
 					if ierrors.Is(err, evilwallet.NoFreshOutputsAvailable) {
 						s.failed <- true

@@ -185,10 +185,17 @@ func (s *Spammer) Spam(ctx context.Context) {
 	}()
 
 	s.State.spamStartTime = time.Now()
-	ctx, cancel := context.WithDeadline(ctx, s.State.spamStartTime.Add(s.SpamDetails.MaxDuration))
+	var newContext context.Context
+	var cancel context.CancelFunc
+
+	if s.SpamDetails.MaxDuration > 0 {
+		newContext, cancel = context.WithDeadline(ctx, s.State.spamStartTime.Add(s.SpamDetails.MaxDuration))
+	} else {
+		newContext, cancel = context.WithCancel(ctx)
+	}
 	defer cancel()
 
-	go func(ctx context.Context, s *Spammer) {
+	go func(newContext context.Context, s *Spammer) {
 		goroutineCount := atomic.NewInt32(0)
 		for {
 			select {
@@ -206,7 +213,7 @@ func (s *Spammer) Spam(ctx context.Context) {
 				if goroutineCount.Load() > 100 {
 					break
 				}
-				go func(ctx context.Context, s *Spammer) {
+				go func(newContext context.Context, s *Spammer) {
 					goroutineCount.Inc()
 					defer goroutineCount.Dec()
 
@@ -215,10 +222,10 @@ func (s *Spammer) Spam(ctx context.Context) {
 					if ierrors.Is(err, evilwallet.NoFreshOutputsAvailable) {
 						s.failed <- true
 					}
-				}(ctx, s)
+				}(newContext, s)
 			}
 		}
-	}(ctx, s)
+	}(newContext, s)
 
 	// await for shutdown signal
 	for {

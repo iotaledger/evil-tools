@@ -78,10 +78,8 @@ type AccountWallet struct {
 func NewAccountWallet(opts ...options.Option[AccountWallet]) (*AccountWallet, error) {
 	var initErr error
 	return options.Apply(&AccountWallet{
-		accountsAliases:    make(map[string]*models.AccountData),
-		seed:               tpkg.RandEd25519Seed(),
-		optsRequestTimeout: time.Second * 120,
-		optsRequestTicker:  time.Second * 5,
+		accountsAliases: make(map[string]*models.AccountData),
+		seed:            tpkg.RandEd25519Seed(),
 	}, opts, func(w *AccountWallet) {
 		w.client, initErr = models.NewWebClient(w.optsClientBindAddress, w.optsFaucetURL)
 		if initErr != nil {

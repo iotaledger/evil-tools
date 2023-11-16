@@ -55,10 +55,10 @@ func (a *AccountWallet) createAccountImplicitly(params *CreateAccountParams) (io
 	implicitBlockIssuerKey := iotago.Ed25519PublicKeyHashBlockIssuerKeyFromImplicitAccountCreationAddress(implicitAccAddr)
 	blockIssuerKeys := iotago.NewBlockIssuerKeys(implicitBlockIssuerKey)
 
-	return a.transitionImplicitAccount(implicitAccountOutput, implicitAccAddr, blockIssuerKeys, privateKey, params)
+	return a.transitionImplicitAccount(implicitAccountOutput, blockIssuerKeys, privateKey, params)
 }
 
-func (a *AccountWallet) transitionImplicitAccount(implicitAccountOutput *models.Output, implicitAccAddr *iotago.ImplicitAccountCreationAddress, blockIssuerKeys iotago.BlockIssuerKeys, privateKey ed25519.PrivateKey, params *CreateAccountParams) (iotago.AccountID, error) {
+func (a *AccountWallet) transitionImplicitAccount(implicitAccountOutput *models.Output, blockIssuerKeys iotago.BlockIssuerKeys, privateKey ed25519.PrivateKey, params *CreateAccountParams) (iotago.AccountID, error) {
 	additionalBasicInputs, _ := a.requestEnoughFundsForAccountCreation(iotago.Mana(implicitAccountOutput.Balance))
 	tokenBalance := implicitAccountOutput.Balance + utils.SumOutputsBalance(additionalBasicInputs)
 
@@ -191,7 +191,7 @@ func (a *AccountWallet) createAccountWithFaucet(params *CreateAccountParams) (io
 
 	a.registerAccount(params.Alias, creationOutput.OutputID, accAddrIndex, accPrivateKey)
 
-	return iotago.EmptyAccountID, nil
+	return accountID, nil
 }
 
 func (a *AccountWallet) checkAccountStatus(blkID iotago.BlockID, accountID iotago.AccountID) error {
@@ -262,8 +262,8 @@ func (a *AccountWallet) createTransactionBuilder(inputs []*models.Output, accoun
 	txBuilder.AddOutput(accountOutput)
 	txBuilder.SetCreationSlot(currentSlot)
 
+	// needed for BIF
 	txBuilder.AddContextInput(&iotago.CommitmentInput{CommitmentID: commitmentID})
-	txBuilder.AddContextInput(&iotago.BlockIssuanceCreditInput{AccountID: a.faucet.account.ID()})
 
 	return txBuilder
 }
@@ -317,6 +317,7 @@ func (a *AccountWallet) getAccountPublicKeys(pubKey crypto.PublicKey) (iotago.Bl
 	}
 
 	blockIssuerKeys := iotago.NewBlockIssuerKeys(iotago.Ed25519PublicKeyHashBlockIssuerKeyFromPublicKey(ed25519PubKey))
+
 	return blockIssuerKeys, nil
 
 }

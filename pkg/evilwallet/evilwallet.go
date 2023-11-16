@@ -112,7 +112,7 @@ func (e *EvilWallet) RemoveClient(clientURL string) {
 }
 
 func (e *EvilWallet) GetAccount(alias string) (mock.Account, error) {
-	account, err := e.accWallet.GetAccount(alias)
+	account, err := e.accWallet.GetReadyAccount(alias)
 	if err != nil {
 		return nil, err
 	}
@@ -592,7 +592,7 @@ func (e *EvilWallet) evaluateIssuanceStrategy(strategy *models.IssuancePaymentSt
 	var issuerAccountID iotago.AccountID
 	if strategy.AllotmentStrategy != models.AllotmentStrategyNone {
 		// get issuer accountID
-		accData, err := e.accWallet.GetAccount(strategy.IssuerAlias)
+		accData, err := e.accWallet.GetReadyAccount(strategy.IssuerAlias)
 		if err != nil {
 			panic("could not get issuer accountID while preparing conflicts")
 		}

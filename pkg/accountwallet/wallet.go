@@ -94,7 +94,7 @@ func NewAccountWallet(opts ...options.Option[AccountWallet]) (*AccountWallet, er
 			return
 		}
 
-		out, err := w.RequestFaucetFunds(tpkg.RandEd25519Address())
+		out, err := w.RequestFaucetFunds(context.Background(), tpkg.RandEd25519Address())
 		if err != nil {
 			initErr = err
 			log.Errorf("failed to request faucet funds: %s, faucet not initiated", err.Error())
@@ -258,7 +258,7 @@ func (a *AccountWallet) isAccountReady(ctx context.Context, accData *models.Acco
 
 	// wait for the account to be committed
 	log.Infof("Waiting for account %s to be committed within slot %d...", accData.Alias, creationSlot)
-	err := utils.AwaitCommitment(a.client, creationSlot)
+	err := utils.AwaitCommitment(ctx, a.client, creationSlot)
 	if err != nil {
 		log.Errorf("failed to get commitment details while waiting %s: %s", accData.Alias, err)
 

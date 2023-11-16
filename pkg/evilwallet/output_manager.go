@@ -255,15 +255,13 @@ func (o *OutputManager) AwaitTransactionsAcceptance(ctx context.Context, txIDs .
 				<-semaphore
 			}()
 
-			confirmationState, err := utils.AwaitTransactionToBeAccepted(ctx, clt, txID)
+			err := utils.AwaitTransactionToBeAccepted(ctx, clt, txID, txLeft)
 			txLeft.Dec()
 			if err != nil {
 				o.log.Errorf("Error awaiting transaction %s to be accepted: %s", txID.String(), err)
 
 				return
 			}
-
-			o.log.Debugf("Tx %s confirmationState: %s, tx left: %d", txID.ToHex(), confirmationState, txLeft.Load())
 
 		}(txID, o.connector.GetClient())
 	}

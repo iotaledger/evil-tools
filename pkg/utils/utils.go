@@ -3,8 +3,6 @@ package utils
 import (
 	"fmt"
 
-	"time"
-
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/lo"
 	iotago "github.com/iotaledger/iota.go/v4"
@@ -29,111 +27,6 @@ func SplitBalanceEqually(splitNumber int, balance iotago.BaseToken) []iotago.Bas
 
 	return outputBalances
 }
-
-
-// AwaitBlockToBeConfirmed awaits for acceptance of a single transaction.
-func AwaitBlockToBeConfirmed(ctx context.Context, clt models.Client, blkID iotago.BlockID) error {
-	for i := 0; i < MaxRetries; i++ {
-		state := clt.GetBlockConfirmationState(ctx, blkID)
-		if state == apimodels.BlockStateConfirmed.String() || state == apimodels.BlockStateFinalized.String() {
-			UtilsLogger.Debugf("Block confirmed: %s", blkID.ToHex())
-			return nil
-		}
-
-		time.Sleep(AwaitInterval)
-	}
-
-	UtilsLogger.Debugf("Block not confirmed: %s", blkID.ToHex())
-
-	return ierrors.Errorf("Block not confirmed: %s", blkID.ToHex())
-}
-
-// AwaitTransactionToBeAccepted awaits for acceptance of a single transaction.
-func AwaitTransactionToBeAccepted(ctx context.Context, clt models.Client, txID iotago.TransactionID) (string, error) {
-	for i := 0; i < MaxRetries; i++ {
-		resp, _ := clt.GetBlockStateFromTransaction(ctx, txID)
-		if resp == nil {
-			time.Sleep(AwaitInterval)
-
-			continue
-		}
-		if resp.BlockState == apimodels.BlockStateFailed.String() || resp.BlockState == apimodels.BlockStateRejected.String() {
-			failureReason, _, _ := apimodels.BlockFailureReasonFromBytes(lo.PanicOnErr(resp.BlockFailureReason.Bytes()))
-
-			return resp.BlockState, ierrors.Errorf("tx %s failed because block failure: %d", txID, failureReason)
-		}
-
-		if resp.TransactionState == apimodels.TransactionStateFailed.String() {
-			failureReason, _, _ := apimodels.TransactionFailureReasonFromBytes(lo.PanicOnErr(resp.TransactionFailureReason.Bytes()))
-			UtilsLogger.Warnf("transaction %s failed: %d", txID, failureReason)
-
-			return resp.TransactionState, ierrors.Errorf("transaction %s failed: %d", txID, failureReason)
-		}
-
-		confirmationState := resp.TransactionState
-		if confirmationState == apimodels.TransactionStateAccepted.String() ||
-			confirmationState == apimodels.TransactionStateConfirmed.String() ||
-			confirmationState == apimodels.TransactionStateFinalized.String() {
-			return confirmationState, nil
-		}
-
-		time.Sleep(AwaitInterval)
-	}
-
-	return "", ierrors.Errorf("Transaction %s not accepted in time", txID)
-}
-
-func AwaitAddressUnspentOutputToBeAccepted(ctx context.Context, clt models.Client, addr iotago.Address) (outputID iotago.OutputID, output iotago.Output, err error) {
-	indexer, err := clt.Indexer(ctx)
-	if err != nil {
-		return iotago.EmptyOutputID, nil, ierrors.Wrap(err, "failed to get indexer client")
-	}
-
-	addrBech := addr.Bech32(clt.CommittedAPI().ProtocolParameters().Bech32HRP())
-
-	for i := 0; i < MaxRetries; i++ {
-		res, err := indexer.Outputs(ctx, &apimodels.BasicOutputsQuery{
-			AddressBech32: addrBech,
-		})
-		if err != nil {
-			return iotago.EmptyOutputID, nil, ierrors.Wrap(err, "indexer request failed in request faucet funds")
-		}
-
-		for res.Next() {
-			unspents, err := res.Outputs(ctx)
-			if err != nil {
-				return iotago.EmptyOutputID, nil, ierrors.Wrap(err, "failed to get faucet unspent outputs")
-			}
-
-			if len(unspents) == 0 {
-				UtilsLogger.Debugf("no unspent outputs found in indexer for address: %s", addrBech)
-				break
-			}
-
-			return lo.Return1(res.Response.Items.OutputIDs())[0], unspents[0], nil
-		}
-
-		time.Sleep(AwaitInterval)
-	}
-
-	return iotago.EmptyOutputID, nil, ierrors.Errorf("no unspent outputs found for address %s due to timeout", addrBech)
-}
-
-// AwaitOutputToBeAccepted awaits for output from a provided outputID is accepted. Timeout is waitFor.
-// Useful when we have only an address and no transactionID, e.g. faucet funds request.
-func AwaitOutputToBeAccepted(ctx context.Context, clt models.Client, outputID iotago.OutputID) bool {
-	for i := 0; i < MaxRetries; i++ {
-		confirmationState := clt.GetOutputConfirmationState(ctx, outputID)
-		if confirmationState == apimodels.TransactionStateConfirmed.String() {
-			return true
-		}
-
-		time.Sleep(AwaitInterval)
-	}
-
-	return false
-}
-
 
 func SprintTransaction(tx *iotago.SignedTransaction) string {
 	txDetails := ""

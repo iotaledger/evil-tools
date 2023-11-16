@@ -220,7 +220,7 @@ type Client interface {
 	// RequestFaucetFunds requests funds from the faucet.
 	RequestFaucetFunds(ctx context.Context, address iotago.Address) (err error)
 	// GetAccountFromIndexer returns the outputID, accountOutput and slotIndex of a given accountID.
-	GetAccountFromIndexer(accountID iotago.AccountID) (*iotago.OutputID, *iotago.AccountOutput, iotago.SlotIndex, error)
+	GetAccountFromIndexer(ctx context.Context, accountID iotago.AccountID) (*iotago.OutputID, *iotago.AccountOutput, iotago.SlotIndex, error)
 
 	iotago.APIProvider
 }
@@ -360,8 +360,8 @@ func (c *WebClient) GetOutput(ctx context.Context, outputID iotago.OutputID) iot
 	return res
 }
 
-func (c *WebClient) GetAccountFromIndexer(accountID iotago.AccountID) (*iotago.OutputID, *iotago.AccountOutput, iotago.SlotIndex, error) {
-	indexer, err := c.Indexer()
+func (c *WebClient) GetAccountFromIndexer(ctx context.Context, accountID iotago.AccountID) (*iotago.OutputID, *iotago.AccountOutput, iotago.SlotIndex, error) {
+	indexer, err := c.Indexer(ctx)
 	if err != nil {
 		return nil, nil, 0, ierrors.Errorf("unable to get indexer client: %w", err)
 	}
@@ -370,7 +370,7 @@ func (c *WebClient) GetAccountFromIndexer(accountID iotago.AccountID) (*iotago.O
 }
 
 // GetBlockConfirmationState returns the AcceptanceState of a given block ID.
-func (c *WebClient) GetBlockConfirmationState(ctx context.Context, blkID iotago.BlockID)  (*apimodels.BlockMetadataResponse, error) {
+func (c *WebClient) GetBlockConfirmationState(ctx context.Context, blkID iotago.BlockID) (*apimodels.BlockMetadataResponse, error) {
 	return c.client.BlockMetadataByBlockID(ctx, blkID)
 }
 

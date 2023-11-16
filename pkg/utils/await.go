@@ -21,9 +21,9 @@ const (
 )
 
 // AwaitBlockToBeConfirmed awaits for acceptance of a single transaction.
-func AwaitBlockToBeConfirmed(clt models.Client, blkID iotago.BlockID) error {
+func AwaitBlockToBeConfirmed(ctx context.Context, clt models.Client, blkID iotago.BlockID) error {
 	for i := 0; i < MaxRetries; i++ {
-		resp, err := clt.GetBlockConfirmationState(blkID)
+		resp, err := clt.GetBlockConfirmationState(ctx, blkID)
 		if err != nil {
 			UtilsLogger.Debugf("Failed to get block confirmation state: %s", err)
 			time.Sleep(AwaitInterval)
@@ -49,9 +49,9 @@ func AwaitBlockToBeConfirmed(clt models.Client, blkID iotago.BlockID) error {
 }
 
 // AwaitTransactionToBeAccepted awaits for acceptance of a single transaction.
-func AwaitTransactionToBeAccepted(clt models.Client, txID iotago.TransactionID, txLeft *atomic.Int64) error {
+func AwaitTransactionToBeAccepted(ctx context.Context, clt models.Client, txID iotago.TransactionID, txLeft *atomic.Int64) error {
 	for i := 0; i < MaxRetries; i++ {
-		resp, _ := clt.GetBlockStateFromTransaction(txID)
+		resp, _ := clt.GetBlockStateFromTransaction(ctx, txID)
 		if resp == nil {
 			time.Sleep(AwaitInterval)
 
@@ -65,6 +65,7 @@ func AwaitTransactionToBeAccepted(clt models.Client, txID iotago.TransactionID, 
 
 		if resp.TransactionState == apimodels.TransactionStateFailed.String() {
 			failureReason, _, _ := apimodels.TransactionFailureReasonFromBytes(lo.PanicOnErr(resp.TransactionFailureReason.Bytes()))
+			UtilsLogger.Warnf("transaction %s failed: %d", txID, failureReason)
 
 			return ierrors.Errorf("transaction %s failed: %d", txID, failureReason)
 		}
@@ -84,8 +85,8 @@ func AwaitTransactionToBeAccepted(clt models.Client, txID iotago.TransactionID, 
 	return ierrors.Errorf("Transaction %s not accepted in time", txID)
 }
 
-func AwaitAddressUnspentOutputToBeAccepted(clt models.Client, addr iotago.Address) (outputID iotago.OutputID, output iotago.Output, err error) {
-	indexer, err := clt.Indexer()
+func AwaitAddressUnspentOutputToBeAccepted(ctx context.Context, clt models.Client, addr iotago.Address) (outputID iotago.OutputID, output iotago.Output, err error) {
+	indexer, err := clt.Indexer(ctx)
 	if err != nil {
 		return iotago.EmptyOutputID, nil, ierrors.Wrap(err, "failed to get indexer client")
 	}
@@ -122,9 +123,9 @@ func AwaitAddressUnspentOutputToBeAccepted(clt models.Client, addr iotago.Addres
 
 // AwaitOutputToBeAccepted awaits for output from a provided outputID is accepted. Timeout is waitFor.
 // Useful when we have only an address and no transactionID, e.g. faucet funds request.
-func AwaitOutputToBeAccepted(clt models.Client, outputID iotago.OutputID) bool {
+func AwaitOutputToBeAccepted(ctx context.Context, clt models.Client, outputID iotago.OutputID) bool {
 	for i := 0; i < MaxRetries; i++ {
-		confirmationState := clt.GetOutputConfirmationState(outputID)
+		confirmationState := clt.GetOutputConfirmationState(ctx, outputID)
 		if confirmationState == apimodels.TransactionStateConfirmed.String() {
 			return true
 		}
@@ -135,9 +136,9 @@ func AwaitOutputToBeAccepted(clt models.Client, outputID iotago.OutputID) bool {
 	return false
 }
 
-func AwaitCommitment(clt models.Client, slot iotago.SlotIndex) error {
+func AwaitCommitment(ctx context.Context, clt models.Client, slot iotago.SlotIndex) error {
 	return ierrors.Wrapf(Await(MaxCommitmentAwait, AwaitCommitmentInterval, func() (bool, error) {
-		resp, err := clt.GetBlockIssuance()
+		resp, err := clt.GetBlockIssuance(ctx)
 		if err != nil {
 			return false, nil //nolint:nilerr
 		}
@@ -151,9 +152,9 @@ func AwaitCommitment(clt models.Client, slot iotago.SlotIndex) error {
 	}), "failed to await commitment for slot %d", slot)
 }
 
-func AwaitBlockIssuanceWithTransaction(clt models.Client, blockID iotago.BlockID) error {
+func AwaitBlockIssuanceWithTransaction(ctx context.Context, clt models.Client, blockID iotago.BlockID) error {
 	return ierrors.Wrapf(Await(MaxRetries*AwaitInterval, AwaitInterval, func() (bool, error) {
-		resp, err := clt.GetBlockConfirmationState(blockID)
+		resp, err := clt.GetBlockConfirmationState(ctx, blockID)
 		if err != nil {
 			return false, nil //nolint:nilerr
 		}

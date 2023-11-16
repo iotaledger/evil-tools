@@ -114,8 +114,8 @@ func (e *EvilWallet) RemoveClient(clientURL string) {
 	e.connector.RemoveClient(clientURL)
 }
 
-func (e *EvilWallet) GetAccount(alias string) (mock.Account, error) {
-	account, err := e.accWallet.GetReadyAccount(alias)
+func (e *EvilWallet) GetAccount(ctx context.Context, alias string) (mock.Account, error) {
+	account, err := e.accWallet.GetReadyAccount(ctx, alias)
 	if err != nil {
 		return nil, err
 	}
@@ -581,25 +581,25 @@ func (e *EvilWallet) makeTransaction(inputs []*models.Output, outputs iotago.Out
 }
 
 func (e *EvilWallet) PrepareCustomConflictsSpam(ctx context.Context, scenario *EvilScenario, strategy *models.IssuancePaymentStrategy) (txsData [][]*models.PayloadIssuanceData, allAliases ScenarioAlias, err error) {
-	conflicts, allAliases := e.prepareConflictSliceForScenario(scenario, strategy)
+	conflicts, allAliases := e.prepareConflictSliceForScenario(ctx, scenario, strategy)
 	txsData, err = e.PrepareCustomConflicts(ctx, conflicts)
 
 	return txsData, allAliases, err
 }
 
 func (e *EvilWallet) PrepareAccountSpam(ctx context.Context, scenario *EvilScenario, strategy *models.IssuancePaymentStrategy) (*models.PayloadIssuanceData, ScenarioAlias, error) {
-	accountSpamOptions, allAliases := e.prepareFlatOptionsForAccountScenario(scenario, strategy)
+	accountSpamOptions, allAliases := e.prepareFlatOptionsForAccountScenario(ctx, scenario, strategy)
 
 	txData, err := e.CreateTransaction(ctx, accountSpamOptions...)
 
 	return txData, allAliases, err
 }
 
-func (e *EvilWallet) evaluateIssuanceStrategy(strategy *models.IssuancePaymentStrategy) (models.AllotmentStrategy, iotago.AccountID) {
+func (e *EvilWallet) evaluateIssuanceStrategy(ctx context.Context, strategy *models.IssuancePaymentStrategy) (models.AllotmentStrategy, iotago.AccountID) {
 	var issuerAccountID iotago.AccountID
 	if strategy.AllotmentStrategy != models.AllotmentStrategyNone {
 		// get issuer accountID
-		accData, err := e.accWallet.GetReadyAccount(strategy.IssuerAlias)
+		accData, err := e.accWallet.GetReadyAccount(ctx, strategy.IssuerAlias)
 		if err != nil {
 			panic("could not get issuer accountID while preparing conflicts")
 		}
@@ -610,7 +610,7 @@ func (e *EvilWallet) evaluateIssuanceStrategy(strategy *models.IssuancePaymentSt
 	return strategy.AllotmentStrategy, issuerAccountID
 }
 
-func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario, strategy *models.IssuancePaymentStrategy) (conflictSlice []ConflictSlice, allAliases ScenarioAlias) {
+func (e *EvilWallet) prepareConflictSliceForScenario(ctx context.Context, scenario *EvilScenario, strategy *models.IssuancePaymentStrategy) (conflictSlice []ConflictSlice, allAliases ScenarioAlias) {
 	genOutputOptions := func(aliases []string) []*OutputOption {
 		outputOptions := make([]*OutputOption, 0)
 		for _, o := range aliases {
@@ -637,7 +637,7 @@ func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario, str
 			if scenario.Reuse {
 				option = append(option, WithReuseOutputs())
 			}
-			option = append(option, WithIssuanceStrategy(e.evaluateIssuanceStrategy(strategy)))
+			option = append(option, WithIssuanceStrategy(e.evaluateIssuanceStrategy(ctx, strategy)))
 			conflicts = append(conflicts, option)
 		}
 		conflictSlice = append(conflictSlice, conflicts)
@@ -646,7 +646,7 @@ func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario, str
 	return
 }
 
-func (e *EvilWallet) prepareFlatOptionsForAccountScenario(scenario *EvilScenario, strategy *models.IssuancePaymentStrategy) ([]Option, ScenarioAlias) {
+func (e *EvilWallet) prepareFlatOptionsForAccountScenario(ctx context.Context, scenario *EvilScenario, strategy *models.IssuancePaymentStrategy) ([]Option, ScenarioAlias) {
 	// we do not care about batchedOutputs, because we do not support saving account spam result in evil wallet for now
 	prefixedBatch, allAliases, _ := scenario.ConflictBatchWithPrefix()
 	if len(prefixedBatch) != 1 {
@@ -674,7 +674,7 @@ func (e *EvilWallet) prepareFlatOptionsForAccountScenario(scenario *EvilScenario
 	return []Option{
 		WithInputs(scenarioAlias.Inputs),
 		WithOutputs(outs),
-		WithIssuanceStrategy(e.evaluateIssuanceStrategy(strategy)),
+		WithIssuanceStrategy(e.evaluateIssuanceStrategy(ctx, strategy)),
 	}, allAliases
 }
 

@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/evil-tools/pkg/utils"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/runtime/options"
-	"github.com/iotaledger/hive.go/runtime/timeutil"
 	"github.com/iotaledger/iota-core/pkg/testsuite/mock"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/builder"
@@ -74,8 +73,6 @@ type AccountWallet struct {
 	optsFaucetURL         string
 	optsAccountStatesFile string
 	optsFaucetParams      *faucetParams
-	optsRequestTimeout    time.Duration
-	optsRequestTicker     time.Duration
 }
 
 func NewAccountWallet(opts ...options.Option[AccountWallet]) (*AccountWallet, error) {
@@ -258,32 +255,25 @@ func (a *AccountWallet) GetAccount(alias string) (*models.AccountData, error) {
 }
 
 func (a *AccountWallet) isAccountReady(accData *models.AccountData) bool {
-	if accData.Status == models.AccountReady {
-		return true
-	}
-
 	creationSlot := accData.OutputID.CreationSlot()
 
 	// wait for the account to be committed
 	log.Infof("Waiting for account %s to be committed within slot %d...", accData.Alias, creationSlot)
-	err := a.retry(func() (bool, error) {
-		resp, err := a.client.GetBlockIssuance()
-		if err != nil {
-			return false, err
-		}
-
-		if resp.Commitment.Slot >= creationSlot {
-			log.Infof("Slot %d committed, account %s is ready to use", creationSlot, accData.Alias)
-			return true, nil
-		}
-
-		return false, nil
-	})
-
+	err := utils.AwaitCommitment(a.client, creationSlot)
 	if err != nil {
 		log.Errorf("failed to get commitment details while waiting %s: %s", accData.Alias, err)
+
 		return false
 	}
+
+	// make sure it exists, and get the details from the indexer
+	outputID, account, slot, err := a.client.GetAccountFromIndexer(accData.Account.ID())
+	if err != nil {
+		log.Errorf("failed to get account details while waiting %s: %s", accData.Alias, err)
+
+		return false
+	}
+	log.Infof("Account created, ID: %s, outputID: %s, slot: %d\n", account.AccountID.ToHex(), outputID.ToHex(), slot)
 
 	return true
 }
@@ -355,27 +345,4 @@ func (a *AccountWallet) destroyAccount(alias string) error {
 	log.Infof("Account %s has been destroyed", alias)
 
 	return nil
-}
-
-func (a *AccountWallet) retry(requestFunc func() (bool, error)) error {
-	timeout := time.NewTimer(a.optsRequestTimeout)
-	interval := time.NewTicker(a.optsRequestTicker)
-	defer timeutil.CleanupTimer(timeout)
-	defer timeutil.CleanupTicker(interval)
-
-	for {
-		done, err := requestFunc()
-		if err != nil {
-			return err
-		}
-		if done {
-			return nil
-		}
-		select {
-		case <-interval.C:
-			continue
-		case <-timeout.C:
-			return ierrors.New("timeout while trying to request")
-		}
-	}
 }

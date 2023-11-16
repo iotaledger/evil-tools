@@ -2,7 +2,6 @@ package utils
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"go.uber.org/atomic"
@@ -137,19 +136,59 @@ func AwaitOutputToBeAccepted(clt models.Client, outputID iotago.OutputID) bool {
 }
 
 func AwaitCommitment(clt models.Client, slot iotago.SlotIndex) error {
-	for t := time.Now(); time.Since(t) < MaxCommitmentAwait; time.Sleep(AwaitCommitmentInterval) {
-		fmt.Printf("HERE\n")
+	return ierrors.Wrapf(Await(MaxCommitmentAwait, AwaitCommitmentInterval, func() (bool, error) {
 		resp, err := clt.GetBlockIssuance()
 		if err != nil {
-			fmt.Printf("failed to get block issuance: %s", err)
-			continue
+			return false, nil //nolint:nilerr
 		}
-		fmt.Printf("slot: %d, latestCommittedSlot: %d\n", slot, resp.Commitment.Slot)
+
 		latestCommittedSlot := resp.Commitment.Slot
 		if slot >= latestCommittedSlot {
+			return true, nil
+		}
+
+		return false, nil
+	}), "failed to await commitment for slot %d", slot)
+}
+
+func AwaitBlockIssuanceWithTransaction(clt models.Client, blockID iotago.BlockID) error {
+	return ierrors.Wrapf(Await(MaxRetries*AwaitInterval, AwaitInterval, func() (bool, error) {
+		resp, err := clt.GetBlockConfirmationState(blockID)
+		if err != nil {
+			return false, nil //nolint:nilerr
+		}
+
+		if resp.BlockState == apimodels.BlockStateConfirmed.String() || resp.BlockState == apimodels.BlockStateFinalized.String() {
+			UtilsLogger.Debugf("Block confirmed: %s", blockID.ToHex())
+			return true, nil
+		}
+
+		if resp.BlockState == apimodels.BlockStateFailed.String() || resp.BlockState == apimodels.BlockStateRejected.String() {
+			UtilsLogger.Debugf("Block failed: %s", blockID.ToHex())
+			return false, ierrors.Errorf("block %s failed", blockID.ToHex())
+		}
+
+		if resp.TransactionState == apimodels.TransactionStateFailed.String() {
+			UtilsLogger.Debugf("Transaction in block failed: %s", blockID.ToHex())
+
+			return false, ierrors.Errorf("transaction failed: %d: ", resp.TransactionFailureReason)
+		}
+
+		return false, nil
+	}), "failed to await bloc confirmation or failure: %s", blockID.ToHex())
+}
+
+func Await(maxAwaitTime time.Duration, awaitInterval time.Duration, requestFunc func() (bool, error)) error {
+	for t := time.Now(); time.Since(t) < maxAwaitTime; time.Sleep(awaitInterval) {
+		done, err := requestFunc()
+		if err != nil {
+			return err
+		}
+
+		if done {
 			return nil
 		}
 	}
 
-	return ierrors.Errorf("slot %d not committed in time %s", slot, MaxCommitmentAwait)
+	return ierrors.Errorf("await failed due to timeout")
 }

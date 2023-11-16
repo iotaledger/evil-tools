@@ -80,6 +80,9 @@ func (a *AccountWallet) transitionImplicitAccount(implicitAccountOutput *models.
 	//inputs := append([]*models.Output{implicitAccountOutput}, additionalBasicInputs...)
 	inputs := []*models.Output{implicitAccountOutput}
 	signedTx, err := a.createAccountCreationTransaction(inputs, accountOutput, congestionResp, issuerResp)
+	if err != nil {
+		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to create account creation transaction")
+	}
 	log.Info(utils.SprintTransaction(signedTx))
 
 	implicitAccountHandler := mock.NewEd25519Account(iotago.AccountIDFromOutputID(implicitAccountOutput.OutputID), privateKey)
@@ -190,37 +193,27 @@ func (a *AccountWallet) createAccountWithFaucet(params *CreateAccountParams) (io
 }
 
 func (a *AccountWallet) checkAccountStatus(blkID iotago.BlockID, accountID iotago.AccountID) error {
-	resp, err := a.client.GetBlockConfirmationState(blkID)
-	if err != nil {
-		return ierrors.Wrap(err, "failed to get block state from transaction")
-	}
-	log.Infof("Block confirmation state %v\n", resp)
-	log.Infof("Metadata %v\n", resp)
 	log.Infof("Created account %s, blk ID %s, awaiting the commitment.\n", accountID.ToHex(), blkID.ToHex())
+	if err := utils.AwaitBlockIssuanceWithTransaction(a.client, blkID); err != nil {
+		return ierrors.Wrapf(err, "failed to await block issuance for block %s", blkID.ToHex())
+	}
 
-	err = utils.AwaitCommitment(a.client, blkID.Slot())
+	// wait for the account to be committed
+	err := utils.AwaitCommitment(a.client, blkID.Slot())
 	if err != nil {
-		return ierrors.Wrapf(err, "failed to await commitment for slot %d", blkID.Slot())
+		log.Errorf("Failed to await commitment for slot %d: %s", blkID.Slot(), err)
+
+		return err
 	}
 	log.Infof("Slot %d is committed\n", blkID.Slot())
+	// make sure it exists, and get the details from the indexer
+	outputID, account, slot, err := a.client.GetAccountFromIndexer(accountID)
+	if err != nil {
+		log.Debug("Failed to get account from indexer, even after slot %d is already committed", blkID.Slot())
 
-	count := 0
-	for {
-		if count == 10 {
-			log.Debug("Failed to get account from indexer, even after slot %d is already committed", blkID.Slot())
-			break
-		}
-		outputID, account, slot, err := a.client.GetAccountFromIndexer(accountID)
-		if err != nil {
-			time.Sleep(time.Second * 10)
-			count++
-			//return ierrors.Wrapf(err, "failed to get account from indexer, even after slot %d is already committed", blkID.Slot())
-			continue
-		}
-		log.Infof("Account created, ID: %s, outputID: %s, slot: %d\n", accountID.ToHex(), outputID.ToHex(), slot)
-		log.Infof(utils.SprintAccount(account))
-
+		return err
 	}
+	log.Infof("Account created, ID: %s, outputID: %s, slot: %d\n", account.AccountID.ToHex(), outputID.ToHex(), slot)
 
 	return nil
 }

@@ -151,29 +151,31 @@ func (a *AccountWallet) RequestManaFromTheFaucet(minManaAmount iotago.Mana) ([]*
 func (a *AccountWallet) createAccountWithFaucet(params *CreateAccountParams) (iotago.AccountID, error) {
 	log.Debug("Creating an account with faucet funds and mana")
 	// request enough funds to cover the mana required for account creation
-	inputFunds, err := a.requestEnoughFundsForAccountCreation(0)
+	creationOutput, _, err := a.getFunds(iotago.AddressEd25519)
 	if err != nil {
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to request enough funds for account creation")
 	}
-	creationOutput := inputFunds[0]
 	accAddr, accPrivateKey, accAddrIndex := a.getAddress(iotago.AddressEd25519)
 
 	blockIssuerKeys, err := a.getAccountPublicKeys(accPrivateKey.Public())
 	if err != nil {
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to get account address and keys")
 	}
-	accountOutput := builder.NewAccountOutputBuilder(accAddr, utils.SumOutputsBalance(inputFunds)).
+	accountOutput := builder.NewAccountOutputBuilder(accAddr, creationOutput.Balance).
 		//Mana(manaBalance). this one will be updated after allotment
 		//AccountID no accountID should be specified during the account creation
 		BlockIssuer(blockIssuerKeys, iotago.MaxSlotIndex).MustBuild()
 
-	inputs := append([]*models.Output{}, inputFunds...)
 	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(a.client.Client(), a.faucet.account.ID())
 	if err != nil {
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to request block built data for the faucet account")
 	}
-	fmt.Printf("HERE issuer resp: %v\n", issuerResp)
-	signedTx, err := a.createAccountCreationTransaction(inputs, accountOutput, congestionResp, issuerResp)
+
+	signedTx, err := a.createAccountCreationTransaction([]*models.Output{creationOutput}, accountOutput, congestionResp, issuerResp)
+	if err != nil {
+		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to create account transaction")
+	}
+
 	blkID, err := a.PostWithBlock(a.client, signedTx, a.faucet.account, congestionResp, issuerResp, version)
 	if err != nil {
 		log.Errorf("Failed to post account with block: %s", err)

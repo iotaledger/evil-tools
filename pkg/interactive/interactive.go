@@ -1,6 +1,7 @@
 package interactive
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -138,7 +139,7 @@ var (
 
 // region interactive ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func Run() {
+func Run(ctx context.Context) {
 	mode := NewInteractiveMode()
 
 	printer = NewPrinter(mode)
@@ -147,7 +148,7 @@ func Run() {
 	mode.loadConfig()
 	time.Sleep(time.Millisecond * 100)
 	configure(mode)
-	go mode.runBackgroundTasks()
+	go mode.runBackgroundTasks(ctx)
 	mode.menu()
 
 	for {
@@ -223,20 +224,20 @@ func NewInteractiveMode() *Mode {
 	}
 }
 
-func (m *Mode) runBackgroundTasks() {
+func (m *Mode) runBackgroundTasks(ctx context.Context) {
 	for {
 		select {
 		case <-faucetTicker.C:
-			m.prepareFundsIfNeeded()
+			m.prepareFundsIfNeeded(ctx)
 		case act := <-m.action:
 			switch act {
 			case actionSpamMenu:
-				go m.spamMenu()
+				go m.spamMenu(ctx)
 			case actionWalletDetails:
 				m.walletDetails()
 				m.mainMenu <- types.Void
 			case actionPrepareFunds:
-				m.prepareFunds()
+				m.prepareFunds(ctx)
 				m.mainMenu <- types.Void
 			case actionHistory:
 				m.history()
@@ -244,7 +245,7 @@ func (m *Mode) runBackgroundTasks() {
 			case actionCurrent:
 				go m.currentSpams()
 			case actionSettings:
-				go m.settingsMenu()
+				go m.settingsMenu(ctx)
 			case shutdown:
 				m.shutdown <- types.Void
 			}
@@ -289,16 +290,16 @@ func (m *Mode) onMenuAction() {
 	}
 }
 
-func (m *Mode) prepareFundsIfNeeded() {
+func (m *Mode) prepareFundsIfNeeded(ctx context.Context) {
 	if m.evilWallet.UnspentOutputsLeft(evilwallet.Fresh) < minSpamOutputs {
 		if !m.preparingFunds && m.Config.AutoRequesting {
 			m.preparingFunds = true
 			go func() {
 				switch m.Config.AutoRequestingAmount {
 				case requestAmount100:
-					_ = m.evilWallet.RequestFreshFaucetWallet()
+					_ = m.evilWallet.RequestFreshFaucetWallet(ctx)
 				case requestAmount10k:
-					_ = m.evilWallet.RequestFreshBigFaucetWallet()
+					_ = m.evilWallet.RequestFreshBigFaucetWallet(ctx)
 				}
 				m.preparingFunds = false
 			}()
@@ -306,7 +307,7 @@ func (m *Mode) prepareFundsIfNeeded() {
 	}
 }
 
-func (m *Mode) prepareFunds() {
+func (m *Mode) prepareFunds(ctx context.Context) {
 	m.stdOutMutex.Lock()
 	defer m.stdOutMutex.Unlock()
 	printer.DevNetFundsWarning()
@@ -328,13 +329,13 @@ func (m *Mode) prepareFunds() {
 	case "100":
 		go func() {
 			m.preparingFunds = true
-			err = m.evilWallet.RequestFreshFaucetWallet()
+			err = m.evilWallet.RequestFreshFaucetWallet(ctx)
 			m.preparingFunds = false
 		}()
 	case "1000":
 		go func() {
 			m.preparingFunds = true
-			_ = m.evilWallet.RequestFreshBigFaucetWallet()
+			_ = m.evilWallet.RequestFreshBigFaucetWallet(ctx)
 			m.preparingFunds = false
 		}()
 	case "cancel":
@@ -342,7 +343,7 @@ func (m *Mode) prepareFunds() {
 	case "5000":
 		go func() {
 			m.preparingFunds = true
-			m.evilWallet.RequestFreshBigFaucetWallets(5)
+			m.evilWallet.RequestFreshBigFaucetWallets(ctx, 5)
 			m.preparingFunds = false
 		}()
 	}
@@ -350,7 +351,7 @@ func (m *Mode) prepareFunds() {
 	printer.StartedPreparingBlock(numToPrepareStr)
 }
 
-func (m *Mode) spamMenu() {
+func (m *Mode) spamMenu(ctx context.Context) {
 	m.stdOutMutex.Lock()
 	defer m.stdOutMutex.Unlock()
 	printer.SpammerSettings()
@@ -361,10 +362,10 @@ func (m *Mode) spamMenu() {
 		return
 	}
 
-	m.spamSubMenu(submenu)
+	m.spamSubMenu(ctx, submenu)
 }
 
-func (m *Mode) spamSubMenu(menuType string) {
+func (m *Mode) spamSubMenu(ctx context.Context, menuType string) {
 	switch menuType {
 	case spamDetails:
 		defaultTimeUnit := timeUnitToString(m.innerConfig.duration)
@@ -413,7 +414,7 @@ func (m *Mode) spamSubMenu(menuType string) {
 
 			return
 		}
-		m.startSpam()
+		m.startSpam(ctx)
 
 	case back:
 		m.mainMenu <- types.Void
@@ -431,7 +432,7 @@ func (m *Mode) areEnoughFundsAvailable() bool {
 	return m.evilWallet.UnspentOutputsLeft(evilwallet.Fresh) < outputsNeeded && m.Config.Scenario != spammer.TypeBlock
 }
 
-func (m *Mode) startSpam() {
+func (m *Mode) startSpam(ctx context.Context) {
 	m.spamMutex.Lock()
 	defer m.spamMutex.Unlock()
 
@@ -448,13 +449,13 @@ func (m *Mode) startSpam() {
 	spamID := m.spammerLog.AddSpam(m.Config)
 	m.activeSpammers[spamID] = s
 	go func(id int) {
-		s.Spam()
+		s.Spam(ctx)
 		m.spamFinished <- id
 	}(spamID)
 	printer.SpammerStartedBlock()
 }
 
-func (m *Mode) settingsMenu() {
+func (m *Mode) settingsMenu(ctx context.Context) {
 	m.stdOutMutex.Lock()
 	defer m.stdOutMutex.Unlock()
 	printer.Settings()
@@ -465,10 +466,10 @@ func (m *Mode) settingsMenu() {
 		return
 	}
 
-	m.settingsSubMenu(submenu)
+	m.settingsSubMenu(ctx, submenu)
 }
 
-func (m *Mode) settingsSubMenu(menuType string) {
+func (m *Mode) settingsSubMenu(ctx context.Context, menuType string) {
 	switch menuType {
 	case settingPreparation:
 		answer := ""
@@ -479,7 +480,7 @@ func (m *Mode) settingsSubMenu(menuType string) {
 
 			return
 		}
-		m.onFundsCreation(answer)
+		m.onFundsCreation(ctx, answer)
 
 	case settingAddURLs:
 		var url string
@@ -537,11 +538,11 @@ func (m *Mode) validateAndAddURL(url string) {
 	}
 }
 
-func (m *Mode) onFundsCreation(answer string) {
+func (m *Mode) onFundsCreation(ctx context.Context, answer string) {
 	if answer == AnswerEnable {
 		m.Config.AutoRequesting = true
 		printer.AutoRequestingEnabled()
-		m.prepareFundsIfNeeded()
+		m.prepareFundsIfNeeded(ctx)
 	} else {
 		m.Config.AutoRequesting = false
 	}

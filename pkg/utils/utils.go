@@ -36,9 +36,9 @@ func SplitBalanceEqually(splitNumber int, balance iotago.BaseToken) []iotago.Bas
 }
 
 // AwaitBlockToBeConfirmed awaits for acceptance of a single transaction.
-func AwaitBlockToBeConfirmed(clt models.Client, blkID iotago.BlockID) error {
+func AwaitBlockToBeConfirmed(ctx context.Context, clt models.Client, blkID iotago.BlockID) error {
 	for i := 0; i < MaxRetries; i++ {
-		state := clt.GetBlockConfirmationState(blkID)
+		state := clt.GetBlockConfirmationState(ctx, blkID)
 		if state == apimodels.BlockStateConfirmed.String() || state == apimodels.BlockStateFinalized.String() {
 			UtilsLogger.Debugf("Block confirmed: %s", blkID.ToHex())
 			return nil
@@ -53,9 +53,9 @@ func AwaitBlockToBeConfirmed(clt models.Client, blkID iotago.BlockID) error {
 }
 
 // AwaitTransactionToBeAccepted awaits for acceptance of a single transaction.
-func AwaitTransactionToBeAccepted(clt models.Client, txID iotago.TransactionID) (string, error) {
+func AwaitTransactionToBeAccepted(ctx context.Context, clt models.Client, txID iotago.TransactionID) (string, error) {
 	for i := 0; i < MaxRetries; i++ {
-		resp, _ := clt.GetBlockStateFromTransaction(txID)
+		resp, _ := clt.GetBlockStateFromTransaction(ctx, txID)
 		if resp == nil {
 			time.Sleep(AwaitInterval)
 
@@ -87,8 +87,8 @@ func AwaitTransactionToBeAccepted(clt models.Client, txID iotago.TransactionID) 
 	return "", ierrors.Errorf("Transaction %s not accepted in time", txID)
 }
 
-func AwaitAddressUnspentOutputToBeAccepted(clt models.Client, addr iotago.Address) (outputID iotago.OutputID, output iotago.Output, err error) {
-	indexer, err := clt.Indexer()
+func AwaitAddressUnspentOutputToBeAccepted(ctx context.Context, clt models.Client, addr iotago.Address) (outputID iotago.OutputID, output iotago.Output, err error) {
+	indexer, err := clt.Indexer(ctx)
 	if err != nil {
 		return iotago.EmptyOutputID, nil, ierrors.Wrap(err, "failed to get indexer client")
 	}
@@ -96,7 +96,7 @@ func AwaitAddressUnspentOutputToBeAccepted(clt models.Client, addr iotago.Addres
 	addrBech := addr.Bech32(clt.CommittedAPI().ProtocolParameters().Bech32HRP())
 
 	for i := 0; i < MaxRetries; i++ {
-		res, err := indexer.Outputs(context.Background(), &apimodels.BasicOutputsQuery{
+		res, err := indexer.Outputs(ctx, &apimodels.BasicOutputsQuery{
 			AddressBech32: addrBech,
 		})
 		if err != nil {
@@ -104,7 +104,7 @@ func AwaitAddressUnspentOutputToBeAccepted(clt models.Client, addr iotago.Addres
 		}
 
 		for res.Next() {
-			unspents, err := res.Outputs(context.TODO())
+			unspents, err := res.Outputs(ctx)
 			if err != nil {
 				return iotago.EmptyOutputID, nil, ierrors.Wrap(err, "failed to get faucet unspent outputs")
 			}
@@ -125,9 +125,9 @@ func AwaitAddressUnspentOutputToBeAccepted(clt models.Client, addr iotago.Addres
 
 // AwaitOutputToBeAccepted awaits for output from a provided outputID is accepted. Timeout is waitFor.
 // Useful when we have only an address and no transactionID, e.g. faucet funds request.
-func AwaitOutputToBeAccepted(clt models.Client, outputID iotago.OutputID) bool {
+func AwaitOutputToBeAccepted(ctx context.Context, clt models.Client, outputID iotago.OutputID) bool {
 	for i := 0; i < MaxRetries; i++ {
-		confirmationState := clt.GetOutputConfirmationState(outputID)
+		confirmationState := clt.GetOutputConfirmationState(ctx, outputID)
 		if confirmationState == apimodels.TransactionStateConfirmed.String() {
 			return true
 		}

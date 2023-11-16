@@ -10,7 +10,6 @@ import (
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/app/configuration"
 	appLogger "github.com/iotaledger/hive.go/app/logger"
-	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/iota-core/pkg/testsuite/snapshotcreator"
@@ -74,7 +73,6 @@ type Spammer struct {
 	// accessed from spamming functions
 	done         chan bool
 	failed       chan bool
-	shutdown     chan types.Empty
 	spammingFunc SpammingFunc
 
 	TimeDelayBetweenConflicts time.Duration
@@ -101,7 +99,6 @@ func NewSpammer(options ...Options) *Spammer {
 		UseRateSetter:  true,
 		done:           make(chan bool),
 		failed:         make(chan bool),
-		shutdown:       make(chan types.Empty),
 		NumberOfSpends: 2,
 		api:            api,
 	}
@@ -203,11 +200,6 @@ func (s *Spammer) Spam(ctx context.Context) {
 				s.log.Infof("Blocks issued so far: %d, errors encountered: %d", s.State.txSent.Load(), s.ErrCounter.GetTotalErrorCount())
 			case <-ctx.Done():
 				s.log.Infof("Maximum spam duration exceeded, stopping spammer....")
-				s.StopSpamming()
-
-				return
-			case <-s.done:
-				s.StopSpamming()
 				return
 			case <-s.State.spamTicker.C:
 				if goroutineCount.Load() > 100 {
@@ -230,7 +222,8 @@ func (s *Spammer) Spam(ctx context.Context) {
 	// await for shutdown signal
 	for {
 		select {
-		case <-s.shutdown:
+		case <-s.done:
+			s.StopSpamming()
 			return
 		case <-s.failed:
 			s.StopSpamming()
@@ -252,7 +245,6 @@ func (s *Spammer) StopSpamming() {
 	s.State.spamTicker.Stop()
 	s.State.logTicker.Stop()
 	// s.CommitmentManager.Shutdown()
-	s.shutdown <- types.Void
 }
 
 func (s *Spammer) PrepareBlock(ctx context.Context, txData *models.PayloadIssuanceData, issuerAlias string, clt models.Client, strongParents ...iotago.BlockID) *iotago.Block {

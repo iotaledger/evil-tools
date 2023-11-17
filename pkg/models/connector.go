@@ -307,7 +307,7 @@ func (c *WebClient) RequestFaucetFunds(ctx context.Context, address iotago.Addre
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusAccepted {
-		return ierrors.Errorf("faucet request failed: %s", res.Body)
+		return ierrors.Errorf("faucet request failed, status code: %d", res.StatusCode)
 	}
 
 	return nil

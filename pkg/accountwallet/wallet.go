@@ -105,8 +105,8 @@ func NewAccountWallet(opts ...options.Option[AccountWallet]) (*AccountWallet, er
 		w.faucet.RequestManaAmount = out.OutputStruct.StoredMana()
 
 		log.Debugf("faucet initiated with %d tokens and %d mana", w.faucet.RequestTokenAmount, w.faucet.RequestManaAmount)
-		w.accountsAliases[FaucetAccountAlias] = &models.AccountData{
-			Alias:    FaucetAccountAlias,
+		w.accountsAliases[GenesisAccountAlias] = &models.AccountData{
+			Alias:    GenesisAccountAlias,
 			Status:   models.AccountReady,
 			OutputID: iotago.EmptyOutputID,
 			Index:    0,
@@ -175,7 +175,7 @@ func (a *AccountWallet) fromAccountStateFile() error {
 	// account data
 	for _, acc := range data.AccountsData {
 		a.accountsAliases[acc.Alias] = acc.ToAccountData()
-		if acc.Alias == FaucetAccountAlias {
+		if acc.Alias == GenesisAccountAlias {
 			a.accountsAliases[acc.Alias].Status = models.AccountReady
 		}
 	}
@@ -202,23 +202,23 @@ func (a *AccountWallet) registerAccount(alias string, outputID iotago.OutputID, 
 	return accountID
 }
 
-func (a *AccountWallet) updateAccountStatus(alias string, status models.AccountStatus) (*models.AccountData, bool) {
+func (a *AccountWallet) updateAccountStatus(alias string, status models.AccountStatus) (updated bool) {
 	a.accountAliasesMutex.Lock()
 	defer a.accountAliasesMutex.Unlock()
 
 	accData, exists := a.accountsAliases[alias]
 	if !exists {
-		return nil, false
+		return false
 	}
 
 	if accData.Status == status {
-		return accData, false
+		return false
 	}
 
 	accData.Status = status
 	a.accountsAliases[alias] = accData
 
-	return accData, true
+	return true
 }
 
 func (a *AccountWallet) GetReadyAccount(ctx context.Context, alias string) (*models.AccountData, error) {
@@ -230,13 +230,14 @@ func (a *AccountWallet) GetReadyAccount(ctx context.Context, alias string) (*mod
 		return nil, ierrors.Errorf("account with alias %s does not exist", alias)
 	}
 
-	// check if account is ready (to be included in a commitment)
-	ready := a.isAccountReady(ctx, accData)
+	if accData.Status == models.AccountReady {
+		return accData, nil
+	}
+
+	ready := a.awaitAccountReadiness(ctx, accData)
 	if !ready {
 		return nil, ierrors.Errorf("account with alias %s is not ready", alias)
 	}
-
-	accData, _ = a.updateAccountStatus(alias, models.AccountReady)
 
 	return accData, nil
 }
@@ -253,10 +254,8 @@ func (a *AccountWallet) GetAccount(alias string) (*models.AccountData, error) {
 	return accData, nil
 }
 
-func (a *AccountWallet) isAccountReady(ctx context.Context, accData *models.AccountData) bool {
+func (a *AccountWallet) awaitAccountReadiness(ctx context.Context, accData *models.AccountData) bool {
 	creationSlot := accData.OutputID.CreationSlot()
-
-	// wait for the account to be committed
 	log.Infof("Waiting for account %s to be committed within slot %d...", accData.Alias, creationSlot)
 	err := utils.AwaitCommitment(ctx, a.client, creationSlot)
 	if err != nil {
@@ -265,16 +264,7 @@ func (a *AccountWallet) isAccountReady(ctx context.Context, accData *models.Acco
 		return false
 	}
 
-	// make sure it exists, and get the details from the indexer
-	outputID, account, slot, err := a.client.GetAccountFromIndexer(ctx, accData.Account.ID())
-	if err != nil {
-		log.Errorf("failed to get account details while waiting %s: %s", accData.Alias, err)
-
-		return false
-	}
-	log.Infof("Account created, ID: %s, outputID: %s, slot: %d\n", account.AccountID.ToHex(), outputID.ToHex(), slot)
-
-	return true
+	return a.updateAccountStatus(accData.Alias, models.AccountReady)
 }
 
 func (a *AccountWallet) getFunds(ctx context.Context, addressType iotago.AddressType) (*models.Output, ed25519.PrivateKey, error) {

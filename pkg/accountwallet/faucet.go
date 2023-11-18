@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	FaucetAccountAlias    = "faucet"
+	GenesisAccountAlias   = "genesis-account"
 	MaxFaucetManaRequests = 10
 )
 

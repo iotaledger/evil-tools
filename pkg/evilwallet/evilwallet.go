@@ -601,7 +601,7 @@ func (e *EvilWallet) evaluateIssuanceStrategy(ctx context.Context, strategy *mod
 		// get issuer accountID
 		accData, err := e.accWallet.GetReadyAccount(ctx, strategy.IssuerAlias)
 		if err != nil {
-			panic("could not get issuer accountID while preparing conflicts")
+			panic(ierrors.Wrap(err, "could not get issuer accountID while preparing conflicts"))
 		}
 
 		issuerAccountID = accData.Account.ID()

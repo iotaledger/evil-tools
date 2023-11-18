@@ -222,12 +222,9 @@ func (a *AccountWallet) updateAccountStatus(alias string, status models.AccountS
 }
 
 func (a *AccountWallet) GetReadyAccount(ctx context.Context, alias string) (*models.AccountData, error) {
-	a.accountAliasesMutex.Lock()
-	defer a.accountAliasesMutex.Unlock()
-
-	accData, exists := a.accountsAliases[alias]
-	if !exists {
-		return nil, ierrors.Errorf("account with alias %s does not exist", alias)
+	accData, err := a.GetAccount(alias)
+	if err != nil {
+		return nil, ierrors.Wrapf(err, "account with alias %s does not exist", alias)
 	}
 
 	if accData.Status == models.AccountReady {

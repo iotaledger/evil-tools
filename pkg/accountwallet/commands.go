@@ -209,10 +209,14 @@ func (a *AccountWallet) checkAccountStatus(ctx context.Context, blkID iotago.Blo
 		return err
 	}
 	log.Infof("Slot %d is committed", blkID.Slot())
+	// TODO the indexer is not returning the account details
 	// make sure it exists, and get the details from the indexer
-	outputID, account, slot, err := a.client.GetAccountFromIndexer(ctx, accountID)
-	if err != nil {
-		log.Debugf("Failed to get account from indexer, even after slot %d is already committed", blkID.Slot())
+	//outputID, account, slot, err := a.client.GetAccountFromIndexer(ctx, accountID)
+	//if err != nil {
+	//	log.Debugf("Failed to get account from indexer, even after slot %d is already committed", blkID.Slot())
+	//
+	//	return err
+	//}
 
 	log.Infof("Account created, ID: %s, slot: %d", accountID.ToHex(), blkID.Slot())
 

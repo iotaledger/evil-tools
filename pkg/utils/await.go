@@ -4,8 +4,6 @@ import (
 	"context"
 	"time"
 
-	"go.uber.org/atomic"
-
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
@@ -14,77 +12,108 @@ import (
 )
 
 const (
-	MaxRetries              = 20
-	AwaitInterval           = 2 * time.Second
-	MaxCommitmentAwait      = time.Minute
-	AwaitCommitmentInterval = 5 * time.Second
+	MaxAcceptanceAwait = 30 * time.Second
+	AwaitInterval      = 2 * time.Second
+
+	MaxCommitmentAwait      = 90 * time.Second
+	AwaitCommitmentInterval = 10 * time.Second
 )
 
-// AwaitBlockToBeConfirmed awaits for acceptance of a single transaction.
-func AwaitBlockToBeConfirmed(ctx context.Context, clt models.Client, blkID iotago.BlockID) error {
-	for i := 0; i < MaxRetries; i++ {
-		resp, err := clt.GetBlockConfirmationState(ctx, blkID)
-		if err != nil {
-			UtilsLogger.Debugf("Failed to get block confirmation state: %s", err)
-			time.Sleep(AwaitInterval)
-
-			continue
-		}
-
-		if resp.BlockState == apimodels.BlockStateConfirmed.String() || resp.BlockState == apimodels.BlockStateFinalized.String() {
-			UtilsLogger.Debugf("Block confirmed: %s", blkID.ToHex())
-			return nil
-		}
-		if resp.BlockState == apimodels.BlockStateFailed.String() || resp.BlockState == apimodels.BlockStateRejected.String() {
-			UtilsLogger.Debugf("Block failed: %s", blkID.ToHex())
-			return ierrors.Errorf("block %s failed", blkID.ToHex())
-		}
-
-		time.Sleep(AwaitInterval)
-	}
-
-	UtilsLogger.Debugf("Block not confirmed: %s", blkID.ToHex())
-
-	return ierrors.Errorf("Block not confirmed: %s", blkID.ToHex())
+func isBlockStateAtLeastAccepted(blockState string) bool {
+	return blockState == apimodels.BlockStateAccepted.String() ||
+		blockState == apimodels.BlockStateConfirmed.String() ||
+		blockState == apimodels.BlockStateFinalized.String()
 }
 
-// AwaitTransactionToBeAccepted awaits for acceptance of a single transaction.
-func AwaitTransactionToBeAccepted(ctx context.Context, clt models.Client, txID iotago.TransactionID, txLeft *atomic.Int64) error {
-	for i := 0; i < MaxRetries; i++ {
-		resp, _ := clt.GetBlockStateFromTransaction(ctx, txID)
-		if resp == nil {
-			time.Sleep(AwaitInterval)
+func isTransactionStateAtLeastAccepted(transactionState string) bool {
+	return transactionState == apimodels.TransactionStateAccepted.String() ||
+		transactionState == apimodels.TransactionStateConfirmed.String() ||
+		transactionState == apimodels.TransactionStateFinalized.String()
+}
+
+func isBlockStateFailure(blockState string) bool {
+	return blockState == apimodels.BlockStateFailed.String() ||
+		blockState == apimodels.BlockStateRejected.String()
+}
+
+func isTransactionStateFailure(transactionState string) bool {
+	return transactionState == apimodels.TransactionStateFailed.String()
+}
+
+func evaluateBlockIssuanceResponse(resp *apimodels.BlockMetadataResponse) (accepted bool, err error) {
+	if isBlockStateAtLeastAccepted(resp.BlockState) && isTransactionStateAtLeastAccepted(resp.TransactionState) {
+		return true, nil
+	}
+
+	if isBlockStateFailure(resp.BlockState) || isTransactionStateFailure(resp.TransactionState) {
+		err = ierrors.Errorf("block status failure")
+		if isBlockStateFailure(resp.BlockState) {
+			err = ierrors.Wrapf(err, "block failure reason: %d", resp.BlockFailureReason)
+		}
+		if isTransactionStateFailure(resp.TransactionState) {
+			err = ierrors.Wrapf(err, "transaction failure reason: %d", resp.TransactionFailureReason)
+		}
+
+		return false, err
+	}
+
+	return false, nil
+}
+
+// AwaitBlockAndPayloadAcceptance waits for the block and, if provided, tx to be accepted.
+func AwaitBlockAndPayloadAcceptance(ctx context.Context, clt models.Client, blockID iotago.BlockID) error {
+	for t := time.Now(); time.Since(t) < MaxAcceptanceAwait; time.Sleep(AwaitInterval) {
+		resp, err := clt.GetBlockConfirmationState(ctx, blockID)
+		if err != nil {
+			UtilsLogger.Debugf("Failed to get block confirmation state: %s", err)
 
 			continue
 		}
-		if resp.BlockState == apimodels.BlockStateFailed.String() || resp.BlockState == apimodels.BlockStateRejected.String() {
-			failureReason, _, _ := apimodels.BlockFailureReasonFromBytes(lo.PanicOnErr(resp.BlockFailureReason.Bytes()))
 
-			return ierrors.Errorf("tx %s failed because block failure: %d", txID, failureReason)
-		}
+		accepted, err := evaluateBlockIssuanceResponse(resp)
+		if accepted {
+			UtilsLogger.Debugf("Block %s issuance success, status: %s, transaction state: %s", blockID.ToHex(), resp.BlockState, resp.TransactionState)
 
-		if resp.TransactionState == apimodels.TransactionStateFailed.String() {
-			failureReason, _, _ := apimodels.TransactionFailureReasonFromBytes(lo.PanicOnErr(resp.TransactionFailureReason.Bytes()))
-			UtilsLogger.Warnf("transaction %s failed: %d", txID, failureReason)
-
-			return ierrors.Errorf("transaction %s failed: %d", txID, failureReason)
-		}
-
-		confirmationState := resp.TransactionState
-
-		UtilsLogger.Debugf("Tx %s confirmationState: %s, tx left: %d", txID.ToHex(), confirmationState, txLeft.Load())
-		if confirmationState == apimodels.TransactionStateAccepted.String() ||
-			confirmationState == apimodels.TransactionStateConfirmed.String() ||
-			confirmationState == apimodels.TransactionStateFinalized.String() {
 			return nil
 		}
 
-		time.Sleep(AwaitInterval)
+		if err != nil {
+			UtilsLogger.Debugf("Block %s issuance failure, block failure reason: %d, tx failure reason: %d", blockID.ToHex(), resp.BlockFailureReason, resp.TransactionFailureReason)
+
+			return err
+		}
+	}
+
+	return ierrors.Errorf("failed to await block confirmation or failure: %s", blockID.ToHex())
+}
+
+// AwaitBlockWithTransactionToBeAccepted awaits for acceptance of a single transaction.
+func AwaitBlockWithTransactionToBeAccepted(ctx context.Context, clt models.Client, txID iotago.TransactionID) error {
+	for t := time.Now(); time.Since(t) < MaxAcceptanceAwait; time.Sleep(AwaitInterval) {
+		resp, _ := clt.GetBlockStateFromTransaction(ctx, txID)
+		if resp == nil {
+			continue
+		}
+
+		accepted, err := evaluateBlockIssuanceResponse(resp)
+		if accepted {
+			UtilsLogger.Debugf("Transaction %s issuance success, state: %s", txID.ToHex(), resp.TransactionState)
+
+			return nil
+		}
+
+		if err != nil {
+			UtilsLogger.Debugf("Transaction %s issuance failure, tx failure reason: %d, block failure reason: %d", txID.ToHex(), resp.TransactionFailureReason, resp.BlockFailureReason)
+
+			return err
+		}
+
 	}
 
 	return ierrors.Errorf("Transaction %s not accepted in time", txID)
 }
 
+// AwaitAddressUnspentOutputToBeAccepted awaits for acceptance of an output created for an address, based on the status of the transaction.
 func AwaitAddressUnspentOutputToBeAccepted(ctx context.Context, clt models.Client, addr iotago.Address) (outputID iotago.OutputID, output iotago.Output, err error) {
 	indexer, err := clt.Indexer(ctx)
 	if err != nil {
@@ -93,8 +122,8 @@ func AwaitAddressUnspentOutputToBeAccepted(ctx context.Context, clt models.Clien
 
 	addrBech := addr.Bech32(clt.CommittedAPI().ProtocolParameters().Bech32HRP())
 
-	for i := 0; i < MaxRetries; i++ {
-		res, err := indexer.Outputs(context.Background(), &apimodels.BasicOutputsQuery{
+	for t := time.Now(); time.Since(t) < MaxAcceptanceAwait; time.Sleep(AwaitInterval) {
+		res, err := indexer.Outputs(ctx, &apimodels.BasicOutputsQuery{
 			AddressBech32: addrBech,
 		})
 		if err != nil {
@@ -102,7 +131,7 @@ func AwaitAddressUnspentOutputToBeAccepted(ctx context.Context, clt models.Clien
 		}
 
 		for res.Next() {
-			unspents, err := res.Outputs(context.TODO())
+			unspents, err := res.Outputs(ctx)
 			if err != nil {
 				return iotago.EmptyOutputID, nil, ierrors.Wrap(err, "failed to get faucet unspent outputs")
 			}
@@ -114,8 +143,6 @@ func AwaitAddressUnspentOutputToBeAccepted(ctx context.Context, clt models.Clien
 
 			return lo.Return1(res.Response.Items.OutputIDs())[0], unspents[0], nil
 		}
-
-		time.Sleep(AwaitInterval)
 	}
 
 	return iotago.EmptyOutputID, nil, ierrors.Errorf("no unspent outputs found for address %s due to timeout", addrBech)
@@ -123,73 +150,35 @@ func AwaitAddressUnspentOutputToBeAccepted(ctx context.Context, clt models.Clien
 
 // AwaitOutputToBeAccepted awaits for output from a provided outputID is accepted. Timeout is waitFor.
 // Useful when we have only an address and no transactionID, e.g. faucet funds request.
-func AwaitOutputToBeAccepted(ctx context.Context, clt models.Client, outputID iotago.OutputID) bool {
-	for i := 0; i < MaxRetries; i++ {
-		confirmationState := clt.GetOutputConfirmationState(ctx, outputID)
-		if confirmationState == apimodels.TransactionStateConfirmed.String() {
-			return true
-		}
-
-		time.Sleep(AwaitInterval)
-	}
-
-	return false
-}
-
-func AwaitCommitment(ctx context.Context, clt models.Client, slot iotago.SlotIndex) error {
-	return ierrors.Wrapf(Await(MaxCommitmentAwait, AwaitCommitmentInterval, func() (bool, error) {
-		resp, err := clt.GetBlockIssuance(ctx)
+func AwaitOutputToBeAccepted(ctx context.Context, clt models.Client, outputID iotago.OutputID) error {
+	for t := time.Now(); time.Since(t) < MaxAcceptanceAwait; time.Sleep(AwaitInterval) {
+		resp, err := clt.GetBlockStateFromTransaction(ctx, outputID.TransactionID())
 		if err != nil {
-			return false, nil //nolint:nilerr
+			continue
 		}
 
-		latestCommittedSlot := resp.Commitment.Slot
-		if slot >= latestCommittedSlot {
-			return true, nil
-		}
-
-		return false, nil
-	}), "failed to await commitment for slot %d", slot)
-}
-
-func AwaitBlockIssuanceWithTransaction(ctx context.Context, clt models.Client, blockID iotago.BlockID) error {
-	return ierrors.Wrapf(Await(MaxRetries*AwaitInterval, AwaitInterval, func() (bool, error) {
-		resp, err := clt.GetBlockConfirmationState(ctx, blockID)
-		if err != nil {
-			return false, nil //nolint:nilerr
-		}
-
-		if resp.BlockState == apimodels.BlockStateConfirmed.String() || resp.BlockState == apimodels.BlockStateFinalized.String() {
-			UtilsLogger.Debugf("Block confirmed: %s", blockID.ToHex())
-			return true, nil
-		}
-
-		if resp.BlockState == apimodels.BlockStateFailed.String() || resp.BlockState == apimodels.BlockStateRejected.String() {
-			UtilsLogger.Debugf("Block failed: %s", blockID.ToHex())
-			return false, ierrors.Errorf("block %s failed", blockID.ToHex())
-		}
-
-		if resp.TransactionState == apimodels.TransactionStateFailed.String() {
-			UtilsLogger.Debugf("Transaction in block failed: %s", blockID.ToHex())
-
-			return false, ierrors.Errorf("transaction failed: %d: ", resp.TransactionFailureReason)
-		}
-
-		return false, nil
-	}), "failed to await bloc confirmation or failure: %s", blockID.ToHex())
-}
-
-func Await(maxAwaitTime time.Duration, awaitInterval time.Duration, requestFunc func() (bool, error)) error {
-	for t := time.Now(); time.Since(t) < maxAwaitTime; time.Sleep(awaitInterval) {
-		done, err := requestFunc()
-		if err != nil {
-			return err
-		}
-
-		if done {
+		if isTransactionStateAtLeastAccepted(resp.TransactionState) {
 			return nil
 		}
 	}
 
-	return ierrors.Errorf("await failed due to timeout")
+	return ierrors.Errorf("failed to await output %s to be accepted", outputID)
+}
+
+// AwaitCommitment awaits for the commitment of a slot.
+func AwaitCommitment(ctx context.Context, clt models.Client, slot iotago.SlotIndex) error {
+	for t := time.Now(); time.Since(t) < MaxCommitmentAwait; time.Sleep(AwaitCommitmentInterval) {
+		resp, err := clt.GetBlockIssuance(ctx)
+		if err != nil {
+			continue
+		}
+		UtilsLogger.Debugf("Awaiting commitment for slot %d, latest committed slot: %d", slot, resp.Commitment.Slot)
+
+		latestCommittedSlot := resp.Commitment.Slot
+		if slot <= latestCommittedSlot {
+			return nil
+		}
+	}
+
+	return ierrors.Errorf("failed to await commitment for slot %d", slot)
 }

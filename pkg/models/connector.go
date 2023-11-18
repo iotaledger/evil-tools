@@ -4,11 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
-
-	"github.com/google/martian/log"
 
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/runtime/options"
@@ -67,7 +66,7 @@ func NewWebClients(urls []string, faucetURL string, setters ...options.Option[We
 	for i, url := range urls {
 		clients[i], err = NewWebClient(url, faucetURL, setters...)
 		if err != nil {
-			log.Errorf("failed to create client for url %s: %s", url, err)
+			fmt.Errorf("failed to create client for url %s: %s", url, err)
 
 			return nil
 		}
@@ -167,7 +166,7 @@ func (c *WebClients) AddClient(url string, setters ...options.Option[WebClient])
 
 	clt, err := NewWebClient(url, c.faucetURL, setters...)
 	if err != nil {
-		log.Errorf("failed to create client for url %s: %s", url, err)
+		fmt.Printf("failed to create client for url %s: %s\n", url, err)
 
 		return
 	}
@@ -184,6 +183,7 @@ func (c *WebClients) RemoveClient(url string) {
 	for i, u := range c.urls {
 		if u == url {
 			indexToRemove = i
+
 			break
 		}
 	}
@@ -209,8 +209,6 @@ type Client interface {
 	GetBlockStateFromTransaction(ctx context.Context, txID iotago.TransactionID) (resp *apimodels.BlockMetadataResponse, err error)
 	// GetOutput gets the output of a given outputID.
 	GetOutput(ctx context.Context, outputID iotago.OutputID) iotago.Output
-	// GetOutputConfirmationState gets the first unspent outputs of a given address.
-	GetOutputConfirmationState(ctx context.Context, outputID iotago.OutputID) string
 	// GetTransaction gets the transaction.
 	GetTransaction(ctx context.Context, txID iotago.TransactionID) (resp *iotago.SignedTransaction, err error)
 	// GetBlockIssuance returns the latest commitment and data needed to create a new block.
@@ -272,6 +270,7 @@ func (c *WebClient) URL() string {
 // NewWebClient creates Connector from provided iota-core API urls.
 func NewWebClient(url, faucetURL string, opts ...options.Option[WebClient]) (*WebClient, error) {
 	var initErr error
+
 	return options.Apply(&WebClient{
 		url:       url,
 		faucetURL: faucetURL,
@@ -307,7 +306,7 @@ func (c *WebClient) RequestFaucetFunds(ctx context.Context, address iotago.Addre
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusAccepted {
-		return ierrors.Errorf("faucet request failed: %s", res.Body)
+		return ierrors.Errorf("faucet request failed: %s\n", res.Status)
 	}
 
 	return nil
@@ -339,17 +338,6 @@ func (c *WebClient) PostData(ctx context.Context, data []byte) (blkID string, er
 	return id.ToHex(), nil
 }
 
-// GetOutputConfirmationState gets the first unspent outputs of a given address.
-func (c *WebClient) GetOutputConfirmationState(ctx context.Context, outputID iotago.OutputID) string {
-	txID := outputID.TransactionID()
-	resp, err := c.GetBlockStateFromTransaction(ctx, txID)
-	if err != nil {
-		return ""
-	}
-
-	return resp.TransactionState
-}
-
 // GetOutput gets the output of a given outputID.
 func (c *WebClient) GetOutput(ctx context.Context, outputID iotago.OutputID) iotago.Output {
 	res, err := c.client.OutputByID(ctx, outputID)
@@ -366,7 +354,7 @@ func (c *WebClient) GetAccountFromIndexer(ctx context.Context, accountID iotago.
 		return nil, nil, 0, ierrors.Errorf("unable to get indexer client: %w", err)
 	}
 
-	return indexer.Account(context.Background(), accountID)
+	return indexer.Account(ctx, accountID)
 }
 
 // GetBlockConfirmationState returns the AcceptanceState of a given block ID.

@@ -113,7 +113,7 @@ func (o *OutputManager) Track(ctx context.Context, outputIDs ...iotago.OutputID)
 		go func(id iotago.OutputID, clt models.Client) {
 			defer wg.Done()
 
-			if !utils.AwaitOutputToBeAccepted(ctx, clt, id) {
+			if err := utils.AwaitOutputToBeAccepted(ctx, clt, id); err == nil {
 				unconfirmedOutputFound.Store(true)
 			}
 		}(ID, o.connector.GetClient())
@@ -155,9 +155,9 @@ func (o *OutputManager) AddOutput(ctx context.Context, w *Wallet, output *models
 	if w.walletType == Reuse {
 		go func(clt models.Client, wallet *Wallet, outputID iotago.OutputID) {
 			// Reuse wallet should only keep accepted outputs
-			accepted := utils.AwaitOutputToBeAccepted(ctx, clt, outputID)
-			if !accepted {
-				o.log.Errorf("Output %s not accepted in time", outputID.String())
+			err := utils.AwaitOutputToBeAccepted(ctx, clt, outputID)
+			if err != nil {
+				o.log.Errorf("Output %s not accepted in time: %v", outputID.String(), err)
 
 				return
 			}
@@ -255,13 +255,15 @@ func (o *OutputManager) AwaitTransactionsAcceptance(ctx context.Context, txIDs .
 				<-semaphore
 			}()
 
-			err := utils.AwaitTransactionToBeAccepted(ctx, clt, txID, txLeft)
+			err := utils.AwaitBlockWithTransactionToBeAccepted(ctx, clt, txID)
 			txLeft.Dec()
 			if err != nil {
-				o.log.Errorf("Error awaiting transaction %s to be accepted: %s", txID.String(), err)
+				o.log.Errorf("Error awaiting transaction %s to be accepted, tx left: %d, err: %s, ", txID.String(), txLeft.Load(), err)
 
 				return
 			}
+
+			o.log.Debugf("Tx %s accepted, tx left: %d", txID.ToHex(), txLeft.Load())
 
 		}(txID, o.connector.GetClient())
 	}

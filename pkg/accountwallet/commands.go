@@ -68,7 +68,7 @@ func (a *AccountWallet) transitionImplicitAccount(ctx context.Context, implicitA
 	log.Infof("Address generated for account: %s", accAddr)
 	accountOutput := builder.NewAccountOutputBuilder(accAddr, tokenBalance).
 		Mana(implicitAccountOutput.OutputStruct.StoredMana()).
-		AccountID(iotago.AccountIDFromOutputID(implicitAccountOutput.OutputID)).
+		//AccountID(iotago.AccountIDFromOutputID(implicitAccountOutput.OutputID)).
 		BlockIssuer(blockIssuerKeys, iotago.MaxSlotIndex).MustBuild()
 
 	log.Infof("Created account %s with %d tokens\n", accountOutput.AccountID.ToHex(), accountOutput.Amount)
@@ -93,8 +93,8 @@ func (a *AccountWallet) transitionImplicitAccount(ctx context.Context, implicitA
 
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to post transaction")
 	}
-	accountID := iotago.AccountIDFromOutputID(implicitAccountOutput.OutputID)
 
+	accountID := iotago.AccountIDFromOutputID(implicitAccountOutput.OutputID)
 	err = a.checkAccountStatus(ctx, blkID, accountID)
 	if err != nil {
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "failure in account creation")
@@ -196,11 +196,11 @@ func (a *AccountWallet) createAccountWithFaucet(ctx context.Context, params *Cre
 }
 
 func (a *AccountWallet) checkAccountStatus(ctx context.Context, blkID iotago.BlockID, accountID iotago.AccountID) error {
-	log.Infof("Created account %s, blk ID %s, awaiting the commitment.\n", accountID.ToHex(), blkID.ToHex())
-	if err := utils.AwaitBlockIssuanceWithTransaction(ctx, a.client, blkID); err != nil {
+	if err := utils.AwaitBlockAndPayloadAcceptance(ctx, a.client, blkID); err != nil {
 		return ierrors.Wrapf(err, "failed to await block issuance for block %s", blkID.ToHex())
 	}
 
+	log.Infof("Created account %s, blk ID %s, awaiting the commitment.", accountID.ToHex(), blkID.ToHex())
 	// wait for the account to be committed
 	err := utils.AwaitCommitment(ctx, a.client, blkID.Slot())
 	if err != nil {
@@ -208,14 +208,15 @@ func (a *AccountWallet) checkAccountStatus(ctx context.Context, blkID iotago.Blo
 
 		return err
 	}
-	log.Infof("Slot %d is committed\n", blkID.Slot())
+	log.Infof("Slot %d is committed", blkID.Slot())
 	// make sure it exists, and get the details from the indexer
 	outputID, account, slot, err := a.client.GetAccountFromIndexer(ctx, accountID)
 	if err != nil {
-		log.Debug("Failed to get account from indexer, even after slot %d is already committed", blkID.Slot())
+		log.Debugf("Failed to get account from indexer, even after slot %d is already committed", blkID.Slot())
 
 		return err
 	}
+
 	log.Infof("Account created, ID: %s, outputID: %s, slot: %d\n", account.AccountID.ToHex(), outputID.ToHex(), slot)
 
 	return nil
@@ -328,10 +329,16 @@ func (a *AccountWallet) getAddrSignerForIndexes(outputs ...*models.Output) (iota
 	for _, out := range outputs {
 		switch out.Address.Type() {
 		case iotago.AddressEd25519:
-			ed25519Addr := out.Address.(*iotago.Ed25519Address)
+			ed25519Addr, ok := out.Address.(*iotago.Ed25519Address)
+			if !ok {
+				return nil, ierrors.New("failed Ed25519Address type assertion, invalid address type")
+			}
 			addrKeys = append(addrKeys, iotago.NewAddressKeysForEd25519Address(ed25519Addr, out.PrivKey))
 		case iotago.AddressImplicitAccountCreation:
-			implicitAccountCreationAddr := out.Address.(*iotago.ImplicitAccountCreationAddress)
+			implicitAccountCreationAddr, ok := out.Address.(*iotago.ImplicitAccountCreationAddress)
+			if !ok {
+				return nil, ierrors.New("failed type ImplicitAccountCreationAddress assertion, invalid address type")
+			}
 			addrKeys = append(addrKeys, iotago.NewAddressKeysForImplicitAccountCreationAddress(implicitAccountCreationAddr, out.PrivKey))
 		}
 	}

@@ -212,9 +212,9 @@ type Client interface {
 	// GetTransaction gets the transaction.
 	GetTransaction(ctx context.Context, txID iotago.TransactionID) (resp *iotago.SignedTransaction, err error)
 	// GetBlockIssuance returns the latest commitment and data needed to create a new block.
-	GetBlockIssuance(ctx context.Context, slots ...iotago.SlotIndex) (resp *apimodels.IssuanceBlockHeaderResponse, err error)
+	GetBlockIssuance(ctx context.Context) (resp *apimodels.IssuanceBlockHeaderResponse, err error)
 	// GetCongestion returns congestion data such as rmc or issuing readiness.
-	GetCongestion(ctx context.Context, id iotago.AccountID) (resp *apimodels.CongestionResponse, err error)
+	GetCongestion(ctx context.Context, addr *iotago.AccountAddress) (resp *apimodels.CongestionResponse, err error)
 	// RequestFaucetFunds requests funds from the faucet.
 	RequestFaucetFunds(ctx context.Context, address iotago.Address) (err error)
 	// GetAccountFromIndexer returns the outputID, accountOutput and slotIndex of a given accountID.
@@ -384,10 +384,10 @@ func (c *WebClient) GetTransaction(ctx context.Context, txID iotago.TransactionI
 	return tx, nil
 }
 
-func (c *WebClient) GetBlockIssuance(ctx context.Context, slotIndex ...iotago.SlotIndex) (resp *apimodels.IssuanceBlockHeaderResponse, err error) {
-	return c.client.BlockIssuance(ctx, slotIndex...)
+func (c *WebClient) GetBlockIssuance(ctx context.Context) (resp *apimodels.IssuanceBlockHeaderResponse, err error) {
+	return c.client.BlockIssuance(ctx)
 }
 
-func (c *WebClient) GetCongestion(ctx context.Context, accountID iotago.AccountID) (resp *apimodels.CongestionResponse, err error) {
-	return c.client.Congestion(ctx, accountID)
+func (c *WebClient) GetCongestion(ctx context.Context, accAddress *iotago.AccountAddress) (resp *apimodels.CongestionResponse, err error) {
+	return c.client.Congestion(ctx, accAddress)
 }

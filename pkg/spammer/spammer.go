@@ -61,9 +61,8 @@ type Spammer struct {
 	Clients       models.Connector
 	EvilWallet    *evilwallet.EvilWallet
 	EvilScenario  *evilwallet.EvilScenario
-	// CommitmentManager *CommitmentManager
-	ErrCounter  *ErrorCounter
-	IssuerAlias string
+	ErrCounter    *ErrorCounter
+	IssuerAlias   string
 
 	log Logger
 
@@ -225,6 +224,15 @@ func (s *Spammer) Spam(ctx context.Context) {
 	}
 }
 
+func (s *Spammer) logError(err error) {
+	if ierrors.Is(err, context.DeadlineExceeded) {
+		// ignore deadline exceeded errors as the spammer has sent thew signal to stop
+		return
+	}
+
+	s.log.Debug(err)
+}
+
 func (s *Spammer) CheckIfAllSent() {
 	if s.SpamDetails.MaxDuration >= 0 && s.State.batchPrepared.Load() >= int64(s.SpamDetails.MaxBatchesSent) {
 		s.log.Infof("Maximum number of blocks sent, stopping spammer...")
@@ -237,27 +245,26 @@ func (s *Spammer) StopSpamming() {
 	s.State.spamDuration = time.Since(s.State.spamStartTime)
 	s.State.spamTicker.Stop()
 	s.State.logTicker.Stop()
-	// s.CommitmentManager.Shutdown()
 }
 
 func (s *Spammer) PrepareBlock(ctx context.Context, txData *models.PayloadIssuanceData, issuerAlias string, clt models.Client, strongParents ...iotago.BlockID) *iotago.Block {
 	if txData.Payload == nil {
-		s.log.Debug(ErrPayloadIsNil)
+		s.logError(ErrPayloadIsNil)
 		s.ErrCounter.CountError(ErrPayloadIsNil)
 
 		return nil
 	}
 	issuerAccount, err := s.EvilWallet.GetAccount(ctx, issuerAlias)
 	if err != nil {
-		s.log.Debug(ierrors.Wrapf(ErrFailGetAccount, err.Error()))
-		s.ErrCounter.CountError(ierrors.Wrapf(ErrFailGetAccount, err.Error()))
+		s.logError(ierrors.Wrap(err, ErrFailGetAccount.Error()))
+		s.ErrCounter.CountError(ierrors.Wrap(err, ErrFailGetAccount.Error()))
 
 		return nil
 	}
 	block, err := s.EvilWallet.CreateBlock(ctx, clt, txData.Payload, txData.CongestionResponse, issuerAccount, strongParents...)
 	if err != nil {
-		s.log.Debug(ierrors.Wrapf(ErrFailPostBlock, err.Error()))
-		s.ErrCounter.CountError(ierrors.Wrapf(ErrFailPostBlock, err.Error()))
+		s.logError(ierrors.Wrap(err, ErrFailPostBlock.Error()))
+		s.ErrCounter.CountError(ierrors.Wrap(err, ErrFailPostBlock.Error()))
 
 		return nil
 	}
@@ -267,27 +274,23 @@ func (s *Spammer) PrepareBlock(ctx context.Context, txData *models.PayloadIssuan
 
 func (s *Spammer) PrepareAndPostBlock(ctx context.Context, txData *models.PayloadIssuanceData, issuerAlias string, clt models.Client) iotago.BlockID {
 	if txData.Payload == nil {
-		s.log.Debug(ErrPayloadIsNil)
+		s.logError(ErrPayloadIsNil)
 		s.ErrCounter.CountError(ErrPayloadIsNil)
 
 		return iotago.EmptyBlockID
 	}
 	issuerAccount, err := s.EvilWallet.GetAccount(ctx, issuerAlias)
 	if err != nil {
-		s.log.Debug(ierrors.Wrapf(ErrFailGetAccount, err.Error()))
-		s.ErrCounter.CountError(ierrors.Wrapf(ErrFailGetAccount, err.Error()))
+		s.logError(ierrors.Wrap(err, ErrFailGetAccount.Error()))
+		s.ErrCounter.CountError(ierrors.Wrap(err, ErrFailGetAccount.Error()))
 
 		return iotago.EmptyBlockID
 	}
 	blockID, err := s.EvilWallet.PrepareAndPostBlock(ctx, clt, txData.Payload, txData.CongestionResponse, issuerAccount)
 	if err != nil {
-		// we do not count and log context deadline errors, as the spammer itself is sending the done signal.
-		if ierrors.Is(err, context.DeadlineExceeded) {
-			return iotago.EmptyBlockID
-		}
 
-		s.log.Debug(ierrors.Wrapf(ErrFailPostBlock, err.Error()))
-		s.ErrCounter.CountError(ierrors.Wrapf(ErrFailPostBlock, err.Error()))
+		s.logError(ierrors.Wrap(err, ErrFailPostBlock.Error()))
+		s.ErrCounter.CountError(ierrors.Wrap(err, ErrFailPostBlock.Error()))
 
 		return iotago.EmptyBlockID
 	}

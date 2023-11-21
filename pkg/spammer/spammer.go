@@ -36,7 +36,7 @@ type State struct {
 	spamTicker    *time.Ticker
 	logTicker     *time.Ticker
 	spamStartTime time.Time
-	txSent        *atomic.Int64
+	blkSent       *atomic.Int64
 	batchPrepared *atomic.Int64
 
 	logTickTime  time.Duration
@@ -79,7 +79,7 @@ type Spammer struct {
 // NewSpammer is a constructor of Spammer.
 func NewSpammer(options ...Options) *Spammer {
 	state := &State{
-		txSent:        atomic.NewInt64(0),
+		blkSent:       atomic.NewInt64(0),
 		batchPrepared: atomic.NewInt64(0),
 		logTickTime:   time.Second * 30,
 	}
@@ -106,7 +106,7 @@ func NewSpammer(options ...Options) *Spammer {
 }
 
 func (s *Spammer) BlocksSent() uint64 {
-	return uint64(s.State.txSent.Load())
+	return uint64(s.State.blkSent.Load())
 }
 
 func (s *Spammer) BatchesPrepared() uint64 {
@@ -171,7 +171,7 @@ func (s *Spammer) Spam(ctx context.Context) {
 	s.log.Infof("Start spamming transactions with %d rate", s.SpamDetails.Rate)
 	defer func() {
 		s.log.Info(s.ErrCounter.GetErrorsSummary())
-		s.log.Infof("Finishing spamming, total txns sent: %v, TotalTime: %v, Rate: %f", s.State.txSent.Load(), s.State.spamDuration.Seconds(), float64(s.State.txSent.Load())/s.State.spamDuration.Seconds())
+		s.log.Infof("Finishing spamming, total txns sent: %v, TotalTime: %v, Rate: %f", s.State.blkSent.Load(), s.State.spamDuration.Seconds(), float64(s.State.blkSent.Load())/s.State.spamDuration.Seconds())
 	}()
 
 	s.State.spamStartTime = time.Now()
@@ -190,7 +190,7 @@ func (s *Spammer) Spam(ctx context.Context) {
 		for {
 			select {
 			case <-s.State.logTicker.C:
-				s.log.Infof("Blocks issued so far: %d, errors encountered: %d", s.State.txSent.Load(), s.ErrCounter.GetTotalErrorCount())
+				s.log.Infof("Blocks issued so far: %d, errors encountered: %d", s.State.blkSent.Load(), s.ErrCounter.GetTotalErrorCount())
 			case <-ctx.Done():
 				s.log.Infof("Maximum spam duration exceeded, stopping spammer....")
 				return
@@ -288,6 +288,11 @@ func (s *Spammer) PrepareAndPostBlock(ctx context.Context, txData *models.Payloa
 	}
 
 	if txData.Payload.PayloadType() != iotago.PayloadSignedTransaction {
+		count := s.State.blkSent.Add(1)
+		if count%200 == 0 {
+			s.log.Infof("Blocks issued so far: %d, errors encountered: %d", count, s.ErrCounter.GetTotalErrorCount())
+		}
+
 		return blockID
 	}
 
@@ -312,7 +317,8 @@ func (s *Spammer) PrepareAndPostBlock(ctx context.Context, txData *models.Payloa
 			s.EvilWallet.SetTxOutputsSolid(outputIDs, clt.URL())
 		}
 	}
-	count := s.State.txSent.Add(1)
+
+	count := s.State.blkSent.Add(1)
 	//s.log.Debugf("Last block sent, ID: %s, txCount: %d", blockID.ToHex(), count)
 	if count%200 == 0 {
 		s.log.Infof("Blocks issued so far: %d, errors encountered: %d", count, s.ErrCounter.GetTotalErrorCount())

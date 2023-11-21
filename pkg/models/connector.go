@@ -58,16 +58,14 @@ type WebClients struct {
 }
 
 // NewWebClients creates Connector from provided GoShimmerAPI urls.
-func NewWebClients(urls []string, faucetURL string, setters ...options.Option[WebClient]) *WebClients {
+func NewWebClients(urls []string, faucetURL string, setters ...options.Option[WebClient]) (*WebClients, error) {
 	clients := make([]*WebClient, len(urls))
 	indexers := make([]*WebClient, 0)
 	var err error
 	for i, url := range urls {
 		clients[i], err = NewWebClient(url, faucetURL, setters...)
 		if err != nil {
-			fmt.Errorf("failed to create client for url %s: %s", url, err)
-
-			return nil
+			return nil, ierrors.Wrapf(err, "failed to create client for url %s", url)
 		}
 
 		if _, err := clients[i].client.Indexer(context.TODO()); err == nil {
@@ -81,7 +79,7 @@ func NewWebClients(urls []string, faucetURL string, setters ...options.Option[We
 		urls:           urls,
 		faucetURL:      faucetURL,
 		lastUsed:       -1,
-	}
+	}, nil
 }
 
 // ServersStatuses retrieves the connected server status for each client.

@@ -65,7 +65,7 @@ func NewEvilWallet(opts ...options.Option[EvilWallet]) *EvilWallet {
 		optsFaucetURL:           defaultFaucetURL,
 		log:                     utils.NewLogger("EvilWallet"),
 	}, opts, func(w *EvilWallet) {
-		connector := models.NewWebClients(w.optsClientURLs, w.optsFaucetURL)
+		connector := lo.PanicOnErr(models.NewWebClients(w.optsClientURLs, w.optsFaucetURL))
 		w.connector = connector
 		w.outputManager = NewOutputManager(connector, w.wallets, w.log)
 

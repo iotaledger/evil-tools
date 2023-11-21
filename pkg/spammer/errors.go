@@ -1,6 +1,7 @@
 package spammer
 
 import (
+	"context"
 	"fmt"
 
 	"go.uber.org/atomic"
@@ -38,6 +39,10 @@ func NewErrorCount() *ErrorCounter {
 func (e *ErrorCounter) CountError(err error) {
 	e.mutex.Lock()
 	defer e.mutex.Unlock()
+
+	if ierrors.Is(err, context.DeadlineExceeded) {
+		return
+	}
 
 	// check if error is already in the map
 	if _, ok := e.errorsMap[err]; !ok {

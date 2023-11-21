@@ -6,6 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/ierrors"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/builder"
+	"github.com/iotaledger/iota.go/v4/wallet"
 )
 
 // region Options ///////////////////////////////////////////////////////////////////////////
@@ -21,7 +22,7 @@ type Options struct {
 	outputBatchAliases map[string]types.Empty
 	reuse              bool
 	allotmentStrategy  models.AllotmentStrategy
-	issuerAccountID    iotago.AccountID
+	issuer             wallet.Account
 	// maps input alias to desired output type, used to create account output types
 	specialOutputTypes map[string]iotago.OutputType
 }
@@ -162,10 +163,10 @@ func WithOutputs(outputsOptions []*OutputOption) Option {
 	}
 }
 
-func WithIssuanceStrategy(strategy models.AllotmentStrategy, issuerID iotago.AccountID) Option {
+func WithIssuanceStrategy(strategy models.AllotmentStrategy, issuer wallet.Account) Option {
 	return func(options *Options) {
 		options.allotmentStrategy = strategy
-		options.issuerAccountID = issuerID
+		options.issuer = issuer
 	}
 }
 

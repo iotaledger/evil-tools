@@ -7,10 +7,11 @@ import (
 
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
-	"github.com/iotaledger/iota-core/pkg/testsuite/mock"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/tpkg"
+	"github.com/iotaledger/iota.go/v4/wallet"
 )
 
 // region Wallet ///////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -72,9 +73,9 @@ func (w *Wallet) Address() *iotago.Ed25519Address {
 	defer w.Unlock()
 
 	index := uint64(w.lastAddrIdxUsed.Add(1))
-	hdWallet := mock.NewKeyManager(w.seed[:], index)
+	keyManager := lo.PanicOnErr(wallet.NewKeyManager(w.seed[:], index))
 	//nolint:forcetypeassert
-	addr := hdWallet.Address(iotago.AddressEd25519).(*iotago.Ed25519Address)
+	addr := keyManager.Address(iotago.AddressEd25519).(*iotago.Ed25519Address)
 	w.indexAddrMap[index] = addr.String()
 	w.addrIndexMap[addr.String()] = index
 
@@ -86,9 +87,9 @@ func (w *Wallet) AddressOnIndex(index uint64) *iotago.Ed25519Address {
 	w.Lock()
 	defer w.Unlock()
 
-	hdWallet := mock.NewKeyManager(w.seed[:], index)
+	keyManager := lo.PanicOnErr(wallet.NewKeyManager(w.seed[:], index))
 	//nolint:forcetypeassert
-	addr := hdWallet.Address(iotago.AddressEd25519).(*iotago.Ed25519Address)
+	addr := keyManager.Address(iotago.AddressEd25519).(*iotago.Ed25519Address)
 
 	return addr
 }
@@ -223,9 +224,10 @@ func (w *Wallet) GetUnspentOutput() *models.Output {
 func (w *Wallet) KeyPair(index uint64) (ed25519.PrivateKey, ed25519.PublicKey) {
 	w.RLock()
 	defer w.RUnlock()
-	hdWallet := mock.NewKeyManager(w.seed[:], index)
 
-	return hdWallet.KeyPair()
+	keyManger := lo.PanicOnErr(wallet.NewKeyManager(w.seed[:], index))
+
+	return keyManger.KeyPair()
 }
 
 // UpdateUnspentOutputID updates the unspent output on the address specified.

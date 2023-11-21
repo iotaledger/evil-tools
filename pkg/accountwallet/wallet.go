@@ -15,11 +15,10 @@ import (
 	"github.com/iotaledger/evil-tools/pkg/utils"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/runtime/options"
-	"github.com/iotaledger/hive.go/runtime/timeutil"
-	"github.com/iotaledger/iota-core/pkg/testsuite/mock"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/builder"
 	"github.com/iotaledger/iota.go/v4/tpkg"
+	"github.com/iotaledger/iota.go/v4/wallet"
 )
 
 var log = utils.NewLogger("AccountWallet")
@@ -75,17 +74,13 @@ type AccountWallet struct {
 	optsFaucetURL         string
 	optsAccountStatesFile string
 	optsFaucetParams      *faucetParams
-	optsRequestTimeout    time.Duration
-	optsRequestTicker     time.Duration
 }
 
 func NewAccountWallet(opts ...options.Option[AccountWallet]) (*AccountWallet, error) {
 	var initErr error
 	return options.Apply(&AccountWallet{
-		accountsAliases:    make(map[string]*models.AccountData),
-		seed:               tpkg.RandEd25519Seed(),
-		optsRequestTimeout: time.Second * 120,
-		optsRequestTicker:  time.Second * 5,
+		accountsAliases: make(map[string]*models.AccountData),
+		seed:            tpkg.RandEd25519Seed(),
 	}, opts, func(w *AccountWallet) {
 		w.client, initErr = models.NewWebClient(w.optsClientBindAddress, w.optsFaucetURL)
 		if initErr != nil {
@@ -94,15 +89,24 @@ func NewAccountWallet(opts ...options.Option[AccountWallet]) (*AccountWallet, er
 			return
 		}
 
-		var f *faucet
-		f, initErr = newFaucet(w.client, w.optsFaucetParams)
+		w.faucet, initErr = newFaucet(w.client, w.optsFaucetParams)
 		if initErr != nil {
 			return
 		}
 
-		w.faucet = f
-		w.accountsAliases[FaucetAccountAlias] = &models.AccountData{
-			Alias:    FaucetAccountAlias,
+		out, err := w.RequestFaucetFunds(context.Background(), tpkg.RandEd25519Address())
+		if err != nil {
+			initErr = err
+			log.Errorf("failed to request faucet funds: %s, faucet not initiated", err.Error())
+
+			return
+		}
+		w.faucet.RequestTokenAmount = out.Balance
+		w.faucet.RequestManaAmount = out.OutputStruct.StoredMana()
+
+		log.Debugf("faucet initiated with %d tokens and %d mana", w.faucet.RequestTokenAmount, w.faucet.RequestManaAmount)
+		w.accountsAliases[GenesisAccountAlias] = &models.AccountData{
+			Alias:    GenesisAccountAlias,
 			Status:   models.AccountReady,
 			OutputID: iotago.EmptyOutputID,
 			Index:    0,
@@ -171,7 +175,7 @@ func (a *AccountWallet) fromAccountStateFile() error {
 	// account data
 	for _, acc := range data.AccountsData {
 		a.accountsAliases[acc.Alias] = acc.ToAccountData()
-		if acc.Alias == FaucetAccountAlias {
+		if acc.Alias == GenesisAccountAlias {
 			a.accountsAliases[acc.Alias].Status = models.AccountReady
 		}
 	}
@@ -180,12 +184,12 @@ func (a *AccountWallet) fromAccountStateFile() error {
 }
 
 //nolint:all,unused
-func (a *AccountWallet) registerAccount(alias string, outputID iotago.OutputID, index uint64, privKey ed25519.PrivateKey) iotago.AccountID {
+func (a *AccountWallet) registerAccount(alias string, outputID iotago.OutputID, index uint64, privateKey ed25519.PrivateKey) iotago.AccountID {
 	a.accountAliasesMutex.Lock()
 	defer a.accountAliasesMutex.Unlock()
 
 	accountID := iotago.AccountIDFromOutputID(outputID)
-	account := mock.NewEd25519Account(accountID, privKey)
+	account := wallet.NewEd25519Account(accountID, privateKey)
 
 	a.accountsAliases[alias] = &models.AccountData{
 		Alias:    alias,
@@ -198,41 +202,39 @@ func (a *AccountWallet) registerAccount(alias string, outputID iotago.OutputID, 
 	return accountID
 }
 
-func (a *AccountWallet) updateAccountStatus(alias string, status models.AccountStatus) (*models.AccountData, bool) {
+func (a *AccountWallet) updateAccountStatus(alias string, status models.AccountStatus) (updated bool) {
 	a.accountAliasesMutex.Lock()
 	defer a.accountAliasesMutex.Unlock()
 
 	accData, exists := a.accountsAliases[alias]
 	if !exists {
-		return nil, false
+		return false
 	}
 
 	if accData.Status == status {
-		return accData, false
+		return false
 	}
 
 	accData.Status = status
 	a.accountsAliases[alias] = accData
 
-	return accData, true
+	return true
 }
 
 func (a *AccountWallet) GetReadyAccount(ctx context.Context, alias string) (*models.AccountData, error) {
-	a.accountAliasesMutex.Lock()
-	defer a.accountAliasesMutex.Unlock()
-
-	accData, exists := a.accountsAliases[alias]
-	if !exists {
-		return nil, ierrors.Errorf("account with alias %s does not exist", alias)
+	accData, err := a.GetAccount(alias)
+	if err != nil {
+		return nil, ierrors.Wrapf(err, "account with alias %s does not exist", alias)
 	}
 
-	// check if account is ready (to be included in a commitment)
-	ready := a.isAccountReady(ctx, accData)
+	if accData.Status == models.AccountReady {
+		return accData, nil
+	}
+
+	ready := a.awaitAccountReadiness(ctx, accData)
 	if !ready {
 		return nil, ierrors.Errorf("account with alias %s is not ready", alias)
 	}
-
-	accData, _ = a.updateAccountStatus(alias, models.AccountReady)
 
 	return accData, nil
 }
@@ -249,48 +251,31 @@ func (a *AccountWallet) GetAccount(alias string) (*models.AccountData, error) {
 	return accData, nil
 }
 
-func (a *AccountWallet) isAccountReady(ctx context.Context, accData *models.AccountData) bool {
-	if accData.Status == models.AccountReady {
-		return true
-	}
-
+func (a *AccountWallet) awaitAccountReadiness(ctx context.Context, accData *models.AccountData) bool {
 	creationSlot := accData.OutputID.CreationSlot()
-
-	// wait for the account to be committed
 	log.Infof("Waiting for account %s to be committed within slot %d...", accData.Alias, creationSlot)
-	err := a.retry(func() (bool, error) {
-		resp, err := a.client.GetBlockIssuance(ctx)
-		if err != nil {
-			return false, err
-		}
-
-		if resp.Commitment.Slot >= creationSlot {
-			log.Infof("Slot %d committed, account %s is ready to use", creationSlot, accData.Alias)
-			return true, nil
-		}
-
-		return false, nil
-	})
-
+	err := utils.AwaitCommitment(ctx, a.client, creationSlot)
 	if err != nil {
 		log.Errorf("failed to get commitment details while waiting %s: %s", accData.Alias, err)
+
 		return false
 	}
 
-	return true
+	return a.updateAccountStatus(accData.Alias, models.AccountReady)
 }
 
 func (a *AccountWallet) getFunds(ctx context.Context, addressType iotago.AddressType) (*models.Output, ed25519.PrivateKey, error) {
-	receiverAddr, privKey, usedIndex := a.getAddress(addressType)
+	receiverAddr, privateKey, usedIndex := a.getAddress(addressType)
 
-	createdOutput, err := a.RequestFaucetFunds(ctx, a.client, receiverAddr)
+	createdOutput, err := a.RequestFaucetFunds(ctx, receiverAddr)
 	if err != nil {
 		return nil, nil, ierrors.Wrap(err, "failed to request funds from Faucet")
 	}
 
 	createdOutput.AddressIndex = usedIndex
+	createdOutput.PrivateKey = privateKey
 
-	return createdOutput, privKey, nil
+	return createdOutput, privateKey, nil
 }
 
 func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error {
@@ -298,7 +283,11 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 	if err != nil {
 		return err
 	}
-	hdWallet := mock.NewKeyManager(a.seed[:], accData.Index)
+
+	keyManager, err := wallet.NewKeyManager(a.seed[:], accData.Index)
+	if err != nil {
+		return err
+	}
 
 	issuingTime := time.Now()
 	issuingSlot := a.client.LatestAPI().TimeProvider().SlotFromTime(issuingTime)
@@ -311,7 +300,7 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 
 	txBuilder := builder.NewTransactionBuilder(apiForSlot)
 	txBuilder.AddInput(&builder.TxInput{
-		UnlockTarget: a.accountsAliases[alias].Account.ID().ToAddress(),
+		UnlockTarget: a.accountsAliases[alias].Account.Address(),
 		InputID:      accData.OutputID,
 		Input:        accountOutput,
 	})
@@ -320,17 +309,17 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 	//nolint:all,forcetypassert
 	txBuilder.AddOutput(&iotago.BasicOutput{
 		Amount: accountOutput.BaseTokenAmount(),
-		Conditions: iotago.BasicOutputUnlockConditions{
-			&iotago.AddressUnlockCondition{Address: a.faucet.genesisHdWallet.Address(iotago.AddressEd25519).(*iotago.Ed25519Address)},
+		UnlockConditions: iotago.BasicOutputUnlockConditions{
+			&iotago.AddressUnlockCondition{Address: a.faucet.genesisKeyManager.Address(iotago.AddressEd25519).(*iotago.Ed25519Address)},
 		},
 	})
 
-	tx, err := txBuilder.Build(hdWallet.AddressSigner())
+	tx, err := txBuilder.Build(keyManager.AddressSigner())
 	if err != nil {
 		return ierrors.Wrapf(err, "failed to build transaction for account alias destruction %s", alias)
 	}
 
-	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(ctx, a.client.Client(), a.faucet.account.ID())
+	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(ctx, a.client.Client(), a.faucet.account)
 	if err != nil {
 		return ierrors.Wrap(err, "failed to request block built data for the faucet account")
 	}
@@ -346,27 +335,4 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 	log.Infof("Account %s has been destroyed", alias)
 
 	return nil
-}
-
-func (a *AccountWallet) retry(requestFunc func() (bool, error)) error {
-	timeout := time.NewTimer(a.optsRequestTimeout)
-	interval := time.NewTicker(a.optsRequestTicker)
-	defer timeutil.CleanupTimer(timeout)
-	defer timeutil.CleanupTicker(interval)
-
-	for {
-		done, err := requestFunc()
-		if err != nil {
-			return err
-		}
-		if done {
-			return nil
-		}
-		select {
-		case <-interval.C:
-			continue
-		case <-timeout.C:
-			return ierrors.New("timeout while trying to request")
-		}
-	}
 }

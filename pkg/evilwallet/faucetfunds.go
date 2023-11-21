@@ -155,22 +155,23 @@ func (e *EvilWallet) splitOutput(ctx context.Context, splitOutput *models.Output
 		return iotago.EmptyTransactionID, ierrors.Wrapf(err, "failed to create splitted outputs")
 	}
 
-	faucetAccount, err := e.accWallet.GetAccount(accountwallet.FaucetAccountAlias)
+	genesisAccount, err := e.accWallet.GetAccount(accountwallet.GenesisAccountAlias)
 	if err != nil {
 		return iotago.EmptyTransactionID, err
 	}
+
 	txData, err := e.CreateTransaction(ctx,
 		WithInputs(splitOutput),
 		WithOutputs(outputs),
 		WithInputWallet(inputWallet),
 		WithOutputWallet(outputWallet),
-		WithIssuanceStrategy(models.AllotmentStrategyAll, faucetAccount.Account.ID()),
+		WithIssuanceStrategy(models.AllotmentStrategyAll, genesisAccount.Account),
 	)
 	if err != nil {
 		return iotago.EmptyTransactionID, err
 	}
 
-	_, err = e.PrepareAndPostBlock(ctx, e.connector.GetClient(), txData.Payload, txData.CongestionResponse, faucetAccount.Account)
+	_, err = e.PrepareAndPostBlock(ctx, e.connector.GetClient(), txData.Payload, txData.CongestionResponse, genesisAccount.Account)
 	if err != nil {
 		return iotago.TransactionID{}, err
 	}

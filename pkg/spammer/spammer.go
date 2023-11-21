@@ -12,8 +12,6 @@ import (
 	appLogger "github.com/iotaledger/hive.go/app/logger"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/iota-core/pkg/testsuite/snapshotcreator"
-	"github.com/iotaledger/iota-core/tools/genesis-snapshot/presets"
 	iotago "github.com/iotaledger/iota.go/v4"
 )
 
@@ -38,7 +36,7 @@ type State struct {
 	spamTicker    *time.Ticker
 	logTicker     *time.Ticker
 	spamStartTime time.Time
-	txSent        *atomic.Int64
+	blkSent       *atomic.Int64
 	batchPrepared *atomic.Int64
 
 	logTickTime  time.Duration
@@ -63,12 +61,10 @@ type Spammer struct {
 	Clients       models.Connector
 	EvilWallet    *evilwallet.EvilWallet
 	EvilScenario  *evilwallet.EvilScenario
-	// CommitmentManager *CommitmentManager
-	ErrCounter  *ErrorCounter
-	IssuerAlias string
+	ErrCounter    *ErrorCounter
+	IssuerAlias   string
 
 	log Logger
-	api iotago.API
 
 	// accessed from spamming functions
 	done         chan bool
@@ -81,11 +77,8 @@ type Spammer struct {
 
 // NewSpammer is a constructor of Spammer.
 func NewSpammer(options ...Options) *Spammer {
-	protocolParams := snapshotcreator.NewOptions(presets.Docker...).ProtocolParameters
-	api := iotago.V3API(protocolParams)
-
 	state := &State{
-		txSent:        atomic.NewInt64(0),
+		blkSent:       atomic.NewInt64(0),
 		batchPrepared: atomic.NewInt64(0),
 		logTickTime:   time.Second * 30,
 	}
@@ -100,7 +93,6 @@ func NewSpammer(options ...Options) *Spammer {
 		done:           make(chan bool),
 		failed:         make(chan bool),
 		NumberOfSpends: 2,
-		api:            api,
 	}
 
 	for _, opt := range options {
@@ -113,7 +105,7 @@ func NewSpammer(options ...Options) *Spammer {
 }
 
 func (s *Spammer) BlocksSent() uint64 {
-	return uint64(s.State.txSent.Load())
+	return uint64(s.State.blkSent.Load())
 }
 
 func (s *Spammer) BatchesPrepared() uint64 {
@@ -178,7 +170,7 @@ func (s *Spammer) Spam(ctx context.Context) {
 	s.log.Infof("Start spamming transactions with %d rate", s.SpamDetails.Rate)
 	defer func() {
 		s.log.Info(s.ErrCounter.GetErrorsSummary())
-		s.log.Infof("Finishing spamming, total txns sent: %v, TotalTime: %v, Rate: %f", s.State.txSent.Load(), s.State.spamDuration.Seconds(), float64(s.State.txSent.Load())/s.State.spamDuration.Seconds())
+		s.log.Infof("Finishing spamming, total txns sent: %v, TotalTime: %v, Rate: %f", s.State.blkSent.Load(), s.State.spamDuration.Seconds(), float64(s.State.blkSent.Load())/s.State.spamDuration.Seconds())
 	}()
 
 	s.State.spamStartTime = time.Now()
@@ -197,7 +189,7 @@ func (s *Spammer) Spam(ctx context.Context) {
 		for {
 			select {
 			case <-s.State.logTicker.C:
-				s.log.Infof("Blocks issued so far: %d, errors encountered: %d", s.State.txSent.Load(), s.ErrCounter.GetTotalErrorCount())
+				s.log.Infof("Blocks issued so far: %d, errors encountered: %d", s.State.blkSent.Load(), s.ErrCounter.GetTotalErrorCount())
 			case <-ctx.Done():
 				s.log.Infof("Maximum spam duration exceeded, stopping spammer....")
 				return
@@ -232,6 +224,15 @@ func (s *Spammer) Spam(ctx context.Context) {
 	}
 }
 
+func (s *Spammer) logError(err error) {
+	if ierrors.Is(err, context.DeadlineExceeded) {
+		// ignore deadline exceeded errors as the spammer has sent thew signal to stop
+		return
+	}
+
+	s.log.Debug(err)
+}
+
 func (s *Spammer) CheckIfAllSent() {
 	if s.SpamDetails.MaxDuration >= 0 && s.State.batchPrepared.Load() >= int64(s.SpamDetails.MaxBatchesSent) {
 		s.log.Infof("Maximum number of blocks sent, stopping spammer...")
@@ -244,27 +245,26 @@ func (s *Spammer) StopSpamming() {
 	s.State.spamDuration = time.Since(s.State.spamStartTime)
 	s.State.spamTicker.Stop()
 	s.State.logTicker.Stop()
-	// s.CommitmentManager.Shutdown()
 }
 
 func (s *Spammer) PrepareBlock(ctx context.Context, txData *models.PayloadIssuanceData, issuerAlias string, clt models.Client, strongParents ...iotago.BlockID) *iotago.Block {
 	if txData.Payload == nil {
-		s.log.Debug(ErrPayloadIsNil)
+		s.logError(ErrPayloadIsNil)
 		s.ErrCounter.CountError(ErrPayloadIsNil)
 
 		return nil
 	}
-	issuerAccount, err := s.EvilWallet.GetAccount(issuerAlias)
+	issuerAccount, err := s.EvilWallet.GetAccount(ctx, issuerAlias)
 	if err != nil {
-		s.log.Debug(ierrors.Wrapf(ErrFailGetAccount, err.Error()))
-		s.ErrCounter.CountError(ierrors.Wrapf(ErrFailGetAccount, err.Error()))
+		s.logError(ierrors.Wrap(err, ErrFailGetAccount.Error()))
+		s.ErrCounter.CountError(ierrors.Wrap(err, ErrFailGetAccount.Error()))
 
 		return nil
 	}
 	block, err := s.EvilWallet.CreateBlock(ctx, clt, txData.Payload, txData.CongestionResponse, issuerAccount, strongParents...)
 	if err != nil {
-		s.log.Debug(ierrors.Wrapf(ErrFailPostBlock, err.Error()))
-		s.ErrCounter.CountError(ierrors.Wrapf(ErrFailPostBlock, err.Error()))
+		s.logError(ierrors.Wrap(err, ErrFailPostBlock.Error()))
+		s.ErrCounter.CountError(ierrors.Wrap(err, ErrFailPostBlock.Error()))
 
 		return nil
 	}
@@ -274,27 +274,33 @@ func (s *Spammer) PrepareBlock(ctx context.Context, txData *models.PayloadIssuan
 
 func (s *Spammer) PrepareAndPostBlock(ctx context.Context, txData *models.PayloadIssuanceData, issuerAlias string, clt models.Client) iotago.BlockID {
 	if txData.Payload == nil {
-		s.log.Debug(ErrPayloadIsNil)
+		s.logError(ErrPayloadIsNil)
 		s.ErrCounter.CountError(ErrPayloadIsNil)
 
 		return iotago.EmptyBlockID
 	}
-	issuerAccount, err := s.EvilWallet.GetAccount(issuerAlias)
+	issuerAccount, err := s.EvilWallet.GetAccount(ctx, issuerAlias)
 	if err != nil {
-		s.log.Debug(ierrors.Wrapf(ErrFailGetAccount, err.Error()))
-		s.ErrCounter.CountError(ierrors.Wrapf(ErrFailGetAccount, err.Error()))
+		s.logError(ierrors.Wrap(err, ErrFailGetAccount.Error()))
+		s.ErrCounter.CountError(ierrors.Wrap(err, ErrFailGetAccount.Error()))
 
 		return iotago.EmptyBlockID
 	}
 	blockID, err := s.EvilWallet.PrepareAndPostBlock(ctx, clt, txData.Payload, txData.CongestionResponse, issuerAccount)
 	if err != nil {
-		s.log.Debug(ierrors.Wrapf(ErrFailPostBlock, err.Error()))
-		s.ErrCounter.CountError(ierrors.Wrapf(ErrFailPostBlock, err.Error()))
+
+		s.logError(ierrors.Wrap(err, ErrFailPostBlock.Error()))
+		s.ErrCounter.CountError(ierrors.Wrap(err, ErrFailPostBlock.Error()))
 
 		return iotago.EmptyBlockID
 	}
 
 	if txData.Payload.PayloadType() != iotago.PayloadSignedTransaction {
+		count := s.State.blkSent.Add(1)
+		if count%200 == 0 {
+			s.log.Infof("Blocks issued so far: %d, errors encountered: %d", count, s.ErrCounter.GetTotalErrorCount())
+		}
+
 		return blockID
 	}
 
@@ -319,7 +325,8 @@ func (s *Spammer) PrepareAndPostBlock(ctx context.Context, txData *models.Payloa
 			s.EvilWallet.SetTxOutputsSolid(outputIDs, clt.URL())
 		}
 	}
-	count := s.State.txSent.Add(1)
+
+	count := s.State.blkSent.Add(1)
 	//s.log.Debugf("Last block sent, ID: %s, txCount: %d", blockID.ToHex(), count)
 	if count%200 == 0 {
 		s.log.Infof("Blocks issued so far: %d, errors encountered: %d", count, s.ErrCounter.GetTotalErrorCount())

@@ -9,8 +9,8 @@ import (
 )
 
 var (
-	NewLogger   = logger.NewLogger
-	UtilsLogger *zap.SugaredLogger
+	NewLogger = logger.NewLogger
+	Logger    *zap.SugaredLogger
 )
 
 func init() {
@@ -25,5 +25,5 @@ func init() {
 	}
 	logger.SetLevel(logger.LevelDebug)
 
-	UtilsLogger = NewLogger("utils")
+	Logger = NewLogger("utils")
 }

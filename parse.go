@@ -63,7 +63,7 @@ func parseBasicSpamFlags() {
 	timeunit := optionFlagSet.Duration("unit", customSpamParams.TimeUnit, "Time unit for the spamming rate. Format: decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
 	delayBetweenConflicts := optionFlagSet.Duration("dbc", customSpamParams.DelayBetweenConflicts, "delayBetweenConflicts - Time delay between conflicts in double spend spamming")
 	scenario := optionFlagSet.String("scenario", "", "Name of the EvilBatch that should be used for the spam. By default uses Scenario1. Possible scenarios can be found in evilwallet/customscenarion.go.")
-	deepSpam := optionFlagSet.Bool("deep", customSpamParams.DeepSpam, "Enable the deep spam, by reusing outputs created during the spam.")
+	deepSpam := optionFlagSet.Bool("deep", customSpamParams.DeepSpam, "Enable the deep spam, by reusing outputs created during the spam. To enable provide an empty flag.")
 	nSpend := optionFlagSet.Int("nSpend", customSpamParams.NSpend, "Number of outputs to be spent in n-spends spammer for the spammer type needs to be set to 'ds'. Default value is 2 for double-spend.")
 	account := optionFlagSet.String("account", "", "Account alias to be used for the spam. Account should be created first with accounts tool.")
 
@@ -214,7 +214,7 @@ func parseCreateAccountFlags(subcommands []string) (*accountwallet.CreateAccount
 	alias := flagSet.String("alias", "", "The alias name of new created account")
 	noBif := flagSet.Bool("noBIF", false, "Create account without Block Issuer Feature, can only be set false no if implicit is false, as each account created implicitly needs to have BIF.")
 	implicit := flagSet.Bool("implicit", false, "Create an implicit account")
-	transition := flagSet.Bool("transition", true, "Indicates if account should be transitioned to full account if created with implicit address.")
+	noTransition := flagSet.Bool("noTransition", false, "account should not be transitioned to a full account if created with implicit address. Transition enabled by default, to disable provide an empty flag.")
 
 	if subcommands == nil {
 		flagSet.Usage()
@@ -235,18 +235,18 @@ func parseCreateAccountFlags(subcommands []string) (*accountwallet.CreateAccount
 		*noBif = false
 	}
 
-	log.Infof("Parsed flags: alias: %s, BIF: %t, implicit: %t, transition: %t", *alias, *noBif, *implicit, *transition)
+	log.Infof("Parsed flags: alias: %s, BIF: %t, implicit: %t, transition: %t", *alias, *noBif, *implicit, *noTransition)
 
-	if !*implicit == *transition {
+	if !*implicit == !*noTransition {
 		log.Info("WARN: Implicit flag set to false, account will be created non-implicitly by Faucet, no need for transition, flag will be ignored")
-		*transition = false
+		*noTransition = true
 	}
 
 	return &accountwallet.CreateAccountParams{
 		Alias:      *alias,
 		NoBIF:      *noBif,
 		Implicit:   *implicit,
-		Transition: *transition,
+		Transition: !*noTransition,
 	}, nil
 }
 

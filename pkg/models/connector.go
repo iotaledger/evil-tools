@@ -4,17 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
 
-	"github.com/google/martian/log"
-
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
-	"github.com/iotaledger/inx-faucet/pkg/faucet"
-	"github.com/iotaledger/iota-core/pkg/model"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/builder"
 	"github.com/iotaledger/iota.go/v4/nodeclient"
@@ -61,16 +58,14 @@ type WebClients struct {
 }
 
 // NewWebClients creates Connector from provided GoShimmerAPI urls.
-func NewWebClients(urls []string, faucetURL string, setters ...options.Option[WebClient]) *WebClients {
+func NewWebClients(urls []string, faucetURL string, setters ...options.Option[WebClient]) (*WebClients, error) {
 	clients := make([]*WebClient, len(urls))
 	indexers := make([]*WebClient, 0)
 	var err error
 	for i, url := range urls {
 		clients[i], err = NewWebClient(url, faucetURL, setters...)
 		if err != nil {
-			log.Errorf("failed to create client for url %s: %s", url, err)
-
-			return nil
+			return nil, ierrors.Wrapf(err, "failed to create client for url %s", url)
 		}
 
 		if _, err := clients[i].client.Indexer(context.TODO()); err == nil {
@@ -84,7 +79,7 @@ func NewWebClients(urls []string, faucetURL string, setters ...options.Option[We
 		urls:           urls,
 		faucetURL:      faucetURL,
 		lastUsed:       -1,
-	}
+	}, nil
 }
 
 // ServersStatuses retrieves the connected server status for each client.
@@ -168,7 +163,7 @@ func (c *WebClients) AddClient(url string, setters ...options.Option[WebClient])
 
 	clt, err := NewWebClient(url, c.faucetURL, setters...)
 	if err != nil {
-		log.Errorf("failed to create client for url %s: %s", url, err)
+		fmt.Printf("failed to create client for url %s: %s\n", url, err)
 
 		return
 	}
@@ -185,6 +180,7 @@ func (c *WebClients) RemoveClient(url string) {
 	for i, u := range c.urls {
 		if u == url {
 			indexToRemove = i
+
 			break
 		}
 	}
@@ -205,21 +201,21 @@ type Client interface {
 	// PostData sends the given data (payload) by creating a block in the backend.
 	PostData(ctx context.Context, data []byte) (blkID string, err error)
 	// GetBlockConfirmationState returns the AcceptanceState of a given block ID.
-	GetBlockConfirmationState(ctx context.Context, blkID iotago.BlockID) string
+	GetBlockConfirmationState(ctx context.Context, blkID iotago.BlockID) (resp *apimodels.BlockMetadataResponse, err error)
 	// GetBlockStateFromTransaction returns the AcceptanceState of a given transaction ID.
 	GetBlockStateFromTransaction(ctx context.Context, txID iotago.TransactionID) (resp *apimodels.BlockMetadataResponse, err error)
 	// GetOutput gets the output of a given outputID.
 	GetOutput(ctx context.Context, outputID iotago.OutputID) iotago.Output
-	// GetOutputConfirmationState gets the first unspent outputs of a given address.
-	GetOutputConfirmationState(ctx context.Context, outputID iotago.OutputID) string
 	// GetTransaction gets the transaction.
 	GetTransaction(ctx context.Context, txID iotago.TransactionID) (resp *iotago.SignedTransaction, err error)
 	// GetBlockIssuance returns the latest commitment and data needed to create a new block.
-	GetBlockIssuance(ctx context.Context, slots ...iotago.SlotIndex) (resp *apimodels.IssuanceBlockHeaderResponse, err error)
+	GetBlockIssuance(ctx context.Context) (resp *apimodels.IssuanceBlockHeaderResponse, err error)
 	// GetCongestion returns congestion data such as rmc or issuing readiness.
-	GetCongestion(ctx context.Context, id iotago.AccountID) (resp *apimodels.CongestionResponse, err error)
-	// RequestFaucetFunds
+	GetCongestion(ctx context.Context, addr *iotago.AccountAddress) (resp *apimodels.CongestionResponse, err error)
+	// RequestFaucetFunds requests funds from the faucet.
 	RequestFaucetFunds(ctx context.Context, address iotago.Address) (err error)
+	// GetAccountFromIndexer returns the outputID, accountOutput and slotIndex of a given accountID.
+	GetAccountFromIndexer(ctx context.Context, accountID iotago.AccountID) (*iotago.OutputID, *iotago.AccountOutput, iotago.SlotIndex, error)
 
 	iotago.APIProvider
 }
@@ -271,6 +267,7 @@ func (c *WebClient) URL() string {
 // NewWebClient creates Connector from provided iota-core API urls.
 func NewWebClient(url, faucetURL string, opts ...options.Option[WebClient]) (*WebClient, error) {
 	var initErr error
+
 	return options.Apply(&WebClient{
 		url:       url,
 		faucetURL: faucetURL,
@@ -279,9 +276,15 @@ func NewWebClient(url, faucetURL string, opts ...options.Option[WebClient]) (*We
 	}), initErr
 }
 
+// FaucetEnqueueRequest defines the request for a POST RouteFaucetEnqueue REST API call.
+type FaucetEnqueueRequest struct {
+	// The bech32 address.
+	Address string `json:"address"`
+}
+
 func (c *WebClient) RequestFaucetFunds(ctx context.Context, address iotago.Address) (err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.faucetURL+"/api/enqueue", func() io.Reader {
-		jsonData, _ := json.Marshal(&faucet.EnqueueRequest{
+		jsonData, _ := json.Marshal(&FaucetEnqueueRequest{
 			Address: address.Bech32(c.client.CommittedAPI().ProtocolParameters().Bech32HRP()),
 		})
 
@@ -300,7 +303,7 @@ func (c *WebClient) RequestFaucetFunds(ctx context.Context, address iotago.Addre
 	defer res.Body.Close()
 
 	if res.StatusCode != http.StatusAccepted {
-		return ierrors.Errorf("faucet request failed: %s", res.Body)
+		return ierrors.Errorf("faucet request failed, status code: %d", res.StatusCode)
 	}
 
 	return nil
@@ -332,17 +335,6 @@ func (c *WebClient) PostData(ctx context.Context, data []byte) (blkID string, er
 	return id.ToHex(), nil
 }
 
-// GetOutputConfirmationState gets the first unspent outputs of a given address.
-func (c *WebClient) GetOutputConfirmationState(ctx context.Context, outputID iotago.OutputID) string {
-	txID := outputID.TransactionID()
-	resp, err := c.GetBlockStateFromTransaction(ctx, txID)
-	if err != nil {
-		return ""
-	}
-
-	return resp.TransactionState
-}
-
 // GetOutput gets the output of a given outputID.
 func (c *WebClient) GetOutput(ctx context.Context, outputID iotago.OutputID) iotago.Output {
 	res, err := c.client.OutputByID(ctx, outputID)
@@ -353,14 +345,18 @@ func (c *WebClient) GetOutput(ctx context.Context, outputID iotago.OutputID) iot
 	return res
 }
 
-// GetBlockConfirmationState returns the AcceptanceState of a given block ID.
-func (c *WebClient) GetBlockConfirmationState(ctx context.Context, blkID iotago.BlockID) string {
-	resp, err := c.client.BlockMetadataByBlockID(ctx, blkID)
+func (c *WebClient) GetAccountFromIndexer(ctx context.Context, accountID iotago.AccountID) (*iotago.OutputID, *iotago.AccountOutput, iotago.SlotIndex, error) {
+	indexer, err := c.Indexer(ctx)
 	if err != nil {
-		return ""
+		return nil, nil, 0, ierrors.Errorf("unable to get indexer client: %w", err)
 	}
 
-	return resp.BlockState
+	return indexer.Account(ctx, accountID)
+}
+
+// GetBlockConfirmationState returns the AcceptanceState of a given block ID.
+func (c *WebClient) GetBlockConfirmationState(ctx context.Context, blkID iotago.BlockID) (*apimodels.BlockMetadataResponse, error) {
+	return c.client.BlockMetadataByBlockID(ctx, blkID)
 }
 
 // GetBlockStateFromTransaction returns the AcceptanceState of a given transaction ID.
@@ -370,25 +366,28 @@ func (c *WebClient) GetBlockStateFromTransaction(ctx context.Context, txID iotag
 
 // GetTransaction gets the transaction.
 func (c *WebClient) GetTransaction(ctx context.Context, txID iotago.TransactionID) (tx *iotago.SignedTransaction, err error) {
-	resp, err := c.client.TransactionIncludedBlock(ctx, txID)
+	block, err := c.client.TransactionIncludedBlock(ctx, txID)
 	if err != nil {
 		return
 	}
 
-	modelBlk, err := model.BlockFromBlock(resp)
-	if err != nil {
-		return
+	basicBody, isBasic := block.Body.(*iotago.BasicBlockBody)
+	if !isBasic {
+		return nil, ierrors.New("block body is not basic")
 	}
 
-	tx, _ = modelBlk.SignedTransaction()
+	tx, isTx := basicBody.Payload.(*iotago.SignedTransaction)
+	if !isTx {
+		return nil, ierrors.New("payload is not signed transaction")
+	}
 
 	return tx, nil
 }
 
-func (c *WebClient) GetBlockIssuance(ctx context.Context, slotIndex ...iotago.SlotIndex) (resp *apimodels.IssuanceBlockHeaderResponse, err error) {
-	return c.client.BlockIssuance(ctx, slotIndex...)
+func (c *WebClient) GetBlockIssuance(ctx context.Context) (resp *apimodels.IssuanceBlockHeaderResponse, err error) {
+	return c.client.BlockIssuance(ctx)
 }
 
-func (c *WebClient) GetCongestion(ctx context.Context, accountID iotago.AccountID) (resp *apimodels.CongestionResponse, err error) {
-	return c.client.Congestion(ctx, accountID)
+func (c *WebClient) GetCongestion(ctx context.Context, accAddress *iotago.AccountAddress) (resp *apimodels.CongestionResponse, err error) {
+	return c.client.Congestion(ctx, accAddress)
 }

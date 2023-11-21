@@ -30,7 +30,7 @@ var (
 		ScenarioName:          "guava",
 		DeepSpam:              false,
 		EnableRateSetter:      false,
-		AccountAlias:          accountwallet.FaucetAccountAlias,
+		AccountAlias:          accountwallet.GenesisAccountAlias,
 		BlowballSize:          30,
 	}
 

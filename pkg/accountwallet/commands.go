@@ -131,7 +131,7 @@ func (a *AccountWallet) RequestManaFromTheFaucet(ctx context.Context, minManaAmo
 	// if there is not enough mana to pay for account creation, request mana from the faucet
 	for requested := iotago.Mana(0); requested < minManaAmount; requested += a.faucet.RequestManaAmount {
 		wg.Add(1)
-		go func(requested iotago.Mana) {
+		go func(ctx context.Context, requested iotago.Mana) {
 			defer wg.Done()
 
 			log.Debugf("Requesting %d mana from the faucet, already requested %d", a.faucet.RequestManaAmount, requested)
@@ -140,7 +140,7 @@ func (a *AccountWallet) RequestManaFromTheFaucet(ctx context.Context, minManaAmo
 				log.Errorf("failed to request funds from the faucet: %v", err)
 			}
 			outputs = append(outputs, faucetOutput)
-		}(requested)
+		}(ctx, requested)
 	}
 	wg.Wait()
 
@@ -270,7 +270,6 @@ func (a *AccountWallet) createTransactionBuilder(inputs []*models.Output, accoun
 }
 
 func (a *AccountWallet) estimateMinimumRequiredMana(ctx context.Context, basicInputCount, basicOutputCount int, accountInput bool, accountOutput bool) (iotago.Mana, error) {
-	fmt.Print(a.faucet.account.ID())
 	congestionResp, err := a.client.GetCongestion(ctx, a.faucet.account.Address())
 	if err != nil {
 		return 0, ierrors.Wrapf(err, "failed to get congestion data for faucet accountID")

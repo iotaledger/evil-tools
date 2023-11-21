@@ -214,7 +214,7 @@ func parseCreateAccountFlags(subcommands []string) (*accountwallet.CreateAccount
 	alias := flagSet.String("alias", "", "The alias name of new created account")
 	noBif := flagSet.Bool("noBIF", false, "Create account without Block Issuer Feature, can only be set false no if implicit is false, as each account created implicitly needs to have BIF.")
 	implicit := flagSet.Bool("implicit", false, "Create an implicit account")
-	noTransition := flagSet.Bool("noTransition", false, "Indicates if account should not be transitioned to a full account if created with implicit address. Transition enabled by default, to disable provide an empty flag.")
+	noTransition := flagSet.Bool("noTransition", false, "account should not be transitioned to a full account if created with implicit address. Transition enabled by default, to disable provide an empty flag.")
 
 	if subcommands == nil {
 		flagSet.Usage()

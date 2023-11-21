@@ -25,8 +25,24 @@ Possible spam scenarios:
 `blk, tx, peace, bb, ds, conflict-circle, guava ,orange, mango, pear, lemon, banana, kiwi`
 
 
+### `accounts`
+Usage for accounts [COMMAND] [FLAGS], multiple commands can be chained together.
 
-### Examples
+COMMAND: **create**
+- `alias`: _string_ - the alias name of new created account
+- `implicit` - create an implicit account
+- `noBIF` - create account without Block Issuer Feature, can only be set false no if implicit is false, as each account created implicitly needs to have BIF.
+- `noTransition` - account should not be transitioned to a full account if created with implicit address. Transition enabled by default, to disable provide an empty flag.
+
+COMMAND: **convert**
+- `alias`: _string_ - the implicit account to be converted to full account with BIF.
+
+COMMAND: **destroy**
+- `alias`: _string_ - the alias name of the account to be destroyed
+- `expirySlot`: _int_ - the expiry slot of the account to be destroyed
+
+
+### Examples for the spammer
 Possible
 Spam with scenario `tx`
 ```bash
@@ -47,6 +63,16 @@ You can provide urls for clients:
 Enable deep spam:
 ```bash
 ./evil-tools spammer -spammer custom -scenario tx -unit 1m -rate 1 -deep
+```
+
+### Examples for the accounts
+Create implicit account with alias `A`:
+```bash
+./evil-tools accounts create -alias A -implicit
+```
+Create account with genesis account paying for creation transaction:
+```bash
+./evil-tools accounts create -alias A
 ```
 
 ### Scenario diagrams:

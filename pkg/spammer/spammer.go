@@ -281,6 +281,11 @@ func (s *Spammer) PrepareAndPostBlock(ctx context.Context, txData *models.Payloa
 	}
 	blockID, err := s.EvilWallet.PrepareAndPostBlock(ctx, clt, txData.Payload, txData.CongestionResponse, issuerAccount)
 	if err != nil {
+		// we do not count and log context deadline errors, as the spammer itself is sending the done signal.
+		if ierrors.Is(err, context.DeadlineExceeded) {
+			return iotago.EmptyBlockID
+		}
+
 		s.log.Debug(ierrors.Wrapf(ErrFailPostBlock, err.Error()))
 		s.ErrCounter.CountError(ierrors.Wrapf(ErrFailPostBlock, err.Error()))
 

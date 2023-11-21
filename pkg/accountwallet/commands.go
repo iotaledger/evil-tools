@@ -229,9 +229,9 @@ func (a *AccountWallet) checkAccountStatus(ctx context.Context, blkID iotago.Blo
 }
 
 func (a *AccountWallet) createAccountCreationTransaction(inputs []*models.Output, accountOutput *iotago.AccountOutput, congestionResp *apimodels.CongestionResponse, issuerResp *apimodels.IssuanceBlockHeaderResponse) (*iotago.SignedTransaction, error) {
-	commitmentID, _ := issuerResp.Commitment.ID()
-	txBuilder := a.createTransactionBuilder(inputs, accountOutput, commitmentID)
+	txBuilder := a.createTransactionBuilder(inputs, accountOutput)
 
+	commitmentID, _ := issuerResp.Commitment.ID()
 	txBuilder.AddContextInput(&iotago.CommitmentInput{CommitmentID: commitmentID})
 	txBuilder.AddContextInput(&iotago.BlockIssuanceCreditInput{AccountID: accountOutput.AccountID})
 
@@ -253,7 +253,7 @@ func (a *AccountWallet) createAccountCreationTransaction(inputs []*models.Output
 	return signedTx, nil
 }
 
-func (a *AccountWallet) createTransactionBuilder(inputs []*models.Output, accountOutput *iotago.AccountOutput, commitmentID iotago.CommitmentID) *builder.TransactionBuilder {
+func (a *AccountWallet) createTransactionBuilder(inputs []*models.Output, accountOutput *iotago.AccountOutput) *builder.TransactionBuilder {
 	currentTime := time.Now()
 	currentSlot := a.client.LatestAPI().TimeProvider().SlotFromTime(currentTime)
 

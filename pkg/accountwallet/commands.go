@@ -11,10 +11,11 @@ import (
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/evil-tools/pkg/utils"
 	"github.com/iotaledger/hive.go/ierrors"
-	"github.com/iotaledger/iota-core/pkg/testsuite/mock"
+	"github.com/iotaledger/hive.go/lo"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/builder"
 	"github.com/iotaledger/iota.go/v4/nodeclient/apimodels"
+	"github.com/iotaledger/iota.go/v4/wallet"
 )
 
 // CreateAccount creates an implicit account and immediately transition it to a regular account.
@@ -74,7 +75,7 @@ func (a *AccountWallet) transitionImplicitAccount(ctx context.Context, implicitA
 	log.Infof("Created account %s with %d tokens\n", accountOutput.AccountID.ToHex(), accountOutput.Amount)
 
 	// transaction preparation
-	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(ctx, a.client.Client(), a.faucet.account.ID())
+	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(ctx, a.client.Client(), a.faucet.account)
 	if err != nil {
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to request block built data for the faucet account")
 	}
@@ -86,7 +87,7 @@ func (a *AccountWallet) transitionImplicitAccount(ctx context.Context, implicitA
 	}
 	log.Info(utils.SprintTransaction(signedTx))
 
-	implicitAccountHandler := mock.NewEd25519Account(iotago.AccountIDFromOutputID(implicitAccountOutput.OutputID), privateKey)
+	implicitAccountHandler := wallet.NewEd25519Account(iotago.AccountIDFromOutputID(implicitAccountOutput.OutputID), privateKey)
 	blkID, err := a.PostWithBlock(ctx, a.client, signedTx, implicitAccountHandler, congestionResp, issuerResp, version)
 	if err != nil {
 		log.Errorf("Failed to post account with block: %s", err)
@@ -167,7 +168,7 @@ func (a *AccountWallet) createAccountWithFaucet(ctx context.Context, params *Cre
 		//AccountID no accountID should be specified during the account creation
 		BlockIssuer(blockIssuerKeys, iotago.MaxSlotIndex).MustBuild()
 
-	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(ctx, a.client.Client(), a.faucet.account.ID())
+	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(ctx, a.client.Client(), a.faucet.account)
 	if err != nil {
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to request block built data for the faucet account")
 	}
@@ -231,7 +232,7 @@ func (a *AccountWallet) createAccountCreationTransaction(inputs []*models.Output
 	txBuilder := a.createTransactionBuilder(inputs, accountOutput, commitmentID)
 
 	// allot required mana to the implicit account
-	a.logMissingMana(txBuilder, congestionResp.ReferenceManaCost, a.faucet.account.ID())
+	a.logMissingMana(txBuilder, congestionResp.ReferenceManaCost, a.faucet.account)
 	txBuilder.AllotRequiredManaAndStoreRemainingManaInOutput(txBuilder.CreationSlot(), congestionResp.ReferenceManaCost, a.faucet.account.ID(), 0)
 
 	// sign the transaction
@@ -273,7 +274,7 @@ func (a *AccountWallet) createTransactionBuilder(inputs []*models.Output, accoun
 
 func (a *AccountWallet) estimateMinimumRequiredMana(ctx context.Context, basicInputCount, basicOutputCount int, accountInput bool, accountOutput bool) (iotago.Mana, error) {
 	fmt.Print(a.faucet.account.ID())
-	congestionResp, err := a.client.GetCongestion(ctx, a.faucet.account.ID())
+	congestionResp, err := a.client.GetCongestion(ctx, a.faucet.account.Address())
 	if err != nil {
 		return 0, ierrors.Wrapf(err, "failed to get congestion data for faucet accountID")
 	}
@@ -287,7 +288,7 @@ func (a *AccountWallet) estimateMinimumRequiredMana(ctx context.Context, basicIn
 	return minRequiredAllottedMana, nil
 }
 
-func (a *AccountWallet) logMissingMana(finishedTxBuilder *builder.TransactionBuilder, rmc iotago.Mana, issuerAccountID iotago.AccountID) {
+func (a *AccountWallet) logMissingMana(finishedTxBuilder *builder.TransactionBuilder, rmc iotago.Mana, issuer wallet.Account) {
 	availableMana, err := finishedTxBuilder.CalculateAvailableMana(finishedTxBuilder.CreationSlot())
 	if err != nil {
 		log.Error("could not calculate available mana")
@@ -295,7 +296,7 @@ func (a *AccountWallet) logMissingMana(finishedTxBuilder *builder.TransactionBui
 		return
 	}
 	log.Debug(utils.SprintAvailableManaResult(availableMana))
-	minRequiredAllottedMana, err := finishedTxBuilder.MinRequiredAllotedMana(a.client.APIForSlot(finishedTxBuilder.CreationSlot()).ProtocolParameters().WorkScoreParameters(), rmc, issuerAccountID)
+	minRequiredAllottedMana, err := finishedTxBuilder.MinRequiredAllotedMana(a.client.APIForSlot(finishedTxBuilder.CreationSlot()).ProtocolParameters().WorkScoreParameters(), rmc, issuer.Address().AccountID())
 	if err != nil {
 		log.Error("could not calculate min required allotted mana")
 
@@ -306,7 +307,7 @@ func (a *AccountWallet) logMissingMana(finishedTxBuilder *builder.TransactionBui
 
 func (a *AccountWallet) getAddress(addressType iotago.AddressType) (iotago.DirectUnlockableAddress, ed25519.PrivateKey, uint64) {
 	newIndex := a.latestUsedIndex.Inc()
-	hdWallet := mock.NewKeyManager(a.seed[:], newIndex)
+	hdWallet := lo.PanicOnErr(wallet.NewKeyManager(a.seed[:], newIndex))
 	privKey, _ := hdWallet.KeyPair()
 	receiverAddr := hdWallet.Address(addressType)
 
@@ -358,7 +359,7 @@ func (a *AccountWallet) ListAccount() error {
 	fmt.Printf("%-10s \t%-33s\n\n", "Alias", "AccountID")
 	for _, accData := range a.accountsAliases {
 		fmt.Printf("%-10s \t", accData.Alias)
-		fmt.Printf("%-33s ", accData.Account.ID().ToHex())
+		fmt.Printf("%-33s ", accData.Account.Address().AccountID().ToHex())
 		fmt.Printf("\n")
 	}
 

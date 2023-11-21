@@ -12,11 +12,11 @@ import (
 	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/runtime/options"
-	"github.com/iotaledger/iota-core/pkg/testsuite/mock"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/builder"
 	"github.com/iotaledger/iota.go/v4/nodeclient/apimodels"
 	"github.com/iotaledger/iota.go/v4/tpkg"
+	"github.com/iotaledger/iota.go/v4/wallet"
 )
 
 const (
@@ -114,7 +114,7 @@ func (e *EvilWallet) RemoveClient(clientURL string) {
 	e.connector.RemoveClient(clientURL)
 }
 
-func (e *EvilWallet) GetAccount(ctx context.Context, alias string) (mock.Account, error) {
+func (e *EvilWallet) GetAccount(ctx context.Context, alias string) (wallet.Account, error) {
 	account, err := e.accWallet.GetReadyAccount(ctx, alias)
 	if err != nil {
 		return nil, err
@@ -123,7 +123,7 @@ func (e *EvilWallet) GetAccount(ctx context.Context, alias string) (mock.Account
 	return account.Account, nil
 }
 
-func (e *EvilWallet) CreateBlock(ctx context.Context, clt models.Client, payload iotago.Payload, congestionResp *apimodels.CongestionResponse, issuer mock.Account, strongParents ...iotago.BlockID) (*iotago.Block, error) {
+func (e *EvilWallet) CreateBlock(ctx context.Context, clt models.Client, payload iotago.Payload, congestionResp *apimodels.CongestionResponse, issuer wallet.Account, strongParents ...iotago.BlockID) (*iotago.Block, error) {
 	var congestionSlot iotago.SlotIndex
 	version := clt.CommittedAPI().Version()
 	if congestionResp != nil {
@@ -131,7 +131,7 @@ func (e *EvilWallet) CreateBlock(ctx context.Context, clt models.Client, payload
 		version = clt.APIForSlot(congestionSlot).Version()
 	}
 
-	issuerResp, err := clt.GetBlockIssuance(ctx, congestionSlot)
+	issuerResp, err := clt.GetBlockIssuance(ctx)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to get block issuance data")
 	}
@@ -144,7 +144,7 @@ func (e *EvilWallet) CreateBlock(ctx context.Context, clt models.Client, payload
 	return block, nil
 }
 
-func (e *EvilWallet) PrepareAndPostBlock(ctx context.Context, clt models.Client, payload iotago.Payload, congestionResp *apimodels.CongestionResponse, issuer mock.Account) (iotago.BlockID, error) {
+func (e *EvilWallet) PrepareAndPostBlock(ctx context.Context, clt models.Client, payload iotago.Payload, congestionResp *apimodels.CongestionResponse, issuer wallet.Account) (iotago.BlockID, error) {
 	var congestionSlot iotago.SlotIndex
 	version := clt.CommittedAPI().Version()
 	if congestionResp != nil {
@@ -152,7 +152,7 @@ func (e *EvilWallet) PrepareAndPostBlock(ctx context.Context, clt models.Client,
 		version = clt.APIForSlot(congestionSlot).Version()
 	}
 
-	issuerResp, err := clt.GetBlockIssuance(ctx, congestionSlot)
+	issuerResp, err := clt.GetBlockIssuance(ctx)
 	if err != nil {
 		return iotago.EmptyBlockID, ierrors.Wrap(err, "failed to get block issuance data")
 	}
@@ -233,13 +233,13 @@ func (e *EvilWallet) CreateTransaction(ctx context.Context, options ...Option) (
 	var congestionResp *apimodels.CongestionResponse
 	// request congestion endpoint if allotment strategy configured
 	if buildOptions.allotmentStrategy == models.AllotmentStrategyMinCost {
-		congestionResp, err = e.connector.GetClient().GetCongestion(ctx, buildOptions.issuerAccountID)
+		congestionResp, err = e.connector.GetClient().GetCongestion(ctx, buildOptions.issuer.Address())
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	signedTx, err := e.makeTransaction(inputs, outputs, buildOptions.inputWallet, congestionResp, buildOptions.issuerAccountID)
+	signedTx, err := e.makeTransaction(inputs, outputs, buildOptions.inputWallet, congestionResp, buildOptions.issuer)
 	if err != nil {
 		return nil, err
 	}
@@ -536,7 +536,7 @@ func (e *EvilWallet) updateOutputBalances(ctx context.Context, buildOptions *Opt
 	return
 }
 
-func (e *EvilWallet) makeTransaction(inputs []*models.Output, outputs iotago.Outputs[iotago.Output], w *Wallet, congestionResponse *apimodels.CongestionResponse, issuerAccountID iotago.AccountID) (tx *iotago.SignedTransaction, err error) {
+func (e *EvilWallet) makeTransaction(inputs []*models.Output, outputs iotago.Outputs[iotago.Output], w *Wallet, congestionResponse *apimodels.CongestionResponse, issuer wallet.Account) (tx *iotago.SignedTransaction, err error) {
 	clt := e.Connector().GetClient()
 	currentTime := time.Now()
 	targetSlot := clt.LatestAPI().TimeProvider().SlotFromTime(currentTime)
@@ -572,7 +572,7 @@ func (e *EvilWallet) makeTransaction(inputs []*models.Output, outputs iotago.Out
 	txBuilder.SetCreationSlot(targetSlot)
 	// no allotment strategy
 	if congestionResponse == nil {
-		txBuilder.AllotAllMana(targetSlot, issuerAccountID)
+		txBuilder.AllotAllMana(targetSlot, issuer.ID())
 
 		return txBuilder.Build(iotago.NewInMemoryAddressSigner(walletKeys...))
 	}
@@ -595,8 +595,8 @@ func (e *EvilWallet) PrepareAccountSpam(ctx context.Context, scenario *EvilScena
 	return txData, allAliases, err
 }
 
-func (e *EvilWallet) evaluateIssuanceStrategy(ctx context.Context, strategy *models.IssuancePaymentStrategy) (models.AllotmentStrategy, iotago.AccountID) {
-	var issuerAccountID iotago.AccountID
+func (e *EvilWallet) evaluateIssuanceStrategy(ctx context.Context, strategy *models.IssuancePaymentStrategy) (models.AllotmentStrategy, wallet.Account) {
+	var issuer wallet.Account
 	if strategy.AllotmentStrategy != models.AllotmentStrategyNone {
 		// get issuer accountID
 		accData, err := e.accWallet.GetReadyAccount(ctx, strategy.IssuerAlias)
@@ -604,10 +604,10 @@ func (e *EvilWallet) evaluateIssuanceStrategy(ctx context.Context, strategy *mod
 			panic(ierrors.Wrap(err, "could not get issuer accountID while preparing conflicts"))
 		}
 
-		issuerAccountID = accData.Account.ID()
+		issuer = accData.Account
 	}
 
-	return strategy.AllotmentStrategy, issuerAccountID
+	return strategy.AllotmentStrategy, issuer
 }
 
 func (e *EvilWallet) prepareConflictSliceForScenario(ctx context.Context, scenario *EvilScenario, strategy *models.IssuancePaymentStrategy) (conflictSlice []ConflictSlice, allAliases ScenarioAlias) {

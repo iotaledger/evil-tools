@@ -15,10 +15,10 @@ import (
 	"github.com/iotaledger/evil-tools/pkg/utils"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/runtime/options"
-	"github.com/iotaledger/iota-core/pkg/testsuite/mock"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/builder"
 	"github.com/iotaledger/iota.go/v4/tpkg"
+	"github.com/iotaledger/iota.go/v4/wallet"
 )
 
 var log = utils.NewLogger("AccountWallet")
@@ -189,7 +189,7 @@ func (a *AccountWallet) registerAccount(alias string, outputID iotago.OutputID, 
 	defer a.accountAliasesMutex.Unlock()
 
 	accountID := iotago.AccountIDFromOutputID(outputID)
-	account := mock.NewEd25519Account(accountID, privKey)
+	account := wallet.NewEd25519Account(accountID, privKey)
 
 	a.accountsAliases[alias] = &models.AccountData{
 		Alias:    alias,
@@ -283,7 +283,11 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 	if err != nil {
 		return err
 	}
-	hdWallet := mock.NewKeyManager(a.seed[:], accData.Index)
+
+	hdWallet, err := wallet.NewKeyManager(a.seed[:], accData.Index)
+	if err != nil {
+		return err
+	}
 
 	issuingTime := time.Now()
 	issuingSlot := a.client.LatestAPI().TimeProvider().SlotFromTime(issuingTime)
@@ -296,7 +300,7 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 
 	txBuilder := builder.NewTransactionBuilder(apiForSlot)
 	txBuilder.AddInput(&builder.TxInput{
-		UnlockTarget: a.accountsAliases[alias].Account.ID().ToAddress(),
+		UnlockTarget: a.accountsAliases[alias].Account.Address(),
 		InputID:      accData.OutputID,
 		Input:        accountOutput,
 	})
@@ -315,7 +319,7 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 		return ierrors.Wrapf(err, "failed to build transaction for account alias destruction %s", alias)
 	}
 
-	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(ctx, a.client.Client(), a.faucet.account.ID())
+	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(ctx, a.client.Client(), a.faucet.account)
 	if err != nil {
 		return ierrors.Wrap(err, "failed to request block built data for the faucet account")
 	}

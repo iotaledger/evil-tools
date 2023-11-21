@@ -12,8 +12,6 @@ import (
 	appLogger "github.com/iotaledger/hive.go/app/logger"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/logger"
-	"github.com/iotaledger/iota-core/pkg/testsuite/snapshotcreator"
-	"github.com/iotaledger/iota-core/tools/genesis-snapshot/presets"
 	iotago "github.com/iotaledger/iota.go/v4"
 )
 
@@ -68,7 +66,6 @@ type Spammer struct {
 	IssuerAlias string
 
 	log Logger
-	api iotago.API
 
 	// accessed from spamming functions
 	done         chan bool
@@ -81,9 +78,6 @@ type Spammer struct {
 
 // NewSpammer is a constructor of Spammer.
 func NewSpammer(options ...Options) *Spammer {
-	protocolParams := snapshotcreator.NewOptions(presets.Docker...).ProtocolParameters
-	api := iotago.V3API(protocolParams)
-
 	state := &State{
 		txSent:        atomic.NewInt64(0),
 		batchPrepared: atomic.NewInt64(0),
@@ -100,7 +94,6 @@ func NewSpammer(options ...Options) *Spammer {
 		done:           make(chan bool),
 		failed:         make(chan bool),
 		NumberOfSpends: 2,
-		api:            api,
 	}
 
 	for _, opt := range options {

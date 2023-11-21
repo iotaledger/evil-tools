@@ -12,7 +12,6 @@ import (
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
-	"github.com/iotaledger/iota-core/pkg/model"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/builder"
 	"github.com/iotaledger/iota.go/v4/nodeclient"
@@ -369,17 +368,20 @@ func (c *WebClient) GetBlockStateFromTransaction(ctx context.Context, txID iotag
 
 // GetTransaction gets the transaction.
 func (c *WebClient) GetTransaction(ctx context.Context, txID iotago.TransactionID) (tx *iotago.SignedTransaction, err error) {
-	resp, err := c.client.TransactionIncludedBlock(ctx, txID)
+	block, err := c.client.TransactionIncludedBlock(ctx, txID)
 	if err != nil {
 		return
 	}
 
-	modelBlk, err := model.BlockFromBlock(resp)
-	if err != nil {
-		return
+	basicBody, isBasic := block.Body.(*iotago.BasicBlockBody)
+	if !isBasic {
+		return nil, ierrors.New("block body is not basic")
 	}
 
-	tx, _ = modelBlk.SignedTransaction()
+	tx, isTx := basicBody.Payload.(*iotago.SignedTransaction)
+	if !isTx {
+		return nil, ierrors.New("payload is not signed transaction")
+	}
 
 	return tx, nil
 }

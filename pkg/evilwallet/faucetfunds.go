@@ -165,7 +165,7 @@ func (e *EvilWallet) splitOutput(ctx context.Context, splitOutput *models.Output
 		WithOutputs(outputs),
 		WithInputWallet(inputWallet),
 		WithOutputWallet(outputWallet),
-		WithIssuanceStrategy(models.AllotmentStrategyAll, genesisAccount.Account.ID()),
+		WithIssuanceStrategy(models.AllotmentStrategyAll, genesisAccount.Account),
 	)
 	if err != nil {
 		return iotago.EmptyTransactionID, err

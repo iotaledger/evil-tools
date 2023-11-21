@@ -3,9 +3,9 @@ package models
 import (
 	"crypto/ed25519"
 
-	"github.com/iotaledger/iota-core/pkg/testsuite/mock"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/nodeclient/apimodels"
+	"github.com/iotaledger/iota.go/v4/wallet"
 )
 
 // Input contains details of an input.
@@ -38,7 +38,7 @@ const (
 type AccountData struct {
 	Alias    string
 	Status   AccountStatus
-	Account  mock.Account
+	Account  wallet.Account
 	OutputID iotago.OutputID
 	Index    uint64
 }
@@ -64,7 +64,7 @@ func AccountStateFromAccountData(acc *AccountData) *AccountState {
 func (a *AccountState) ToAccountData() *AccountData {
 	return &AccountData{
 		Alias:    a.Alias,
-		Account:  mock.NewEd25519Account(a.AccountID, a.PrivateKey),
+		Account:  wallet.NewEd25519Account(a.AccountID, a.PrivateKey),
 		OutputID: a.OutputID,
 		Index:    a.Index,
 	}

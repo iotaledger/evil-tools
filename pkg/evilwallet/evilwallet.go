@@ -252,8 +252,6 @@ func (e *EvilWallet) CreateTransaction(ctx context.Context, options ...Option) (
 	e.addOutputsToOutputManager(ctx, signedTx, buildOptions.outputWallet, tempWallet, tempAddresses)
 	e.registerOutputAliases(ctx, signedTx, addrAliasMap)
 
-	//e.log.Debugf("\n %s", printTransaction(signedTx))
-
 	return txData, nil
 }
 

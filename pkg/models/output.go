@@ -20,7 +20,7 @@ type Output struct {
 	Address      iotago.Address
 	AddressIndex uint64
 	Balance      iotago.BaseToken
-	PrivKey      ed25519.PrivateKey
+	PrivateKey   ed25519.PrivateKey
 
 	OutputStruct iotago.Output
 }

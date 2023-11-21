@@ -184,12 +184,12 @@ func (a *AccountWallet) fromAccountStateFile() error {
 }
 
 //nolint:all,unused
-func (a *AccountWallet) registerAccount(alias string, outputID iotago.OutputID, index uint64, privKey ed25519.PrivateKey) iotago.AccountID {
+func (a *AccountWallet) registerAccount(alias string, outputID iotago.OutputID, index uint64, privateKey ed25519.PrivateKey) iotago.AccountID {
 	a.accountAliasesMutex.Lock()
 	defer a.accountAliasesMutex.Unlock()
 
 	accountID := iotago.AccountIDFromOutputID(outputID)
-	account := wallet.NewEd25519Account(accountID, privKey)
+	account := wallet.NewEd25519Account(accountID, privateKey)
 
 	a.accountsAliases[alias] = &models.AccountData{
 		Alias:    alias,
@@ -265,7 +265,7 @@ func (a *AccountWallet) awaitAccountReadiness(ctx context.Context, accData *mode
 }
 
 func (a *AccountWallet) getFunds(ctx context.Context, addressType iotago.AddressType) (*models.Output, ed25519.PrivateKey, error) {
-	receiverAddr, privKey, usedIndex := a.getAddress(addressType)
+	receiverAddr, privateKey, usedIndex := a.getAddress(addressType)
 
 	createdOutput, err := a.RequestFaucetFunds(ctx, receiverAddr)
 	if err != nil {
@@ -273,9 +273,9 @@ func (a *AccountWallet) getFunds(ctx context.Context, addressType iotago.Address
 	}
 
 	createdOutput.AddressIndex = usedIndex
-	createdOutput.PrivKey = privKey
+	createdOutput.PrivateKey = privateKey
 
-	return createdOutput, privKey, nil
+	return createdOutput, privateKey, nil
 }
 
 func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error {
@@ -284,7 +284,7 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 		return err
 	}
 
-	hdWallet, err := wallet.NewKeyManager(a.seed[:], accData.Index)
+	keyManager, err := wallet.NewKeyManager(a.seed[:], accData.Index)
 	if err != nil {
 		return err
 	}
@@ -310,11 +310,11 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 	txBuilder.AddOutput(&iotago.BasicOutput{
 		Amount: accountOutput.BaseTokenAmount(),
 		UnlockConditions: iotago.BasicOutputUnlockConditions{
-			&iotago.AddressUnlockCondition{Address: a.faucet.genesisHdWallet.Address(iotago.AddressEd25519).(*iotago.Ed25519Address)},
+			&iotago.AddressUnlockCondition{Address: a.faucet.genesisKeyManager.Address(iotago.AddressEd25519).(*iotago.Ed25519Address)},
 		},
 	})
 
-	tx, err := txBuilder.Build(hdWallet.AddressSigner())
+	tx, err := txBuilder.Build(keyManager.AddressSigner())
 	if err != nil {
 		return ierrors.Wrapf(err, "failed to build transaction for account alias destruction %s", alias)
 	}

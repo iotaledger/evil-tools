@@ -68,8 +68,6 @@ func (a *AccountWallet) transitionImplicitAccount(ctx context.Context, implicitA
 	accAddr, accPrivateKey, accAddrIndex := a.getAddress(iotago.AddressEd25519)
 	log.Infof("Address generated for account: %s", accAddr)
 	accountOutput := builder.NewAccountOutputBuilder(accAddr, tokenBalance).
-		Mana(implicitAccountOutput.OutputStruct.StoredMana()).
-		//AccountID(iotago.AccountIDFromOutputID(implicitAccountOutput.OutputID)).
 		BlockIssuer(blockIssuerKeys, iotago.MaxSlotIndex).MustBuild()
 
 	log.Infof("Created account %s with %d tokens\n", accountOutput.AccountID.ToHex(), accountOutput.Amount)
@@ -79,8 +77,7 @@ func (a *AccountWallet) transitionImplicitAccount(ctx context.Context, implicitA
 	if err != nil {
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to request block built data for the faucet account")
 	}
-	//inputs := append([]*models.Output{implicitAccountOutput}, additionalBasicInputs...)
-	inputs := []*models.Output{implicitAccountOutput}
+	inputs := append([]*models.Output{implicitAccountOutput}, additionalBasicInputs...)
 	signedTx, err := a.createAccountCreationTransaction(inputs, accountOutput, congestionResp, issuerResp)
 	if err != nil {
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to create account creation transaction")
@@ -164,8 +161,8 @@ func (a *AccountWallet) createAccountWithFaucet(ctx context.Context, params *Cre
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to get account address and keys")
 	}
 	accountOutput := builder.NewAccountOutputBuilder(accAddr, creationOutput.Balance).
-		//Mana(manaBalance). this one will be updated after allotment
-		//AccountID no accountID should be specified during the account creation
+		// mana  will be updated after allotment
+		// no accountID should be specified during the account creation
 		BlockIssuer(blockIssuerKeys, iotago.MaxSlotIndex).MustBuild()
 
 	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(ctx, a.client.Client(), a.faucet.account)
@@ -307,11 +304,11 @@ func (a *AccountWallet) logMissingMana(finishedTxBuilder *builder.TransactionBui
 
 func (a *AccountWallet) getAddress(addressType iotago.AddressType) (iotago.DirectUnlockableAddress, ed25519.PrivateKey, uint64) {
 	newIndex := a.latestUsedIndex.Inc()
-	hdWallet := lo.PanicOnErr(wallet.NewKeyManager(a.seed[:], newIndex))
-	privKey, _ := hdWallet.KeyPair()
-	receiverAddr := hdWallet.Address(addressType)
+	keyManager := lo.PanicOnErr(wallet.NewKeyManager(a.seed[:], newIndex))
+	privateKey, _ := keyManager.KeyPair()
+	receiverAddr := keyManager.Address(addressType)
 
-	return receiverAddr, privKey, newIndex
+	return receiverAddr, privateKey, newIndex
 }
 
 func (a *AccountWallet) getAccountPublicKeys(pubKey crypto.PublicKey) (iotago.BlockIssuerKeys, error) {
@@ -335,13 +332,13 @@ func (a *AccountWallet) getAddrSignerForIndexes(outputs ...*models.Output) (iota
 			if !ok {
 				return nil, ierrors.New("failed Ed25519Address type assertion, invalid address type")
 			}
-			addrKeys = append(addrKeys, iotago.NewAddressKeysForEd25519Address(ed25519Addr, out.PrivKey))
+			addrKeys = append(addrKeys, iotago.NewAddressKeysForEd25519Address(ed25519Addr, out.PrivateKey))
 		case iotago.AddressImplicitAccountCreation:
 			implicitAccountCreationAddr, ok := out.Address.(*iotago.ImplicitAccountCreationAddress)
 			if !ok {
 				return nil, ierrors.New("failed type ImplicitAccountCreationAddress assertion, invalid address type")
 			}
-			addrKeys = append(addrKeys, iotago.NewAddressKeysForImplicitAccountCreationAddress(implicitAccountCreationAddr, out.PrivKey))
+			addrKeys = append(addrKeys, iotago.NewAddressKeysForImplicitAccountCreationAddress(implicitAccountCreationAddr, out.PrivateKey))
 		}
 	}
 

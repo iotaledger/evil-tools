@@ -124,9 +124,9 @@ type faucetParams struct {
 }
 
 type faucet struct {
-	unspentOutput   *models.Output
-	account         wallet.Account
-	genesisHdWallet *wallet.KeyManager
+	unspentOutput     *models.Output
+	account           wallet.Account
+	genesisKeyManager *wallet.KeyManager
 
 	RequestTokenAmount iotago.BaseToken
 	RequestManaAmount  iotago.Mana
@@ -144,9 +144,9 @@ func newFaucet(clt models.Client, faucetParams *faucetParams) (*faucet, error) {
 	faucetAddr := lo.PanicOnErr(wallet.NewKeyManager(genesisSeed, 0)).Address(iotago.AddressEd25519)
 
 	f := &faucet{
-		clt:             clt,
-		account:         lo.PanicOnErr(wallet.AccountFromParams(faucetParams.faucetAccountID, faucetParams.faucetPrivateKey)),
-		genesisHdWallet: lo.PanicOnErr(wallet.NewKeyManager(genesisSeed, 0)),
+		clt:               clt,
+		account:           lo.PanicOnErr(wallet.AccountFromParams(faucetParams.faucetAccountID, faucetParams.faucetPrivateKey)),
+		genesisKeyManager: lo.PanicOnErr(wallet.NewKeyManager(genesisSeed, 0)),
 	}
 
 	faucetUnspentOutput, faucetUnspentOutputID, faucetAmount, err := f.getGenesisOutputFromIndexer(clt, faucetAddr)

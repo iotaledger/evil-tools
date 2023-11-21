@@ -32,7 +32,7 @@ func SprintTransaction(tx *iotago.SignedTransaction) string {
 	txDetails := ""
 	txDetails += fmt.Sprintf("\tTransaction ID; %s, slotCreation: %d\n", lo.PanicOnErr(tx.ID()).ToHex(), tx.Transaction.CreationSlot)
 	for index, out := range tx.Transaction.TransactionEssence.Inputs {
-		txDetails += fmt.Sprintf("\tInput index: %d, type: %s, ID: %s\n", index, out.Type())
+		txDetails += fmt.Sprintf("\tInput index: %d, type: %s\n", index, out.Type())
 	}
 	for _, out := range tx.Transaction.TransactionEssence.ContextInputs {
 		txDetails += fmt.Sprintf("\tContext input: %s\n", out.Type())

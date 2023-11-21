@@ -65,20 +65,20 @@ func AwaitBlockAndPayloadAcceptance(ctx context.Context, clt models.Client, bloc
 	for t := time.Now(); time.Since(t) < MaxAcceptanceAwait; time.Sleep(AwaitInterval) {
 		resp, err := clt.GetBlockConfirmationState(ctx, blockID)
 		if err != nil {
-			UtilsLogger.Debugf("Failed to get block confirmation state: %s", err)
+			Logger.Debugf("Failed to get block confirmation state: %s", err)
 
 			continue
 		}
 
 		accepted, err := evaluateBlockIssuanceResponse(resp)
 		if accepted {
-			UtilsLogger.Debugf("Block %s issuance success, status: %s, transaction state: %s", blockID.ToHex(), resp.BlockState, resp.TransactionState)
+			Logger.Debugf("Block %s issuance success, status: %s, transaction state: %s", blockID.ToHex(), resp.BlockState, resp.TransactionState)
 
 			return nil
 		}
 
 		if err != nil {
-			UtilsLogger.Debugf("Block %s issuance failure, block failure reason: %d, tx failure reason: %d", blockID.ToHex(), resp.BlockFailureReason, resp.TransactionFailureReason)
+			Logger.Debugf("Block %s issuance failure, block failure reason: %d, tx failure reason: %d", blockID.ToHex(), resp.BlockFailureReason, resp.TransactionFailureReason)
 
 			return err
 		}
@@ -97,13 +97,13 @@ func AwaitBlockWithTransactionToBeAccepted(ctx context.Context, clt models.Clien
 
 		accepted, err := evaluateBlockIssuanceResponse(resp)
 		if accepted {
-			UtilsLogger.Debugf("Transaction %s issuance success, state: %s", txID.ToHex(), resp.TransactionState)
+			Logger.Debugf("Transaction %s issuance success, state: %s", txID.ToHex(), resp.TransactionState)
 
 			return nil
 		}
 
 		if err != nil {
-			UtilsLogger.Debugf("Transaction %s issuance failure, tx failure reason: %d, block failure reason: %d", txID.ToHex(), resp.TransactionFailureReason, resp.BlockFailureReason)
+			Logger.Debugf("Transaction %s issuance failure, tx failure reason: %d, block failure reason: %d", txID.ToHex(), resp.TransactionFailureReason, resp.BlockFailureReason)
 
 			return err
 		}
@@ -137,7 +137,7 @@ func AwaitAddressUnspentOutputToBeAccepted(ctx context.Context, clt models.Clien
 			}
 
 			if len(unspents) == 0 {
-				UtilsLogger.Debugf("no unspent outputs found in indexer for address: %s", addrBech)
+				Logger.Debugf("no unspent outputs found in indexer for address: %s", addrBech)
 				break
 			}
 
@@ -172,7 +172,7 @@ func AwaitCommitment(ctx context.Context, clt models.Client, slot iotago.SlotInd
 		if err != nil {
 			continue
 		}
-		UtilsLogger.Debugf("Awaiting commitment for slot %d, latest committed slot: %d", slot, resp.Commitment.Slot)
+		Logger.Debugf("Awaiting commitment for slot %d, latest committed slot: %d", slot, resp.Commitment.Slot)
 
 		latestCommittedSlot := resp.Commitment.Slot
 		if slot <= latestCommittedSlot {

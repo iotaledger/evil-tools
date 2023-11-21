@@ -15,7 +15,7 @@ Usage of script flag set:
 - `duration`: _string_ - Spam duration. If not provided spam will lats infinitely. Format: separated by commas list of decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.
 Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.
 - `rate`: _int_ - Spamming rate for provided 'spammer'. Format: numbers separated with comma, e.g. 10,100,1 if three spammers were provided for 'spammer' parameter. (default 1)
-- `scenario`: _string_ - Name of the EvilBatch that should be used for the spam. By default uses Scenario1. Possible scenarios can be found in evilwallet/customscenarion.go.
+- `scenario`: _string_ - Name of the EvilBatch that should be used for the spam. By default, uses Scenario1. Possible scenarios can be found in evilwallet/customscenarion.go.
 - `spammer`: _string_ - Spammers used during test. Format: strings separated with comma, available options: 'blk' - block, 'tx' - transaction, 'ds' - double spends spammers, 'nds' - n-spends spammer, 'custom' - spams with provided scenario, 'bb' - blowball
 - `unit`: _duration_ - Time unit for the spamming rate. Format: decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.
 Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'. (default 1s)

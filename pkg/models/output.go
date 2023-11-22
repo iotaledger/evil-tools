@@ -4,7 +4,7 @@ import (
 	"crypto/ed25519"
 
 	iotago "github.com/iotaledger/iota.go/v4"
-	"github.com/iotaledger/iota.go/v4/nodeclient/apimodels"
+	"github.com/iotaledger/iota.go/v4/builder"
 	"github.com/iotaledger/iota.go/v4/wallet"
 )
 
@@ -70,9 +70,12 @@ func (a *AccountState) ToAccountData() *AccountData {
 	}
 }
 
+// PayloadIssuanceData contains data for issuing a payload. Either ready payload or transaction build data along with issuer account required for signing.
 type PayloadIssuanceData struct {
+	Type               iotago.PayloadType
+	TransactionPayload *builder.TransactionBuilder
 	Payload            iotago.Payload
-	CongestionResponse *apimodels.CongestionResponse
+	TxSigningKeys      []iotago.AddressKeys
 }
 
 type AllotmentStrategy uint8

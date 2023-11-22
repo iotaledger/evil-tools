@@ -32,17 +32,19 @@ func DataSpammingFunction(ctx context.Context, s *Spammer) error {
 }
 
 func CustomConflictSpammingFunc(ctx context.Context, s *Spammer) error {
-	conflictBatch, aliases, err := s.EvilWallet.PrepareCustomConflictsSpam(ctx, s.EvilScenario, &models.IssuancePaymentStrategy{
-		AllotmentStrategy: models.AllotmentStrategyAll,
-		IssuerAlias:       s.IssuerAlias,
-	})
-
+	conflictBatch, aliases, err := s.EvilWallet.PrepareCustomConflictsSpam(ctx, s.EvilScenario)
 	if err != nil {
 		s.log.Debugf(ierrors.Wrap(ErrFailToPrepareBatch, err.Error()).Error())
 		s.ErrCounter.CountError(ierrors.Wrap(ErrFailToPrepareBatch, err.Error()))
 
 		return err
 	}
+
+	// TODO do we want to use allotment strategy different than All? Maybe to test blocking account...
+	//issuanceAndAllotmentStrategy := &models.IssuancePaymentStrategy{
+	//	AllotmentStrategy: models.AllotmentStrategyAll,
+	//	IssuerAlias:       s.IssuerAlias,
+	//}
 
 	for _, txsData := range conflictBatch {
 		clients := s.Clients.GetClients(len(txsData))

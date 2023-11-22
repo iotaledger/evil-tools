@@ -13,7 +13,6 @@ import (
 	"github.com/iotaledger/hive.go/lo"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/builder"
-	"github.com/iotaledger/iota.go/v4/nodeclient"
 	"github.com/iotaledger/iota.go/v4/nodeclient/apimodels"
 	"github.com/iotaledger/iota.go/v4/wallet"
 )
@@ -23,14 +22,14 @@ const (
 	MaxFaucetManaRequests = 10
 )
 
-func (a *AccountWallet) RequestBlockBuiltData(ctx context.Context, clt *nodeclient.Client, account wallet.Account) (*apimodels.CongestionResponse, *apimodels.IssuanceBlockHeaderResponse, iotago.Version, error) {
-	issuerResp, err := clt.BlockIssuance(ctx)
+func (a *AccountWallet) RequestBlockBuiltData(ctx context.Context, clt models.Client, account wallet.Account) (*apimodels.CongestionResponse, *apimodels.IssuanceBlockHeaderResponse, iotago.Version, error) {
+	issuerResp, err := clt.GetBlockIssuance(ctx)
 	if err != nil {
 		return nil, nil, 0, ierrors.Wrap(err, "failed to get block issuance data")
 	}
 
 	// TODO: pass commitmentID from issuerResp
-	congestionResp, err := clt.Congestion(ctx, account.Address())
+	congestionResp, err := clt.GetCongestion(ctx, account.Address())
 	if err != nil {
 		return nil, nil, 0, ierrors.Wrapf(err, "failed to get congestion data for issuer %s", account.Address())
 	}

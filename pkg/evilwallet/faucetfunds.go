@@ -165,13 +165,12 @@ func (e *EvilWallet) splitOutput(ctx context.Context, splitOutput *models.Output
 		WithOutputs(outputs),
 		WithInputWallet(inputWallet),
 		WithOutputWallet(outputWallet),
-		WithIssuanceStrategy(models.AllotmentStrategyAll, genesisAccount.Account),
 	)
 	if err != nil {
 		return iotago.EmptyTransactionID, err
 	}
 
-	_, err = e.PrepareAndPostBlock(ctx, e.connector.GetClient(), txData.Payload, txData.CongestionResponse, genesisAccount.Account)
+	_, err = e.PrepareAndPostBlockWithTxBuildData(ctx, e.connector.GetClient(), txData.TransactionPayload, txData.TxSigningKeys, genesisAccount.Account)
 	if err != nil {
 		return iotago.TransactionID{}, err
 	}

@@ -261,7 +261,7 @@ func (s *Spammer) PrepareBlock(ctx context.Context, txData *models.PayloadIssuan
 
 		return nil
 	}
-	block, err := s.EvilWallet.CreateBlock(ctx, clt, txData.Payload, txData.CongestionResponse, issuerAccount, strongParents...)
+	block, err := s.EvilWallet.CreateBlock(ctx, clt, txData.Payload, issuerAccount, strongParents...)
 	if err != nil {
 		s.logError(ierrors.Wrap(err, ErrFailPostBlock.Error()))
 		s.ErrCounter.CountError(ierrors.Wrap(err, ErrFailPostBlock.Error()))
@@ -271,6 +271,8 @@ func (s *Spammer) PrepareBlock(ctx context.Context, txData *models.PayloadIssuan
 
 	return block
 }
+
+// TODO prepare not the signed tx but transaction builders, that will be updated with mana and issuing time just before posting
 
 func (s *Spammer) PrepareAndPostBlock(ctx context.Context, txData *models.PayloadIssuanceData, issuerAlias string, clt models.Client) iotago.BlockID {
 	if txData.Payload == nil {
@@ -286,7 +288,22 @@ func (s *Spammer) PrepareAndPostBlock(ctx context.Context, txData *models.Payloa
 
 		return iotago.EmptyBlockID
 	}
-	blockID, err := s.EvilWallet.PrepareAndPostBlock(ctx, clt, txData.Payload, txData.CongestionResponse, issuerAccount)
+
+	var blockID iotago.BlockID
+	// built, allot and sign transaction or issue a ready payload
+	switch txData.Payload.PayloadType() {
+	case iotago.PayloadSignedTransaction:
+		blockID, err = s.EvilWallet.PrepareAndPostBlockWithPayload(ctx, clt, txData.Payload, issuerAccount)
+	case iotago.PayloadTaggedData:
+		blockID, err = s.EvilWallet.PrepareAndPostBlockWithTxBuildData(ctx, clt, txData.TransactionPayload, txData.TxSigningKeys, issuerAccount)
+	default:
+		// unknown payload type
+		s.logError(ErrUnknownPayloadType)
+		s.ErrCounter.CountError(ErrUnknownPayloadType)
+
+		return iotago.EmptyBlockID
+	}
+
 	if err != nil {
 
 		s.logError(ierrors.Wrap(err, ErrFailPostBlock.Error()))
@@ -309,8 +326,8 @@ func (s *Spammer) PrepareAndPostBlock(ctx context.Context, txData *models.Payloa
 
 	txID, err := signedTx.Transaction.ID()
 	if err != nil {
-		s.log.Debug(ierrors.Wrapf(ErrTransactionInvalid, err.Error()))
-		s.ErrCounter.CountError(ierrors.Wrapf(ErrTransactionInvalid, err.Error()))
+		s.logError(ierrors.Wrap(err, ErrTransactionInvalid.Error()))
+		s.ErrCounter.CountError(ierrors.Wrap(err, ErrTransactionInvalid.Error()))
 
 		return blockID
 	}

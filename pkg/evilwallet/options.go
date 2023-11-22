@@ -163,13 +163,6 @@ func WithOutputs(outputsOptions []*OutputOption) Option {
 	}
 }
 
-func WithIssuanceStrategy(strategy models.AllotmentStrategy, issuer wallet.Account) Option {
-	return func(options *Options) {
-		options.allotmentStrategy = strategy
-		options.issuer = issuer
-	}
-}
-
 // WithInputWallet returns a BlockOption that is used to define the inputWallet of the Block.
 func WithInputWallet(issuer *Wallet) Option {
 	return func(options *Options) {

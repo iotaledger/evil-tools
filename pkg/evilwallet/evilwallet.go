@@ -14,7 +14,6 @@ import (
 	"github.com/iotaledger/hive.go/runtime/options"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/builder"
-	"github.com/iotaledger/iota.go/v4/nodeclient/apimodels"
 	"github.com/iotaledger/iota.go/v4/tpkg"
 	"github.com/iotaledger/iota.go/v4/wallet"
 )
@@ -123,17 +122,11 @@ func (e *EvilWallet) GetAccount(ctx context.Context, alias string) (wallet.Accou
 	return account.Account, nil
 }
 
-func (e *EvilWallet) CreateBlock(ctx context.Context, clt models.Client, payload iotago.Payload, congestionResp *apimodels.CongestionResponse, issuer wallet.Account, strongParents ...iotago.BlockID) (*iotago.Block, error) {
-	var congestionSlot iotago.SlotIndex
-	version := clt.CommittedAPI().Version()
-	if congestionResp != nil {
-		congestionSlot = congestionResp.Slot
-		version = clt.APIForSlot(congestionSlot).Version()
-	}
-
-	issuerResp, err := clt.GetBlockIssuance(ctx)
+// CreateBlock creates a block with the freshly requested Congestion and Issuance data.
+func (e *EvilWallet) CreateBlock(ctx context.Context, clt models.Client, payload iotago.Payload, issuer wallet.Account, strongParents ...iotago.BlockID) (*iotago.Block, error) {
+	congestionResp, issuerResp, version, err := e.accWallet.RequestBlockBuiltData(ctx, clt, issuer)
 	if err != nil {
-		return nil, ierrors.Wrap(err, "failed to get block issuance data")
+		return nil, ierrors.Wrap(err, "failed to get block built data")
 	}
 
 	block, err := e.accWallet.CreateBlock(ctx, payload, issuer, congestionResp, issuerResp, version, strongParents...)
@@ -144,20 +137,27 @@ func (e *EvilWallet) CreateBlock(ctx context.Context, clt models.Client, payload
 	return block, nil
 }
 
-func (e *EvilWallet) PrepareAndPostBlock(ctx context.Context, clt models.Client, payload iotago.Payload, congestionResp *apimodels.CongestionResponse, issuer wallet.Account) (iotago.BlockID, error) {
-	var congestionSlot iotago.SlotIndex
-	version := clt.CommittedAPI().Version()
-	if congestionResp != nil {
-		congestionSlot = congestionResp.Slot
-		version = clt.APIForSlot(congestionSlot).Version()
-	}
-
-	issuerResp, err := clt.GetBlockIssuance(ctx)
-	if err != nil {
-		return iotago.EmptyBlockID, ierrors.Wrap(err, "failed to get block issuance data")
-	}
-
+func (e *EvilWallet) PrepareAndPostBlockWithPayload(ctx context.Context, clt models.Client, payload iotago.Payload, issuer wallet.Account) (iotago.BlockID, error) {
+	congestionResp, issuerResp, version, err := e.accWallet.RequestBlockBuiltData(ctx, clt, issuer)
 	blockID, err := e.accWallet.PostWithBlock(ctx, clt, payload, issuer, congestionResp, issuerResp, version)
+	if err != nil {
+		return iotago.EmptyBlockID, err
+	}
+
+	return blockID, nil
+}
+
+func (e *EvilWallet) PrepareAndPostBlockWithTxBuildData(ctx context.Context, clt models.Client, txBuilder *builder.TransactionBuilder, signingKeys []iotago.AddressKeys, issuer wallet.Account) (iotago.BlockID, error) {
+	congestionResp, issuerResp, version, err := e.accWallet.RequestBlockBuiltData(ctx, clt, issuer)
+	// TODO remove after updating iotago deps using commitment for congestion response requests
+	if congestionResp.Slot != issuerResp.Commitment.Slot {
+		return iotago.EmptyBlockID, ierrors.Errorf("congestion response slot and commitment slot do not match, congestion slot: %d, issuer slot: %d", congestionResp.Slot, issuerResp.Commitment.Slot)
+	}
+
+	// handle allotment strategy
+	txBuilder.AllotAllMana(congestionResp.Slot, issuer.ID())
+	signedTx, err := txBuilder.Build(iotago.NewInMemoryAddressSigner(signingKeys...))
+	blockID, err := e.accWallet.PostWithBlock(ctx, clt, signedTx, issuer, congestionResp, issuerResp, version)
 	if err != nil {
 		return iotago.EmptyBlockID, err
 	}
@@ -195,7 +195,8 @@ func (e *EvilWallet) PrepareCustomConflicts(ctx context.Context, conflictsMaps [
 	return conflictBatch, nil
 }
 
-// CreateTransaction creates a transaction based on provided options. If no input wallet is provided, the next non-empty faucet wallet is used.
+// CreateTransaction creates a transaction builder based on provided options. If no input wallet is provided, the next non-empty faucet wallet is used.
+// No mana allotment is done here, tx is not signed and built yet.
 // Inputs of the transaction are determined in three ways:
 // 1 - inputs are provided directly without associated alias, 2- provided only an alias, but inputs are stored in an alias manager,
 // 3 - provided alias, but there are no inputs assigned in Alias manager, so aliases will be assigned to next ready inputs from input wallet.
@@ -217,7 +218,7 @@ func (e *EvilWallet) CreateTransaction(ctx context.Context, options ...Option) (
 		return nil, err
 	}
 
-	outputs, addrAliasMap, tempAddresses, err := e.prepareOutputs(ctx, buildOptions, tempWallet)
+	outputs, addrAliasMap, _, err := e.prepareOutputs(ctx, buildOptions, tempWallet)
 	if err != nil {
 		return nil, err
 	}
@@ -230,27 +231,22 @@ func (e *EvilWallet) CreateTransaction(ctx context.Context, options ...Option) (
 		}
 	}
 
-	var congestionResp *apimodels.CongestionResponse
-	// request congestion endpoint if allotment strategy configured
-	if buildOptions.allotmentStrategy == models.AllotmentStrategyMinCost {
-		congestionResp, err = e.connector.GetClient().GetCongestion(ctx, buildOptions.issuer.Address())
-		if err != nil {
-			return nil, err
-		}
-	}
+	//TODO ??? request congestion endpoint if allotment strategy configured
 
-	signedTx, err := e.makeTransaction(inputs, outputs, buildOptions.inputWallet, congestionResp, buildOptions.issuer)
+	txBuilder, signingKeys, err := e.prepareTransactionBuild(inputs, outputs, buildOptions.inputWallet)
 	if err != nil {
 		return nil, err
 	}
 
 	txData := &models.PayloadIssuanceData{
-		Payload:            signedTx,
-		CongestionResponse: congestionResp,
+		Type:               iotago.PayloadSignedTransaction,
+		TransactionPayload: txBuilder,
+		TxSigningKeys:      signingKeys,
 	}
 
-	e.addOutputsToOutputManager(ctx, signedTx, buildOptions.outputWallet, tempWallet, tempAddresses)
-	e.registerOutputAliases(ctx, signedTx, addrAliasMap)
+	// TODO move it somewhere where tx is built?
+	//e.addOutputsToOutputManager(ctx, outputs, signedTx, tempWallet, tempAddresses)
+	//e.registerOutputAliases(ctx, signedTx, addrAliasMap)
 
 	return txData, nil
 }
@@ -262,6 +258,7 @@ func (e *EvilWallet) addOutputsToOutputManager(ctx context.Context, signedTx *io
 			continue
 		}
 
+		// TODO we can update it only after tx is signed, so in the PostBlock method?
 		// register UnlockConditionAddress only (skip account outputs)
 		addr := o.UnlockConditionSet().Address().Address
 		out := &models.Output{
@@ -534,7 +531,7 @@ func (e *EvilWallet) updateOutputBalances(ctx context.Context, buildOptions *Opt
 	return
 }
 
-func (e *EvilWallet) makeTransaction(inputs []*models.Output, outputs iotago.Outputs[iotago.Output], w *Wallet, congestionResponse *apimodels.CongestionResponse, issuer wallet.Account) (tx *iotago.SignedTransaction, err error) {
+func (e *EvilWallet) prepareTransactionBuild(inputs []*models.Output, outputs iotago.Outputs[iotago.Output], w *Wallet) (tx *builder.TransactionBuilder, keys []iotago.AddressKeys, err error) {
 	clt := e.Connector().GetClient()
 	currentTime := time.Now()
 	targetSlot := clt.LatestAPI().TimeProvider().SlotFromTime(currentTime)
@@ -569,17 +566,12 @@ func (e *EvilWallet) makeTransaction(inputs []*models.Output, outputs iotago.Out
 
 	txBuilder.SetCreationSlot(targetSlot)
 	// no allotment strategy
-	if congestionResponse == nil {
-		txBuilder.AllotAllMana(targetSlot, issuer.ID())
 
-		return txBuilder.Build(iotago.NewInMemoryAddressSigner(walletKeys...))
-	}
-
-	return txBuilder.Build(iotago.NewInMemoryAddressSigner(walletKeys...))
+	return txBuilder, walletKeys, nil
 }
 
-func (e *EvilWallet) PrepareCustomConflictsSpam(ctx context.Context, scenario *EvilScenario, strategy *models.IssuancePaymentStrategy) (txsData [][]*models.PayloadIssuanceData, allAliases ScenarioAlias, err error) {
-	conflicts, allAliases := e.prepareConflictSliceForScenario(ctx, scenario, strategy)
+func (e *EvilWallet) PrepareCustomConflictsSpam(ctx context.Context, scenario *EvilScenario) (txsData [][]*models.PayloadIssuanceData, allAliases ScenarioAlias, err error) {
+	conflicts, allAliases := e.prepareConflictSliceForScenario(scenario)
 	txsData, err = e.PrepareCustomConflicts(ctx, conflicts)
 
 	return txsData, allAliases, err
@@ -608,7 +600,7 @@ func (e *EvilWallet) evaluateIssuanceStrategy(ctx context.Context, strategy *mod
 	return strategy.AllotmentStrategy, issuer
 }
 
-func (e *EvilWallet) prepareConflictSliceForScenario(ctx context.Context, scenario *EvilScenario, strategy *models.IssuancePaymentStrategy) (conflictSlice []ConflictSlice, allAliases ScenarioAlias) {
+func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario) (conflictSlice []ConflictSlice, allAliases ScenarioAlias) {
 	genOutputOptions := func(aliases []string) []*OutputOption {
 		outputOptions := make([]*OutputOption, 0)
 		for _, o := range aliases {
@@ -635,7 +627,7 @@ func (e *EvilWallet) prepareConflictSliceForScenario(ctx context.Context, scenar
 			if scenario.Reuse {
 				option = append(option, WithReuseOutputs())
 			}
-			option = append(option, WithIssuanceStrategy(e.evaluateIssuanceStrategy(ctx, strategy)))
+
 			conflicts = append(conflicts, option)
 		}
 		conflictSlice = append(conflictSlice, conflicts)
@@ -672,7 +664,6 @@ func (e *EvilWallet) prepareFlatOptionsForAccountScenario(ctx context.Context, s
 	return []Option{
 		WithInputs(scenarioAlias.Inputs),
 		WithOutputs(outs),
-		WithIssuanceStrategy(e.evaluateIssuanceStrategy(ctx, strategy)),
 	}, allAliases
 }
 

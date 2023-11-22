@@ -40,7 +40,7 @@ func CustomConflictSpammingFunc(ctx context.Context, s *Spammer) error {
 		return err
 	}
 
-	// TODO do we want to use allotment strategy different than All? Maybe to test blocking account...
+	//  TODO do we want to use allotment strategy different than All? Maybe to test blocking account...
 	//issuanceAndAllotmentStrategy := &models.IssuancePaymentStrategy{
 	//	AllotmentStrategy: models.AllotmentStrategyAll,
 	//	IssuerAlias:       s.IssuerAlias,
@@ -79,10 +79,7 @@ func CustomConflictSpammingFunc(ctx context.Context, s *Spammer) error {
 func AccountSpammingFunction(ctx context.Context, s *Spammer) error {
 	clt := s.Clients.GetClient()
 	// update scenario
-	txData, aliases, err := s.EvilWallet.PrepareAccountSpam(ctx, s.EvilScenario, &models.IssuancePaymentStrategy{
-		AllotmentStrategy: models.AllotmentStrategyAll,
-		IssuerAlias:       s.IssuerAlias,
-	})
+	txData, aliases, err := s.EvilWallet.PrepareAccountSpam(ctx, s.EvilScenario)
 	if err != nil {
 		s.log.Debugf(ierrors.Wrap(ErrFailToPrepareBatch, err.Error()).Error())
 		s.ErrCounter.CountError(ierrors.Wrap(ErrFailToPrepareBatch, err.Error()))

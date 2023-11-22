@@ -41,18 +41,18 @@ func Run(config *Configuration) (*AccountWallet, error) {
 		faucetAccountID:  config.AccountID,
 	}))
 
-	wallet, err := NewAccountWallet(opts...)
+	w, err := NewAccountWallet(opts...)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to create wallet")
 	}
 
 	// load wallet
-	err = wallet.fromAccountStateFile()
+	err = w.fromAccountStateFile()
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to load wallet from file")
 	}
 
-	return wallet, nil
+	return w, nil
 }
 
 func SaveState(w *AccountWallet) error {

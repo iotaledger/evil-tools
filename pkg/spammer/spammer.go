@@ -272,8 +272,6 @@ func (s *Spammer) PrepareBlock(ctx context.Context, txData *models.PayloadIssuan
 	return block
 }
 
-// TODO prepare not the signed tx but transaction builders, that will be updated with mana and issuing time just before posting
-
 func (s *Spammer) PrepareAndPostBlock(ctx context.Context, txData *models.PayloadIssuanceData, issuerAlias string, clt models.Client) iotago.BlockID {
 	if txData.Payload == nil {
 		s.logError(ErrPayloadIsNil)

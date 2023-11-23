@@ -40,16 +40,13 @@ type Connector interface {
 	RemoveClient(url string)
 	// GetClient returns the client instance that was used the longest time ago.
 	GetClient() Client
-	// GetIndexerClient returns the indexer client instance.
-	GetIndexerClient() Client
 }
 
 // WebClients is responsible for handling connections via GoShimmerAPI.
 type WebClients struct {
-	clients        []*WebClient
-	indexerClients []*WebClient
-	urls           []string
-	faucetURL      string
+	clients   []*WebClient
+	urls      []string
+	faucetURL string
 
 	// helper variable indicating which clt was recently used, useful for double, triple,... spends
 	lastUsed int
@@ -60,25 +57,20 @@ type WebClients struct {
 // NewWebClients creates Connector from provided GoShimmerAPI urls.
 func NewWebClients(urls []string, faucetURL string, setters ...options.Option[WebClient]) (*WebClients, error) {
 	clients := make([]*WebClient, len(urls))
-	indexers := make([]*WebClient, 0)
+
 	var err error
 	for i, url := range urls {
 		clients[i], err = NewWebClient(url, faucetURL, setters...)
 		if err != nil {
 			return nil, ierrors.Wrapf(err, "failed to create client for url %s", url)
 		}
-
-		if _, err := clients[i].client.Indexer(context.TODO()); err == nil {
-			indexers = append(indexers, clients[i])
-		}
 	}
 
 	return &WebClients{
-		clients:        clients,
-		indexerClients: indexers,
-		urls:           urls,
-		faucetURL:      faucetURL,
-		lastUsed:       -1,
+		clients:   clients,
+		urls:      urls,
+		faucetURL: faucetURL,
+		lastUsed:  -1,
 	}, nil
 }
 
@@ -128,13 +120,6 @@ func (c *WebClients) GetClients(numOfClt int) []Client {
 	}
 
 	return clts
-}
-
-func (c *WebClients) GetIndexerClient() Client {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	return c.indexerClients[0]
 }
 
 // getClient returns the client instance that was used the longest time ago, not protected by mutex.
@@ -193,7 +178,7 @@ func (c *WebClients) RemoveClient(url string) {
 
 type Client interface {
 	Client() *nodeclient.Client
-	Indexer(ctx context.Context) (nodeclient.IndexerClient, error)
+	Indexer() nodeclient.IndexerClient
 	// URL returns a client API url.
 	URL() (cltID string)
 	// PostBlock sends a block to the Tangle via a given client.
@@ -223,6 +208,7 @@ type Client interface {
 // WebClient contains a GoShimmer web API to interact with a node.
 type WebClient struct {
 	client    *nodeclient.Client
+	indexer   nodeclient.IndexerClient
 	url       string
 	faucetURL string
 }
@@ -231,8 +217,8 @@ func (c *WebClient) Client() *nodeclient.Client {
 	return c.client
 }
 
-func (c *WebClient) Indexer(ctx context.Context) (nodeclient.IndexerClient, error) {
-	return c.client.Indexer(ctx)
+func (c *WebClient) Indexer() nodeclient.IndexerClient {
+	return c.indexer
 }
 
 func (c *WebClient) APIForVersion(version iotago.Version) (iotago.API, error) {
@@ -272,7 +258,20 @@ func NewWebClient(url, faucetURL string, opts ...options.Option[WebClient]) (*We
 		url:       url,
 		faucetURL: faucetURL,
 	}, opts, func(w *WebClient) {
+		// init the node client
 		w.client, initErr = nodeclient.New(w.url)
+		if initErr != nil {
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		// also init the indexer client
+		w.indexer, initErr = w.client.Indexer(ctx)
+		if initErr != nil {
+			return
+		}
 	}), initErr
 }
 
@@ -346,12 +345,7 @@ func (c *WebClient) GetOutput(ctx context.Context, outputID iotago.OutputID) iot
 }
 
 func (c *WebClient) GetAccountFromIndexer(ctx context.Context, accountAddress *iotago.AccountAddress) (*iotago.OutputID, *iotago.AccountOutput, iotago.SlotIndex, error) {
-	indexer, err := c.Indexer(ctx)
-	if err != nil {
-		return nil, nil, 0, ierrors.Errorf("unable to get indexer client: %w", err)
-	}
-
-	return indexer.Account(ctx, accountAddress)
+	return c.Indexer().Account(ctx, accountAddress)
 }
 
 // GetBlockConfirmationState returns the AcceptanceState of a given block ID.

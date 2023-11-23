@@ -167,15 +167,7 @@ func newFaucet(clt models.Client, faucetParams *faucetParams) (*faucet, error) {
 }
 
 func (f *faucet) getGenesisOutputFromIndexer(clt models.Client, faucetAddr iotago.DirectUnlockableAddress) (iotago.Output, iotago.OutputID, iotago.BaseToken, error) {
-	ctx := context.Background()
-	indexer, err := clt.Indexer(ctx)
-	if err != nil {
-		log.Errorf("account wallet failed due to failure in connecting to indexer")
-
-		return nil, iotago.EmptyOutputID, 0, ierrors.Wrapf(err, "failed to get indexer from client")
-	}
-
-	results, err := indexer.Outputs(context.Background(), &api.BasicOutputsQuery{
+	results, err := clt.Indexer().Outputs(context.Background(), &api.BasicOutputsQuery{
 		AddressBech32: faucetAddr.Bech32(iotago.PrefixTestnet),
 	})
 	if err != nil {

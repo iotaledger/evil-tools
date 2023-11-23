@@ -115,15 +115,10 @@ func AwaitBlockWithTransactionToBeAccepted(ctx context.Context, clt models.Clien
 
 // AwaitAddressUnspentOutputToBeAccepted awaits for acceptance of an output created for an address, based on the status of the transaction.
 func AwaitAddressUnspentOutputToBeAccepted(ctx context.Context, clt models.Client, addr iotago.Address) (outputID iotago.OutputID, output iotago.Output, err error) {
-	indexer, err := clt.Indexer(ctx)
-	if err != nil {
-		return iotago.EmptyOutputID, nil, ierrors.Wrap(err, "failed to get indexer client")
-	}
-
 	addrBech := addr.Bech32(clt.CommittedAPI().ProtocolParameters().Bech32HRP())
 
 	for t := time.Now(); time.Since(t) < MaxAcceptanceAwait; time.Sleep(AwaitInterval) {
-		res, err := indexer.Outputs(ctx, &api.BasicOutputsQuery{
+		res, err := clt.Indexer().Outputs(ctx, &api.BasicOutputsQuery{
 			AddressBech32: addrBech,
 		})
 		if err != nil {

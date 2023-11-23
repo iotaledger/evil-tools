@@ -13,9 +13,9 @@ import (
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
 	iotago "github.com/iotaledger/iota.go/v4"
+	"github.com/iotaledger/iota.go/v4/api"
 	"github.com/iotaledger/iota.go/v4/builder"
 	"github.com/iotaledger/iota.go/v4/nodeclient"
-	"github.com/iotaledger/iota.go/v4/nodeclient/apimodels"
 )
 
 type ServerInfo struct {
@@ -201,17 +201,17 @@ type Client interface {
 	// PostData sends the given data (payload) by creating a block in the backend.
 	PostData(ctx context.Context, data []byte) (blkID string, err error)
 	// GetBlockConfirmationState returns the AcceptanceState of a given block ID.
-	GetBlockConfirmationState(ctx context.Context, blkID iotago.BlockID) (resp *apimodels.BlockMetadataResponse, err error)
+	GetBlockConfirmationState(ctx context.Context, blkID iotago.BlockID) (resp *api.BlockMetadataResponse, err error)
 	// GetBlockStateFromTransaction returns the AcceptanceState of a given transaction ID.
-	GetBlockStateFromTransaction(ctx context.Context, txID iotago.TransactionID) (resp *apimodels.BlockMetadataResponse, err error)
+	GetBlockStateFromTransaction(ctx context.Context, txID iotago.TransactionID) (resp *api.BlockMetadataResponse, err error)
 	// GetOutput gets the output of a given outputID.
 	GetOutput(ctx context.Context, outputID iotago.OutputID) iotago.Output
 	// GetTransaction gets the transaction.
 	GetTransaction(ctx context.Context, txID iotago.TransactionID) (resp *iotago.SignedTransaction, err error)
 	// GetBlockIssuance returns the latest commitment and data needed to create a new block.
-	GetBlockIssuance(ctx context.Context) (resp *apimodels.IssuanceBlockHeaderResponse, err error)
+	GetBlockIssuance(ctx context.Context) (resp *api.IssuanceBlockHeaderResponse, err error)
 	// GetCongestion returns congestion data such as rmc or issuing readiness.
-	GetCongestion(ctx context.Context, addr *iotago.AccountAddress) (resp *apimodels.CongestionResponse, err error)
+	GetCongestion(ctx context.Context, addr *iotago.AccountAddress) (resp *api.CongestionResponse, err error)
 	// RequestFaucetFunds requests funds from the faucet.
 	RequestFaucetFunds(ctx context.Context, address iotago.Address) (err error)
 	// GetAccountFromIndexer returns the outputID, accountOutput and slotIndex of a given accountID.
@@ -294,7 +294,7 @@ func (c *WebClient) RequestFaucetFunds(ctx context.Context, address iotago.Addre
 		return ierrors.Errorf("unable to build http request: %w", err)
 	}
 
-	req.Header.Set("Content-Type", nodeclient.MIMEApplicationJSON)
+	req.Header.Set("Content-Type", api.MIMEApplicationJSON)
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -355,12 +355,12 @@ func (c *WebClient) GetAccountFromIndexer(ctx context.Context, accountID iotago.
 }
 
 // GetBlockConfirmationState returns the AcceptanceState of a given block ID.
-func (c *WebClient) GetBlockConfirmationState(ctx context.Context, blkID iotago.BlockID) (*apimodels.BlockMetadataResponse, error) {
+func (c *WebClient) GetBlockConfirmationState(ctx context.Context, blkID iotago.BlockID) (*api.BlockMetadataResponse, error) {
 	return c.client.BlockMetadataByBlockID(ctx, blkID)
 }
 
 // GetBlockStateFromTransaction returns the AcceptanceState of a given transaction ID.
-func (c *WebClient) GetBlockStateFromTransaction(ctx context.Context, txID iotago.TransactionID) (*apimodels.BlockMetadataResponse, error) {
+func (c *WebClient) GetBlockStateFromTransaction(ctx context.Context, txID iotago.TransactionID) (*api.BlockMetadataResponse, error) {
 	return c.client.TransactionIncludedBlockMetadata(ctx, txID)
 }
 
@@ -384,10 +384,10 @@ func (c *WebClient) GetTransaction(ctx context.Context, txID iotago.TransactionI
 	return tx, nil
 }
 
-func (c *WebClient) GetBlockIssuance(ctx context.Context) (resp *apimodels.IssuanceBlockHeaderResponse, err error) {
+func (c *WebClient) GetBlockIssuance(ctx context.Context) (resp *api.IssuanceBlockHeaderResponse, err error) {
 	return c.client.BlockIssuance(ctx)
 }
 
-func (c *WebClient) GetCongestion(ctx context.Context, accAddress *iotago.AccountAddress) (resp *apimodels.CongestionResponse, err error) {
+func (c *WebClient) GetCongestion(ctx context.Context, accAddress *iotago.AccountAddress) (resp *api.CongestionResponse, err error) {
 	return c.client.Congestion(ctx, accAddress)
 }

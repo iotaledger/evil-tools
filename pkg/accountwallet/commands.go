@@ -13,8 +13,8 @@ import (
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
 	iotago "github.com/iotaledger/iota.go/v4"
+	"github.com/iotaledger/iota.go/v4/api"
 	"github.com/iotaledger/iota.go/v4/builder"
-	"github.com/iotaledger/iota.go/v4/nodeclient/apimodels"
 	"github.com/iotaledger/iota.go/v4/wallet"
 )
 
@@ -228,12 +228,12 @@ func (a *AccountWallet) checkAccountStatus(ctx context.Context, blkID iotago.Blo
 	return nil
 }
 
-func (a *AccountWallet) createAccountCreationTransaction(inputs []*models.Output, accountOutput *iotago.AccountOutput, congestionResp *apimodels.CongestionResponse, issuerResp *apimodels.IssuanceBlockHeaderResponse) (*iotago.SignedTransaction, error) {
+func (a *AccountWallet) createAccountCreationTransaction(inputs []*models.Output, accountOutput *iotago.AccountOutput, congestionResp *api.CongestionResponse, issuerResp *api.IssuanceBlockHeaderResponse) (*iotago.SignedTransaction, error) {
 	txBuilder := a.createTransactionBuilder(inputs, accountOutput)
 
 	commitmentID, _ := issuerResp.Commitment.ID()
-	txBuilder.AddContextInput(&iotago.CommitmentInput{CommitmentID: commitmentID})
-	txBuilder.AddContextInput(&iotago.BlockIssuanceCreditInput{AccountID: accountOutput.AccountID})
+	txBuilder.AddCommitmentInput(&iotago.CommitmentInput{CommitmentID: commitmentID})
+	txBuilder.AddBlockIssuanceCreditInput(&iotago.BlockIssuanceCreditInput{AccountID: accountOutput.AccountID})
 
 	// allot required mana to the implicit account
 	a.logMissingMana(txBuilder, congestionResp.ReferenceManaCost, a.faucet.account)

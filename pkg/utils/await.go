@@ -8,7 +8,7 @@ import (
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
 	iotago "github.com/iotaledger/iota.go/v4"
-	"github.com/iotaledger/iota.go/v4/nodeclient/apimodels"
+	"github.com/iotaledger/iota.go/v4/api"
 )
 
 const (
@@ -20,27 +20,27 @@ const (
 )
 
 func isBlockStateAtLeastAccepted(blockState string) bool {
-	return blockState == apimodels.BlockStateAccepted.String() ||
-		blockState == apimodels.BlockStateConfirmed.String() ||
-		blockState == apimodels.BlockStateFinalized.String()
+	return blockState == api.BlockStateAccepted.String() ||
+		blockState == api.BlockStateConfirmed.String() ||
+		blockState == api.BlockStateFinalized.String()
 }
 
 func isTransactionStateAtLeastAccepted(transactionState string) bool {
-	return transactionState == apimodels.TransactionStateAccepted.String() ||
-		transactionState == apimodels.TransactionStateConfirmed.String() ||
-		transactionState == apimodels.TransactionStateFinalized.String()
+	return transactionState == api.TransactionStateAccepted.String() ||
+		transactionState == api.TransactionStateConfirmed.String() ||
+		transactionState == api.TransactionStateFinalized.String()
 }
 
 func isBlockStateFailure(blockState string) bool {
-	return blockState == apimodels.BlockStateFailed.String() ||
-		blockState == apimodels.BlockStateRejected.String()
+	return blockState == api.BlockStateFailed.String() ||
+		blockState == api.BlockStateRejected.String()
 }
 
 func isTransactionStateFailure(transactionState string) bool {
-	return transactionState == apimodels.TransactionStateFailed.String()
+	return transactionState == api.TransactionStateFailed.String()
 }
 
-func evaluateBlockIssuanceResponse(resp *apimodels.BlockMetadataResponse) (accepted bool, err error) {
+func evaluateBlockIssuanceResponse(resp *api.BlockMetadataResponse) (accepted bool, err error) {
 	if isBlockStateAtLeastAccepted(resp.BlockState) && isTransactionStateAtLeastAccepted(resp.TransactionState) {
 		return true, nil
 	}
@@ -123,7 +123,7 @@ func AwaitAddressUnspentOutputToBeAccepted(ctx context.Context, clt models.Clien
 	addrBech := addr.Bech32(clt.CommittedAPI().ProtocolParameters().Bech32HRP())
 
 	for t := time.Now(); time.Since(t) < MaxAcceptanceAwait; time.Sleep(AwaitInterval) {
-		res, err := indexer.Outputs(ctx, &apimodels.BasicOutputsQuery{
+		res, err := indexer.Outputs(ctx, &api.BasicOutputsQuery{
 			AddressBech32: addrBech,
 		})
 		if err != nil {

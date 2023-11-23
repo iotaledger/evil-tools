@@ -39,12 +39,12 @@ func (a *AccountWallet) createAccountImplicitly(ctx context.Context, params *Cre
 
 	if !params.Transition {
 		//nolint:forcetypeassert // we know that the address is of type *iotago.AccountAddress
-		implicitAccountAddress := iotago.AccountIDFromOutputID(implicitAccountOutput.OutputID).ToAddress().(*iotago.AccountAddress)
+		accountAddress := iotago.AccountIDFromOutputID(implicitAccountOutput.OutputID).ToAddress().(*iotago.AccountAddress)
 
 		a.registerAccount(params.Alias, implicitAccountOutput.OutputID, implicitAccountOutput.AddressIndex, privateKey)
-		log.Infof("Implicit account created, outputID: %s, implicit accountID: %s", implicitAccountOutput.OutputID.ToHex(), implicitAccountAddress.Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()))
+		log.Infof("Implicit account created, outputID: %s, implicit accountID: %s", implicitAccountOutput.OutputID.ToHex(), accountAddress.Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()))
 
-		return implicitAccountAddress, nil
+		return accountAddress, nil
 	}
 
 	log.Debugf("Transitioning implicit account with implicitAccountID %s for alias %s to regular account", params.Alias, iotago.AccountIDFromOutputID(implicitAccountOutput.OutputID).ToHex())

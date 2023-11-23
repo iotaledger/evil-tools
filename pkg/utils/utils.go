@@ -90,8 +90,8 @@ func PrepareDummyTransactionBuilder(api iotago.API, basicInputCount, basicOutput
 	}
 
 	if accountInput || accountOutput {
-		txBuilder.AddContextInput(&iotago.BlockIssuanceCreditInput{AccountID: iotago.EmptyAccountID})
-		txBuilder.AddContextInput(&iotago.CommitmentInput{CommitmentID: iotago.EmptyCommitmentID})
+		txBuilder.AddBlockIssuanceCreditInput(&iotago.BlockIssuanceCreditInput{AccountID: iotago.EmptyAccountID})
+		txBuilder.AddCommitmentInput(&iotago.CommitmentInput{CommitmentID: iotago.EmptyCommitmentID})
 	}
 
 	return txBuilder

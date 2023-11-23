@@ -4,7 +4,7 @@ import (
 	"crypto/ed25519"
 
 	iotago "github.com/iotaledger/iota.go/v4"
-	"github.com/iotaledger/iota.go/v4/nodeclient/apimodels"
+	"github.com/iotaledger/iota.go/v4/api"
 	"github.com/iotaledger/iota.go/v4/wallet"
 )
 
@@ -72,7 +72,7 @@ func (a *AccountState) ToAccountData() *AccountData {
 
 type PayloadIssuanceData struct {
 	Payload            iotago.Payload
-	CongestionResponse *apimodels.CongestionResponse
+	CongestionResponse *api.CongestionResponse
 }
 
 type AllotmentStrategy uint8

@@ -13,8 +13,8 @@ import (
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/runtime/options"
 	iotago "github.com/iotaledger/iota.go/v4"
+	"github.com/iotaledger/iota.go/v4/api"
 	"github.com/iotaledger/iota.go/v4/builder"
-	"github.com/iotaledger/iota.go/v4/nodeclient/apimodels"
 	"github.com/iotaledger/iota.go/v4/tpkg"
 	"github.com/iotaledger/iota.go/v4/wallet"
 )
@@ -123,7 +123,7 @@ func (e *EvilWallet) GetAccount(ctx context.Context, alias string) (wallet.Accou
 	return account.Account, nil
 }
 
-func (e *EvilWallet) CreateBlock(ctx context.Context, clt models.Client, payload iotago.Payload, congestionResp *apimodels.CongestionResponse, issuer wallet.Account, strongParents ...iotago.BlockID) (*iotago.Block, error) {
+func (e *EvilWallet) CreateBlock(ctx context.Context, clt models.Client, payload iotago.Payload, congestionResp *api.CongestionResponse, issuer wallet.Account, strongParents ...iotago.BlockID) (*iotago.Block, error) {
 	var congestionSlot iotago.SlotIndex
 	version := clt.CommittedAPI().Version()
 	if congestionResp != nil {
@@ -144,7 +144,7 @@ func (e *EvilWallet) CreateBlock(ctx context.Context, clt models.Client, payload
 	return block, nil
 }
 
-func (e *EvilWallet) PrepareAndPostBlock(ctx context.Context, clt models.Client, payload iotago.Payload, congestionResp *apimodels.CongestionResponse, issuer wallet.Account) (iotago.BlockID, error) {
+func (e *EvilWallet) PrepareAndPostBlock(ctx context.Context, clt models.Client, payload iotago.Payload, congestionResp *api.CongestionResponse, issuer wallet.Account) (iotago.BlockID, error) {
 	var congestionSlot iotago.SlotIndex
 	version := clt.CommittedAPI().Version()
 	if congestionResp != nil {
@@ -230,7 +230,7 @@ func (e *EvilWallet) CreateTransaction(ctx context.Context, options ...Option) (
 		}
 	}
 
-	var congestionResp *apimodels.CongestionResponse
+	var congestionResp *api.CongestionResponse
 	// request congestion endpoint if allotment strategy configured
 	if buildOptions.allotmentStrategy == models.AllotmentStrategyMinCost {
 		congestionResp, err = e.connector.GetClient().GetCongestion(ctx, buildOptions.issuer.Address())
@@ -534,7 +534,7 @@ func (e *EvilWallet) updateOutputBalances(ctx context.Context, buildOptions *Opt
 	return
 }
 
-func (e *EvilWallet) makeTransaction(inputs []*models.Output, outputs iotago.Outputs[iotago.Output], w *Wallet, congestionResponse *apimodels.CongestionResponse, issuer wallet.Account) (tx *iotago.SignedTransaction, err error) {
+func (e *EvilWallet) makeTransaction(inputs []*models.Output, outputs iotago.Outputs[iotago.Output], w *Wallet, congestionResponse *api.CongestionResponse, issuer wallet.Account) (tx *iotago.SignedTransaction, err error) {
 	clt := e.Connector().GetClient()
 	currentTime := time.Now()
 	targetSlot := clt.LatestAPI().TimeProvider().SlotFromTime(currentTime)

@@ -214,8 +214,8 @@ type Client interface {
 	GetCongestion(ctx context.Context, addr *iotago.AccountAddress) (resp *api.CongestionResponse, err error)
 	// RequestFaucetFunds requests funds from the faucet.
 	RequestFaucetFunds(ctx context.Context, address iotago.Address) (err error)
-	// GetAccountFromIndexer returns the outputID, accountOutput and slotIndex of a given accountID.
-	GetAccountFromIndexer(ctx context.Context, accountID iotago.AccountID) (*iotago.OutputID, *iotago.AccountOutput, iotago.SlotIndex, error)
+	// GetAccountFromIndexer returns the outputID, accountOutput and slotIndex of a given accountAddress.
+	GetAccountFromIndexer(ctx context.Context, accountAddress *iotago.AccountAddress) (*iotago.OutputID, *iotago.AccountOutput, iotago.SlotIndex, error)
 
 	iotago.APIProvider
 }
@@ -345,13 +345,13 @@ func (c *WebClient) GetOutput(ctx context.Context, outputID iotago.OutputID) iot
 	return res
 }
 
-func (c *WebClient) GetAccountFromIndexer(ctx context.Context, accountID iotago.AccountID) (*iotago.OutputID, *iotago.AccountOutput, iotago.SlotIndex, error) {
+func (c *WebClient) GetAccountFromIndexer(ctx context.Context, accountAddress *iotago.AccountAddress) (*iotago.OutputID, *iotago.AccountOutput, iotago.SlotIndex, error) {
 	indexer, err := c.Indexer(ctx)
 	if err != nil {
 		return nil, nil, 0, ierrors.Errorf("unable to get indexer client: %w", err)
 	}
 
-	return indexer.Account(ctx, accountID)
+	return indexer.Account(ctx, accountAddress)
 }
 
 // GetBlockConfirmationState returns the AcceptanceState of a given block ID.

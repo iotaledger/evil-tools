@@ -11,7 +11,7 @@ require (
 	github.com/iotaledger/hive.go/lo v0.0.0-20231113110812-4ca2b6cc9a42
 	github.com/iotaledger/hive.go/logger v0.0.0-20231113110812-4ca2b6cc9a42
 	github.com/iotaledger/hive.go/runtime v0.0.0-20231113110812-4ca2b6cc9a42
-	github.com/iotaledger/iota.go/v4 v4.0.0-20231123102955-eff367396512
+	github.com/iotaledger/iota.go/v4 v4.0.0-20231124100551-bb617f46bb49
 	github.com/mr-tron/base58 v1.2.0
 	go.uber.org/atomic v1.11.0
 	go.uber.org/zap v1.26.0

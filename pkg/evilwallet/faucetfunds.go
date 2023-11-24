@@ -131,7 +131,7 @@ func (e *EvilWallet) requestAndSplitFaucetFunds(ctx context.Context, initWallet,
 
 func (e *EvilWallet) requestFaucetFunds(ctx context.Context, wallet *Wallet) (output *models.Output, err error) {
 	receiveAddr := wallet.AddressOnIndex(0)
-	clt := e.connector.GetIndexerClient()
+	clt := e.connector.GetClient()
 
 	err = clt.RequestFaucetFunds(ctx, receiveAddr)
 	if err != nil {

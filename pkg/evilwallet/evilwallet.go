@@ -166,6 +166,7 @@ func (e *EvilWallet) PrepareAndPostBlockWithTxBuildData(ctx context.Context, clt
 	if err != nil {
 		return iotago.EmptyBlockID, ierrors.Wrap(err, "failed to build and sign transaction")
 	}
+	// TODO here we could set the outputID but we are not using it anywhere, setOutputIDs()
 	blockID, err := e.accWallet.PostWithBlock(ctx, clt, signedTx, issuer, congestionResp, issuerResp, version)
 	if err != nil {
 		return iotago.EmptyBlockID, err
@@ -227,7 +228,7 @@ func (e *EvilWallet) CreateTransaction(ctx context.Context, options ...Option) (
 		return nil, err
 	}
 
-	outputs, addrAliasMap, _, err := e.prepareOutputs(ctx, buildOptions, tempWallet)
+	outputs, addrAliasMap, tempAddresses, err := e.prepareOutputs(ctx, buildOptions, tempWallet)
 	if err != nil {
 		return nil, err
 	}
@@ -240,8 +241,6 @@ func (e *EvilWallet) CreateTransaction(ctx context.Context, options ...Option) (
 		}
 	}
 
-	// TODO ??? request congestion endpoint if allotment strategy configured
-
 	txBuilder, signingKeys := e.prepareTransactionBuild(inputs, outputs, buildOptions.inputWallet)
 	txData := &models.PayloadIssuanceData{
 		Type:               iotago.PayloadSignedTransaction,
@@ -249,37 +248,38 @@ func (e *EvilWallet) CreateTransaction(ctx context.Context, options ...Option) (
 		TxSigningKeys:      signingKeys,
 	}
 
-	//  TODO move it somewhere where tx is built?
-	//e.addOutputsToOutputManager(ctx, outputs, signedTx, tempWallet, tempAddresses)
-	//e.registerOutputAliases(ctx, signedTx, addrAliasMap)
+	// we don't have outputID yet,
+
+	addedOutputs := e.addOutputsToOutputManager(ctx, outputs, buildOptions.outputWallet, tempWallet, tempAddresses)
+	e.registerOutputAliases(addedOutputs, addrAliasMap)
 
 	return txData, nil
 }
 
 // addOutputsToOutputManager adds output to the OutputManager if.
-func (e *EvilWallet) addOutputsToOutputManager(ctx context.Context, signedTx *iotago.SignedTransaction, outWallet, tmpWallet *Wallet, tempAddresses map[string]types.Empty) {
-	for idx, o := range signedTx.Transaction.Outputs {
-		if o.UnlockConditionSet().Address() == nil {
+func (e *EvilWallet) addOutputsToOutputManager(ctx context.Context, outputs []iotago.Output, outWallet, tmpWallet *Wallet, tempAddresses map[string]types.Empty) []*models.Output {
+	modelOutputs := make([]*models.Output, 0)
+	for _, out := range outputs {
+		if out.UnlockConditionSet().Address() == nil {
 			continue
 		}
 
-		//  TODO we can update it only after tx is signed, so in the PostBlock method?
 		// register UnlockConditionAddress only (skip account outputs)
-		addr := o.UnlockConditionSet().Address().Address
-		out := &models.Output{
-			OutputID:     iotago.OutputIDFromTransactionIDAndIndex(lo.PanicOnErr(signedTx.Transaction.ID()), uint16(idx)),
-			Address:      addr,
-			Balance:      o.BaseTokenAmount(),
-			OutputStruct: o,
+		addr := out.UnlockConditionSet().Address().Address
+
+		var output *models.Output
+		// outputs in the middle of the scenario structure are created with tempWallet,
+		//only outputs that are not used in the scenario structure are added to the outWaller and can be reused.
+		if _, ok := tempAddresses[addr.String()]; ok {
+			output = e.outputManager.AddOutput(ctx, tmpWallet, out)
+		} else {
+			output = e.outputManager.AddOutput(ctx, outWallet, out)
 		}
 
-		if _, ok := tempAddresses[addr.String()]; ok {
-			e.outputManager.AddOutput(ctx, tmpWallet, out)
-		} else {
-			out.AddressIndex = outWallet.AddrIndexMap(addr.String())
-			e.outputManager.AddOutput(ctx, outWallet, out)
-		}
+		modelOutputs = append(modelOutputs, output)
 	}
+
+	return modelOutputs
 }
 
 // updateInputWallet if input wallet is not specified, or aliases were provided without inputs (batch inputs) use Fresh faucet wallet.
@@ -307,18 +307,13 @@ func (e *EvilWallet) updateInputWallet(buildOptions *Options) error {
 	return nil
 }
 
-func (e *EvilWallet) registerOutputAliases(ctx context.Context, signedTx *iotago.SignedTransaction, addrAliasMap map[string]string) {
+// registerOutputAliases adds models.Output references to their aliases to the AliasManager.
+func (e *EvilWallet) registerOutputAliases(outputs []*models.Output, addrAliasMap map[string]string) {
 	if len(addrAliasMap) == 0 {
 		return
 	}
 
-	for idx := range signedTx.Transaction.Outputs {
-		id := iotago.OutputIDFromTransactionIDAndIndex(lo.PanicOnErr(signedTx.Transaction.ID()), uint16(idx))
-		out := e.outputManager.GetOutput(ctx, id)
-		if out == nil {
-			continue
-		}
-
+	for _, out := range outputs {
 		// register output alias
 		e.aliasManager.AddOutputAlias(out, addrAliasMap[out.Address.String()])
 
@@ -465,7 +460,7 @@ func (e *EvilWallet) prepareRemainderOutput(ctx context.Context, buildOptions *O
 
 	for _, input := range buildOptions.inputs {
 		// get balance from output manager
-		in := e.outputManager.GetOutput(ctx, input.OutputID)
+		in := e.outputManager.GetOutput(ctx, input.Address.String(), input.OutputID)
 		inputBalance += in.Balance
 
 		if remainderAddress == nil {
@@ -503,7 +498,7 @@ func (e *EvilWallet) updateOutputBalances(ctx context.Context, buildOptions *Opt
 		if buildOptions.areInputsProvidedWithoutAliases() {
 			for _, input := range buildOptions.inputs {
 				// get balance from output manager
-				inputDetails := e.outputManager.GetOutput(ctx, input.OutputID)
+				inputDetails := e.outputManager.GetOutput(ctx, input.Address.String(), input.OutputID)
 				totalBalance += inputDetails.Balance
 			}
 		} else {
@@ -559,8 +554,8 @@ func (e *EvilWallet) prepareTransactionBuild(inputs []*models.Output, outputs io
 	for i, input := range inputs {
 		addr := input.Address
 		var wlt *Wallet
-		if w == nil { // aliases provided with inputs, use wallet saved in outputManager
-			wlt = e.outputManager.OutputIDWalletMap(input.OutputID.ToHex())
+		if w == nil { // aliases provided with inputs, use wallet saved in the outputManager
+			wlt = e.outputManager.AddressWalletMap(input.Address.String())
 		} else {
 			wlt = w
 		}
@@ -588,21 +583,6 @@ func (e *EvilWallet) PrepareAccountSpam(ctx context.Context, scenario *EvilScena
 	txData, err := e.CreateTransaction(ctx, accountSpamOptions...)
 
 	return txData, allAliases, err
-}
-
-func (e *EvilWallet) evaluateIssuanceStrategy(ctx context.Context, strategy *models.IssuancePaymentStrategy) (models.AllotmentStrategy, wallet.Account) {
-	var issuer wallet.Account
-	if strategy.AllotmentStrategy != models.AllotmentStrategyNone {
-		// get issuer accountID
-		accData, err := e.accWallet.GetReadyAccount(ctx, strategy.IssuerAlias)
-		if err != nil {
-			panic(ierrors.Wrap(err, "could not get issuer accountID while preparing conflicts"))
-		}
-
-		issuer = accData.Account
-	}
-
-	return strategy.AllotmentStrategy, issuer
 }
 
 func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario) (conflictSlice []ConflictSlice, allAliases ScenarioAlias) {

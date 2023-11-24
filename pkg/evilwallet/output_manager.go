@@ -18,9 +18,9 @@ import (
 type OutputManager struct {
 	connector models.Connector
 
-	wallets           *Wallets
-	outputIDWalletMap map[string]*Wallet
-	outputIDAddrMap   map[string]string
+	wallets       *Wallets
+	addrWalletMap map[string]*Wallet
+
 	// stores solid outputs per node
 	issuerSolidOutIDMap map[string]map[iotago.OutputID]types.Empty
 
@@ -29,50 +29,31 @@ type OutputManager struct {
 	syncutils.RWMutex
 }
 
-// NewOutputManager creates an OutputManager instance.
+// NewOutputManager creates an OutputManager instance. All outputs are mapped based on their address, so address should never be reused
 func NewOutputManager(connector models.Connector, wallets *Wallets, log *logger.Logger) *OutputManager {
 	return &OutputManager{
 		connector:           connector,
 		wallets:             wallets,
-		outputIDWalletMap:   make(map[string]*Wallet),
-		outputIDAddrMap:     make(map[string]string),
+		addrWalletMap:       make(map[string]*Wallet),
 		issuerSolidOutIDMap: make(map[string]map[iotago.OutputID]types.Empty),
 		log:                 log,
 	}
 }
 
 // setOutputIDWalletMap sets wallet for the provided outputID.
-func (o *OutputManager) setOutputIDWalletMap(outputID string, wallet *Wallet) {
+func (o *OutputManager) setAddrWalletMap(address string, wallet *Wallet) {
 	o.Lock()
 	defer o.Unlock()
 
-	o.outputIDWalletMap[outputID] = wallet
+	o.addrWalletMap[address] = wallet
 }
 
-// setOutputIDAddrMap sets address for the provided outputID.
-func (o *OutputManager) setOutputIDAddrMap(outputID string, addr string) {
-	o.Lock()
-	defer o.Unlock()
-
-	o.outputIDAddrMap[outputID] = addr
-}
-
-// OutputIDWalletMap returns wallet corresponding to the outputID stored in OutputManager.
-func (o *OutputManager) OutputIDWalletMap(outputID string) *Wallet {
+// AddressWalletMap returns wallet corresponding to the address stored in OutputManager.
+func (o *OutputManager) AddressWalletMap(outputID string) *Wallet {
 	o.RLock()
 	defer o.RUnlock()
 
-	return o.outputIDWalletMap[outputID]
-}
-
-// OutputIDAddrMap returns address corresponding to the outputID stored in OutputManager.
-func (o *OutputManager) OutputIDAddrMap(outputID string) (addr string) {
-	o.RLock()
-	defer o.RUnlock()
-
-	addr = o.outputIDAddrMap[outputID]
-
-	return
+	return o.addrWalletMap[outputID]
 }
 
 // SetOutputIDSolidForIssuer sets solid flag for the provided outputID and issuer.
@@ -135,21 +116,20 @@ func (o *OutputManager) createOutputFromAddress(w *Wallet, addr *iotago.Ed25519A
 		OutputStruct: outputStruct,
 	}
 	w.AddUnspentOutput(out)
-	o.setOutputIDWalletMap(outputID.ToHex(), w)
-	o.setOutputIDAddrMap(outputID.ToHex(), addr.String())
+	o.setAddrWalletMap(out.Address.String(), w)
 
 	return out
 }
 
 // AddOutput adds existing output from wallet w to the OutputManager.
-func (o *OutputManager) AddOutput(ctx context.Context, w *Wallet, output *models.Output) *models.Output {
-	idx := w.AddrIndexMap(output.Address.String())
+func (o *OutputManager) AddOutput(ctx context.Context, w *Wallet, output iotago.Output) *models.Output {
+	addr := output.UnlockConditionSet().Address().Address
+	idx := w.AddrIndexMap(addr.String())
 	out := &models.Output{
-		Address:      output.Address,
+		Address:      addr,
 		AddressIndex: idx,
-		OutputID:     output.OutputID,
-		Balance:      output.Balance,
-		OutputStruct: output.OutputStruct,
+		Balance:      output.BaseTokenAmount(),
+		OutputStruct: output,
 	}
 
 	if w.walletType == Reuse {
@@ -163,24 +143,22 @@ func (o *OutputManager) AddOutput(ctx context.Context, w *Wallet, output *models
 			}
 
 			w.AddUnspentOutput(out)
-			o.setOutputIDWalletMap(out.OutputID.ToHex(), wallet)
-			o.setOutputIDAddrMap(out.OutputID.ToHex(), output.Address.String())
+			o.setAddrWalletMap(out.Address.String(), wallet)
 		}(o.connector.GetClient(), w, out.OutputID)
 
 		return out
 	}
 
 	w.AddUnspentOutput(out)
-	o.setOutputIDWalletMap(out.OutputID.ToHex(), w)
-	o.setOutputIDAddrMap(out.OutputID.ToHex(), output.Address.String())
+	o.setAddrWalletMap(out.OutputID.ToHex(), w)
 
 	return out
 }
 
-// GetOutput returns the Output of the given outputID.
+// GetOutput returns the Output for the given address.
 // Firstly checks if output can be retrieved by outputManager from wallet, if not does an API call.
-func (o *OutputManager) GetOutput(ctx context.Context, outputID iotago.OutputID) (output *models.Output) {
-	output = o.getOutputFromWallet(outputID)
+func (o *OutputManager) GetOutput(ctx context.Context, addr string, outputID iotago.OutputID) (output *models.Output) {
+	output = o.getOutputFromWallet(addr)
 
 	// get output info via web api
 	if output == nil {
@@ -206,12 +184,12 @@ func (o *OutputManager) GetOutput(ctx context.Context, outputID iotago.OutputID)
 	return output
 }
 
-func (o *OutputManager) getOutputFromWallet(outputID iotago.OutputID) (output *models.Output) {
+func (o *OutputManager) getOutputFromWallet(addr string) (output *models.Output) {
 	o.RLock()
 	defer o.RUnlock()
-	w, ok := o.outputIDWalletMap[outputID.ToHex()]
+
+	w, ok := o.addrWalletMap[addr]
 	if ok {
-		addr := o.outputIDAddrMap[outputID.ToHex()]
 		output = w.UnspentOutput(addr)
 	}
 

@@ -129,7 +129,7 @@ func (e *EvilWallet) CreateBlock(ctx context.Context, clt models.Client, payload
 		return nil, ierrors.Wrap(err, "failed to get block built data")
 	}
 
-	block, err := e.accWallet.CreateBlock(ctx, payload, issuer, congestionResp, issuerResp, version, strongParents...)
+	block, err := e.accWallet.CreateBlock(payload, issuer, congestionResp, issuerResp, version, strongParents...)
 	if err != nil {
 		return nil, err
 	}
@@ -150,29 +150,52 @@ func (e *EvilWallet) PrepareAndPostBlockWithPayload(ctx context.Context, clt mod
 	return blockID, nil
 }
 
-func (e *EvilWallet) PrepareAndPostBlockWithTxBuildData(ctx context.Context, clt models.Client, txBuilder *builder.TransactionBuilder, signingKeys []iotago.AddressKeys, issuer wallet.Account) (iotago.BlockID, error) {
+func (e *EvilWallet) PrepareAndPostBlockWithTxBuildData(ctx context.Context, clt models.Client, txBuilder *builder.TransactionBuilder, signingKeys []iotago.AddressKeys, issuer wallet.Account) (iotago.BlockID, *iotago.Transaction, error) {
 	congestionResp, issuerResp, version, err := e.accWallet.RequestBlockBuiltData(ctx, clt, issuer)
 	if err != nil {
-		return iotago.EmptyBlockID, ierrors.Wrap(err, "failed to get block built data")
+		return iotago.EmptyBlockID, nil, ierrors.Wrap(err, "failed to get block built data")
 	}
 	//  TODO remove after updating iota.go deps using commitment for congestion response requests
 	if congestionResp.Slot != issuerResp.Commitment.Slot {
-		return iotago.EmptyBlockID, ierrors.Errorf("congestion response slot and commitment slot do not match, congestion slot: %d, issuer slot: %d", congestionResp.Slot, issuerResp.Commitment.Slot)
+		return iotago.EmptyBlockID, nil, ierrors.Errorf("congestion response slot and commitment slot do not match, congestion slot: %d, issuer slot: %d", congestionResp.Slot, issuerResp.Commitment.Slot)
 	}
 
 	// handle allotment strategy
 	txBuilder.AllotAllMana(congestionResp.Slot, issuer.ID())
 	signedTx, err := txBuilder.Build(iotago.NewInMemoryAddressSigner(signingKeys...))
 	if err != nil {
-		return iotago.EmptyBlockID, ierrors.Wrap(err, "failed to build and sign transaction")
+		return iotago.EmptyBlockID, nil, ierrors.Wrap(err, "failed to build and sign transaction")
 	}
-	// TODO here we could set the outputID but we are not using it anywhere, setOutputIDs()
-	blockID, err := e.accWallet.PostWithBlock(ctx, clt, signedTx, issuer, congestionResp, issuerResp, version)
+	e.log.Debug(utils.SprintTransaction(signedTx))
+	txID, err := signedTx.Transaction.ID()
 	if err != nil {
-		return iotago.EmptyBlockID, err
+		return iotago.EmptyBlockID, nil, ierrors.Wrap(err, "failed to get transaction id")
 	}
 
-	return blockID, nil
+	err = e.setTxOutputIDs(signedTx.Transaction)
+	if err != nil {
+		return iotago.EmptyBlockID, nil, ierrors.Wrapf(err, "failed to set output ids for transaction %s", txID.String())
+	}
+
+	blockID, err := e.accWallet.PostWithBlock(ctx, clt, signedTx, issuer, congestionResp, issuerResp, version)
+	if err != nil {
+		return iotago.EmptyBlockID, nil, err
+	}
+
+	return blockID, signedTx.Transaction, nil
+}
+
+func (e *EvilWallet) setTxOutputIDs(tx *iotago.Transaction) error {
+	for idx, out := range tx.Outputs {
+		modelOutput := e.outputManager.getOutputFromWallet(out.UnlockConditionSet().Address().Address.String())
+		if modelOutput == nil {
+			return ierrors.Errorf("output not found for address %s", out.UnlockConditionSet().Address().Address.String())
+		}
+		outID := iotago.OutputIDFromTransactionIDAndIndex(lo.PanicOnErr(tx.ID()), uint16(idx))
+		modelOutput.OutputID = outID
+	}
+
+	return nil
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -233,7 +256,7 @@ func (e *EvilWallet) CreateTransaction(ctx context.Context, options ...Option) (
 		return nil, err
 	}
 
-	alias, remainder, remainderAddr, hasRemainder := e.prepareRemainderOutput(ctx, buildOptions, outputs)
+	alias, remainder, remainderAddr, hasRemainder := e.prepareRemainderOutput(inputs, outputs)
 	if hasRemainder {
 		outputs = append(outputs, remainder)
 		if alias != "" && addrAliasMap != nil {
@@ -244,7 +267,7 @@ func (e *EvilWallet) CreateTransaction(ctx context.Context, options ...Option) (
 	txBuilder, signingKeys := e.prepareTransactionBuild(inputs, outputs, buildOptions.inputWallet)
 	txData := &models.PayloadIssuanceData{
 		Type:               iotago.PayloadSignedTransaction,
-		TransactionPayload: txBuilder,
+		TransactionBuilder: txBuilder,
 		TxSigningKeys:      signingKeys,
 	}
 
@@ -445,27 +468,12 @@ func (e *EvilWallet) matchOutputsWithAliases(ctx context.Context, buildOptions *
 	return
 }
 
-func (e *EvilWallet) prepareRemainderOutput(ctx context.Context, buildOptions *Options, outputs []iotago.Output) (alias string, remainderOutput iotago.Output, remainderAddress iotago.Address, added bool) {
+func (e *EvilWallet) prepareRemainderOutput(inputs []*models.Output, outputs []iotago.Output) (alias string, remainderOutput iotago.Output, remainderAddress iotago.Address, added bool) {
 	inputBalance := iotago.BaseToken(0)
 
-	for inputAlias := range buildOptions.aliasInputs {
-		in, _ := e.aliasManager.GetInput(inputAlias)
-		inputBalance += in.Balance
-
-		if alias == "" {
-			remainderAddress = in.Address
-			alias = inputAlias
-		}
-	}
-
-	for _, input := range buildOptions.inputs {
-		// get balance from output manager
-		in := e.outputManager.GetOutput(ctx, input.Address.String(), input.OutputID)
-		inputBalance += in.Balance
-
-		if remainderAddress == nil {
-			remainderAddress = in.Address
-		}
+	for _, input := range inputs {
+		inputBalance += input.Balance
+		remainderAddress = input.Address
 	}
 
 	outputBalance := iotago.BaseToken(0)
@@ -473,7 +481,8 @@ func (e *EvilWallet) prepareRemainderOutput(ctx context.Context, buildOptions *O
 		outputBalance += o.BaseTokenAmount()
 	}
 
-	// remainder balances is sent to one of the address in inputs
+	// remainder balances is sent to one of the address in inputs, because it's too late to update output,
+	// and we cannot have two outputs for the same address in the evil spammer
 	if outputBalance < inputBalance {
 		remainderOutput = &iotago.BasicOutput{
 			Amount: inputBalance - outputBalance,

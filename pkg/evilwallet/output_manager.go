@@ -150,7 +150,7 @@ func (o *OutputManager) AddOutput(ctx context.Context, w *Wallet, output iotago.
 	}
 
 	w.AddUnspentOutput(out)
-	o.setAddrWalletMap(out.OutputID.ToHex(), w)
+	o.setAddrWalletMap(out.Address.String(), w)
 
 	return out
 }

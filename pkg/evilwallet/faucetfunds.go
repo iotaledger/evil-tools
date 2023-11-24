@@ -9,7 +9,6 @@ import (
 	"github.com/iotaledger/evil-tools/pkg/utils"
 	"github.com/iotaledger/hive.go/core/safemath"
 	"github.com/iotaledger/hive.go/ierrors"
-	"github.com/iotaledger/hive.go/lo"
 	iotago "github.com/iotaledger/iota.go/v4"
 )
 
@@ -170,20 +169,16 @@ func (e *EvilWallet) splitOutput(ctx context.Context, splitOutput *models.Output
 		return iotago.EmptyTransactionID, err
 	}
 
-	_, err = e.PrepareAndPostBlockWithTxBuildData(ctx, e.connector.GetClient(), txData.TransactionPayload, txData.TxSigningKeys, genesisAccount.Account)
+	_, tx, err := e.PrepareAndPostBlockWithTxBuildData(ctx, e.connector.GetClient(), txData.TransactionBuilder, txData.TxSigningKeys, genesisAccount.Account)
 	if err != nil {
-		return iotago.TransactionID{}, err
+		return iotago.EmptyTransactionID, err
 	}
 
-	if txData.Payload.PayloadType() != iotago.PayloadSignedTransaction {
-		return iotago.EmptyTransactionID, ierrors.New("payload type is not signed transaction")
+	txID, err := tx.ID()
+	if err != nil {
+		return iotago.EmptyTransactionID, err
 	}
 
-	signedTx, ok := txData.Payload.(*iotago.SignedTransaction)
-	if !ok {
-		return iotago.EmptyTransactionID, ierrors.New("type assertion error: payload is not a signed transaction")
-	}
-	txID := lo.PanicOnErr(signedTx.Transaction.ID())
 	e.log.Debugf("Splitting output %s finished with tx: %s", splitOutput.OutputID.ToHex(), txID.ToHex())
 
 	return txID, nil

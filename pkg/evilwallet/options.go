@@ -140,7 +140,7 @@ func WithInputs(inputs interface{}) Option {
 	}
 }
 
-// WithOutputs returns an Option that is used to define a non-colored Outputs for the Transaction in the Block.
+// WithOutputs returns an Option that is used to define Outputs for the Transaction in the Block.
 func WithOutputs(outputsOptions []*OutputOption) Option {
 	return func(options *Options) {
 		for _, outputOptions := range outputsOptions {

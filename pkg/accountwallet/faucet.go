@@ -60,7 +60,7 @@ func (a *AccountWallet) RequestFaucetFunds(ctx context.Context, receiveAddr iota
 }
 
 func (a *AccountWallet) PostWithBlock(ctx context.Context, clt models.Client, payload iotago.Payload, issuer wallet.Account, congestionResp *api.CongestionResponse, issuerResp *api.IssuanceBlockHeaderResponse, version iotago.Version, strongParents ...iotago.BlockID) (iotago.BlockID, error) {
-	signedBlock, err := a.CreateBlock(ctx, payload, issuer, congestionResp, issuerResp, version, strongParents...)
+	signedBlock, err := a.CreateBlock(payload, issuer, congestionResp, issuerResp, version, strongParents...)
 	if err != nil {
 		log.Errorf("failed to create block: %s", err)
 
@@ -77,18 +77,10 @@ func (a *AccountWallet) PostWithBlock(ctx context.Context, clt models.Client, pa
 	return blockID, nil
 }
 
-func (a *AccountWallet) CreateBlock(ctx context.Context, payload iotago.Payload, issuer wallet.Account, congestionResp *api.CongestionResponse, issuerResp *api.IssuanceBlockHeaderResponse, version iotago.Version, strongParents ...iotago.BlockID) (*iotago.Block, error) {
+func (a *AccountWallet) CreateBlock(payload iotago.Payload, issuer wallet.Account, congestionResp *api.CongestionResponse, issuerResp *api.IssuanceBlockHeaderResponse, version iotago.Version, strongParents ...iotago.BlockID) (*iotago.Block, error) {
 	issuingTime := time.Now()
 	issuingSlot := a.client.LatestAPI().TimeProvider().SlotFromTime(issuingTime)
 	apiForSlot := a.client.APIForSlot(issuingSlot)
-	if congestionResp == nil {
-		var err error
-		congestionResp, err = a.client.GetCongestion(ctx, issuer.Address())
-		if err != nil {
-			return nil, ierrors.Wrap(err, "failed to get congestion data")
-		}
-	}
-
 	blockBuilder := builder.NewBasicBlockBuilder(apiForSlot)
 
 	commitmentID, err := issuerResp.Commitment.ID()
@@ -99,7 +91,7 @@ func (a *AccountWallet) CreateBlock(ctx context.Context, payload iotago.Payload,
 	blockBuilder.ProtocolVersion(version)
 	blockBuilder.SlotCommitmentID(commitmentID)
 	blockBuilder.LatestFinalizedSlot(issuerResp.LatestFinalizedSlot)
-	blockBuilder.IssuingTime(time.Now())
+	blockBuilder.IssuingTime(issuingTime)
 	blockBuilder.StrongParents(append(issuerResp.StrongParents, strongParents...))
 	blockBuilder.WeakParents(issuerResp.WeakParents)
 	blockBuilder.ShallowLikeParents(issuerResp.ShallowLikeParents)

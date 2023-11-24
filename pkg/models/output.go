@@ -73,7 +73,7 @@ func (a *AccountState) ToAccountData() *AccountData {
 // PayloadIssuanceData contains data for issuing a payload. Either ready payload or transaction build data along with issuer account required for signing.
 type PayloadIssuanceData struct {
 	Type               iotago.PayloadType
-	TransactionPayload *builder.TransactionBuilder
+	TransactionBuilder *builder.TransactionBuilder
 	Payload            iotago.Payload
 	TxSigningKeys      []iotago.AddressKeys
 }

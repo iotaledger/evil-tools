@@ -114,7 +114,6 @@ type faucetParams struct {
 }
 
 type faucet struct {
-	unspentOutput     *models.Output
 	account           wallet.Account
 	genesisKeyManager *wallet.KeyManager
 
@@ -131,7 +130,6 @@ func newFaucet(clt models.Client, faucetParams *faucetParams) (*faucet, error) {
 	if err != nil {
 		log.Warnf("failed to decode base58 seed, using the default one: %v", err)
 	}
-	faucetAddr := lo.PanicOnErr(wallet.NewKeyManager(genesisSeed, 0)).Address(iotago.AddressEd25519)
 
 	f := &faucet{
 		clt:               clt,
@@ -139,46 +137,5 @@ func newFaucet(clt models.Client, faucetParams *faucetParams) (*faucet, error) {
 		genesisKeyManager: lo.PanicOnErr(wallet.NewKeyManager(genesisSeed, 0)),
 	}
 
-	faucetUnspentOutput, faucetUnspentOutputID, faucetAmount, err := f.getGenesisOutputFromIndexer(clt, faucetAddr)
-	if err != nil {
-		return nil, ierrors.Wrap(err, "failed to get faucet output from indexer")
-	}
-
-	//nolint:all,forcetypassert
-	f.unspentOutput = &models.Output{
-		Address:      faucetAddr.(*iotago.Ed25519Address),
-		AddressIndex: 0,
-		OutputID:     faucetUnspentOutputID,
-		Balance:      faucetAmount,
-		OutputStruct: faucetUnspentOutput,
-	}
-
 	return f, nil
-}
-
-func (f *faucet) getGenesisOutputFromIndexer(clt models.Client, faucetAddr iotago.DirectUnlockableAddress) (iotago.Output, iotago.OutputID, iotago.BaseToken, error) {
-	results, err := clt.Indexer().Outputs(context.Background(), &api.BasicOutputsQuery{
-		AddressBech32: faucetAddr.Bech32(iotago.PrefixTestnet),
-	})
-	if err != nil {
-		return nil, iotago.EmptyOutputID, 0, ierrors.Wrap(err, "failed to prepare faucet unspent outputs indexer request")
-	}
-
-	var (
-		faucetUnspentOutput   iotago.Output
-		faucetUnspentOutputID iotago.OutputID
-		faucetAmount          iotago.BaseToken
-	)
-	for results.Next() {
-		unspents, err := results.Outputs(context.TODO())
-		if err != nil {
-			return nil, iotago.EmptyOutputID, 0, ierrors.Wrap(err, "failed to get faucet unspent outputs")
-		}
-
-		faucetUnspentOutput = unspents[0]
-		faucetAmount = faucetUnspentOutput.BaseTokenAmount()
-		faucetUnspentOutputID = lo.Return1(results.Response.Items.OutputIDs())[0]
-	}
-
-	return faucetUnspentOutput, faucetUnspentOutputID, faucetAmount, nil
 }

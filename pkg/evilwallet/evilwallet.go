@@ -455,11 +455,9 @@ func (e *EvilWallet) matchOutputsWithAliases(ctx context.Context, buildOptions *
 
 		switch output.Type() {
 		case iotago.OutputBasic:
-			outputBuilder := builder.NewBasicOutputBuilder(addr, output.BaseTokenAmount())
-			outputs = append(outputs, outputBuilder.MustBuild())
+			outputs = append(outputs, output)
 		case iotago.OutputAccount:
-			outputBuilder := builder.NewAccountOutputBuilder(addr, output.BaseTokenAmount())
-			outputs = append(outputs, outputBuilder.MustBuild())
+			outputs = append(outputs, output)
 		}
 
 		addrAliasMap[addr.String()] = alias

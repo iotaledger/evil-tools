@@ -217,13 +217,13 @@ func (o *OutputManager) AwaitWalletOutputsToBeConfirmed(ctx context.Context, wal
 // AwaitTransactionsAcceptance awaits for transaction confirmation and updates wallet with outputIDs.
 func (o *OutputManager) AwaitTransactionsAcceptance(ctx context.Context, txIDs ...iotago.TransactionID) {
 	wg := sync.WaitGroup{}
-	semaphore := make(chan bool, 1)
+	semaphore := make(chan bool, 10)
 	txLeft := atomic.NewInt64(int64(len(txIDs)))
 	o.log.Debugf("Awaiting confirmation of %d transactions", len(txIDs))
 
 	for _, txID := range txIDs {
 		wg.Add(1)
-		go func(txID iotago.TransactionID, clt models.Client) {
+		go func(ctx context.Context, txID iotago.TransactionID, clt models.Client) {
 			defer wg.Done()
 			semaphore <- true
 			defer func() {
@@ -240,7 +240,7 @@ func (o *OutputManager) AwaitTransactionsAcceptance(ctx context.Context, txIDs .
 
 			o.log.Debugf("Tx %s accepted, tx left: %d", txID.ToHex(), txLeft.Load())
 
-		}(txID, o.connector.GetClient())
+		}(ctx, txID, o.connector.GetClient())
 	}
 	wg.Wait()
 }

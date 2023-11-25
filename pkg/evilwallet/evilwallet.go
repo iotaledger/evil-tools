@@ -187,7 +187,11 @@ func (e *EvilWallet) setTxOutputIDs(tx *iotago.Transaction) error {
 		if modelOutput == nil {
 			return ierrors.Errorf("output not found for address %s", out.UnlockConditionSet().Address().Address.String())
 		}
-		outID := iotago.OutputIDFromTransactionIDAndIndex(lo.PanicOnErr(tx.ID()), uint16(idx))
+		txID, err := tx.ID()
+		if err != nil {
+			return ierrors.Wrap(err, "failed to get transaction id")
+		}
+		outID := iotago.OutputIDFromTransactionIDAndIndex(txID, uint16(idx))
 		modelOutput.OutputID = outID
 	}
 
@@ -451,9 +455,12 @@ func (e *EvilWallet) matchOutputsWithAliases(ctx context.Context, buildOptions *
 
 		switch output.Type() {
 		case iotago.OutputBasic:
-			outputs = append(outputs, output)
+			outputBuilder := builder.NewBasicOutputBuilder(addr, output.BaseTokenAmount()).
+				Mana(output.StoredMana())
+			outputs = append(outputs, outputBuilder.MustBuild())
 		case iotago.OutputAccount:
-			outputs = append(outputs, output)
+			outputBuilder := builder.NewAccountOutputBuilder(addr, output.BaseTokenAmount())
+			outputs = append(outputs, outputBuilder.MustBuild())
 		}
 
 		addrAliasMap[addr.String()] = alias
@@ -568,7 +575,6 @@ func (e *EvilWallet) prepareTransactionBuild(inputs []*models.Output, outputs io
 	}
 
 	txBuilder.SetCreationSlot(targetSlot)
-	// no allotment strategy
 
 	return txBuilder, walletKeys
 }

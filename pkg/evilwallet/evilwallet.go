@@ -155,10 +155,6 @@ func (e *EvilWallet) PrepareAndPostBlockWithTxBuildData(ctx context.Context, clt
 	if err != nil {
 		return iotago.EmptyBlockID, nil, ierrors.Wrap(err, "failed to get block built data")
 	}
-	//  TODO remove after updating iota.go deps using commitment for congestion response requests
-	if congestionResp.Slot != issuerResp.Commitment.Slot {
-		return iotago.EmptyBlockID, nil, ierrors.Errorf("congestion response slot and commitment slot do not match, congestion slot: %d, issuer slot: %d", congestionResp.Slot, issuerResp.Commitment.Slot)
-	}
 
 	// handle allotment strategy
 	txBuilder.AllotAllMana(txBuilder.CreationSlot(), issuer.ID())

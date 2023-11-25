@@ -28,8 +28,7 @@ func (a *AccountWallet) RequestBlockBuiltData(ctx context.Context, clt models.Cl
 		return nil, nil, 0, ierrors.Wrap(err, "failed to get block issuance data")
 	}
 
-	// TODO: pass commitmentID from issuerResp
-	congestionResp, err := clt.GetCongestion(ctx, account.Address())
+	congestionResp, err := clt.GetCongestion(ctx, account.Address(), lo.PanicOnErr(issuerResp.Commitment.ID()))
 	if err != nil {
 		return nil, nil, 0, ierrors.Wrapf(err, "failed to get congestion data for issuer %s", account.Address())
 	}

@@ -143,7 +143,7 @@ func (e *EvilWallet) requestFaucetFunds(ctx context.Context, wallet *Wallet) (ou
 	}
 
 	// update wallet with newly created output
-	output = e.outputManager.createOutputFromAddress(wallet, receiveAddr, iotaOutput.BaseTokenAmount(), outputID, iotaOutput)
+	output = e.outputManager.createOutputFromAddress(wallet, receiveAddr, outputID, iotaOutput)
 
 	return output, nil
 }
@@ -223,7 +223,7 @@ func (e *EvilWallet) splitOutputs(ctx context.Context, inputWallet, outputWallet
 }
 
 func (e *EvilWallet) createSplitOutputs(input *models.Output, receiveWallet *Wallet) ([]*OutputOption, error) {
-	totalAmount := input.Balance
+	totalAmount := input.OutputStruct.BaseTokenAmount()
 	splitNumber := FaucetRequestSplitNumber
 	minDeposit := e.minOutputStorageDeposit
 
@@ -244,10 +244,11 @@ func (e *EvilWallet) createSplitOutputs(input *models.Output, receiveWallet *Wal
 		splitNumber = int(outputsNum)
 	}
 
-	balances := utils.SplitBalanceEqually(splitNumber, input.Balance)
+	balances := utils.SplitBalanceEqually(splitNumber, input.OutputStruct.BaseTokenAmount())
+	manaBalances := utils.SplitBalanceEqually(splitNumber, input.OutputStruct.StoredMana())
 	outputs := make([]*OutputOption, splitNumber)
 	for i, bal := range balances {
-		outputs[i] = &OutputOption{amount: bal, address: receiveWallet.Address(), outputType: iotago.OutputBasic}
+		outputs[i] = &OutputOption{amount: bal, mana: manaBalances[i], address: receiveWallet.Address(), outputType: iotago.OutputBasic}
 	}
 
 	return outputs, nil

@@ -166,7 +166,7 @@ func (e *EvilWallet) PrepareAndPostBlockWithTxBuildData(ctx context.Context, clt
 	if err != nil {
 		return iotago.EmptyBlockID, nil, ierrors.Wrap(err, "failed to build and sign transaction")
 	}
-	e.log.Debug(utils.SprintTransaction(signedTx))
+
 	txID, err := signedTx.Transaction.ID()
 	if err != nil {
 		return iotago.EmptyBlockID, nil, ierrors.Wrap(err, "failed to get transaction id")
@@ -472,7 +472,7 @@ func (e *EvilWallet) prepareRemainderOutput(inputs []*models.Output, outputs []i
 	inputBalance := iotago.BaseToken(0)
 
 	for _, input := range inputs {
-		inputBalance += input.Balance
+		inputBalance += input.OutputStruct.BaseTokenAmount()
 		remainderAddress = input.Address
 	}
 
@@ -508,7 +508,7 @@ func (e *EvilWallet) updateOutputBalances(ctx context.Context, buildOptions *Opt
 			for _, input := range buildOptions.inputs {
 				// get balance from output manager
 				inputDetails := e.outputManager.GetOutput(ctx, input.Address.String(), input.OutputID)
-				totalBalance += inputDetails.Balance
+				totalBalance += inputDetails.OutputStruct.BaseTokenAmount()
 			}
 		} else {
 			for inputAlias := range buildOptions.aliasInputs {
@@ -517,7 +517,7 @@ func (e *EvilWallet) updateOutputBalances(ctx context.Context, buildOptions *Opt
 					err = ierrors.New("could not get input by input alias")
 					return
 				}
-				totalBalance += in.Balance
+				totalBalance += in.OutputStruct.BaseTokenAmount()
 			}
 		}
 		balances := utils.SplitBalanceEqually(len(buildOptions.outputs)+len(buildOptions.aliasOutputs), totalBalance)

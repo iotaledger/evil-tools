@@ -54,7 +54,6 @@ func (a *AccountWallet) RequestFaucetFunds(ctx context.Context, receiveAddr iota
 		OutputID:     outputID,
 		Address:      receiveAddr,
 		AddressIndex: 0,
-		Balance:      outputStruct.BaseTokenAmount(),
 		OutputStruct: outputStruct,
 	}, nil
 }

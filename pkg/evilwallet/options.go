@@ -30,6 +30,7 @@ type Options struct {
 type OutputOption struct {
 	aliasName  string
 	amount     iotago.BaseToken
+	mana       iotago.Mana
 	address    *iotago.Ed25519Address
 	outputType iotago.OutputType
 }
@@ -147,7 +148,8 @@ func WithOutputs(outputsOptions []*OutputOption) Option {
 			var output iotago.Output
 			switch outputOptions.outputType {
 			case iotago.OutputBasic:
-				outputBuilder := builder.NewBasicOutputBuilder(outputOptions.address, outputOptions.amount)
+				outputBuilder := builder.NewBasicOutputBuilder(outputOptions.address, outputOptions.amount).
+					Mana(outputOptions.mana)
 				output = outputBuilder.MustBuild()
 			case iotago.OutputAccount:
 				outputBuilder := builder.NewAccountOutputBuilder(outputOptions.address, outputOptions.amount)

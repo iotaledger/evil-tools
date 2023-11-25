@@ -149,7 +149,7 @@ func (w *Wallet) UnspentOutputBalance(addr string) iotago.BaseToken {
 
 	total := iotago.BaseToken(0)
 	if out, ok := w.unspentOutputs[addr]; ok {
-		total += out.Balance
+		total += out.OutputStruct.BaseTokenAmount()
 	}
 
 	return total

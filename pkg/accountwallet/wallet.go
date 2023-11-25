@@ -101,7 +101,7 @@ func NewAccountWallet(opts ...options.Option[AccountWallet]) (*AccountWallet, er
 
 			return
 		}
-		w.faucet.RequestTokenAmount = out.Balance
+		w.faucet.RequestTokenAmount = out.OutputStruct.BaseTokenAmount()
 		w.faucet.RequestManaAmount = out.OutputStruct.StoredMana()
 
 		log.Debugf("faucet initiated with %d tokens and %d mana", w.faucet.RequestTokenAmount, w.faucet.RequestManaAmount)

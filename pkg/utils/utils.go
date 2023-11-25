@@ -11,15 +11,15 @@ import (
 )
 
 // SplitBalanceEqually splits the balance equally between `splitNumber` outputs.
-func SplitBalanceEqually(splitNumber int, balance iotago.BaseToken) []iotago.BaseToken {
-	outputBalances := make([]iotago.BaseToken, 0)
+func SplitBalanceEqually[T iotago.BaseToken | iotago.Mana](splitNumber int, balance T) []T {
+	outputBalances := make([]T, 0)
 
 	// make sure the output balances are equal input
-	var totalBalance iotago.BaseToken
+	var totalBalance T
 
 	// input is divided equally among outputs
 	for i := 0; i < splitNumber-1; i++ {
-		outputBalances = append(outputBalances, balance/iotago.BaseToken(splitNumber))
+		outputBalances = append(outputBalances, balance/T(splitNumber))
 		totalBalance += outputBalances[i]
 	}
 	lastBalance := balance - totalBalance
@@ -51,7 +51,7 @@ func SprintTransaction(tx *iotago.SignedTransaction) string {
 func SumOutputsBalance(outputs []*models.Output) iotago.BaseToken {
 	balance := iotago.BaseToken(0)
 	for _, out := range outputs {
-		balance += out.Balance
+		balance += out.OutputStruct.BaseTokenAmount()
 	}
 
 	return balance

@@ -106,13 +106,12 @@ func (o *OutputManager) Track(ctx context.Context, outputIDs ...iotago.OutputID)
 
 // createOutputFromAddress creates output, retrieves outputID, and adds it to the wallet.
 // Provided address should be generated from provided wallet. Considers only first output found on address.
-func (o *OutputManager) createOutputFromAddress(w *Wallet, addr *iotago.Ed25519Address, balance iotago.BaseToken, outputID iotago.OutputID, outputStruct iotago.Output) *models.Output {
+func (o *OutputManager) createOutputFromAddress(w *Wallet, addr *iotago.Ed25519Address, outputID iotago.OutputID, outputStruct iotago.Output) *models.Output {
 	index := w.AddrIndexMap(addr.String())
 	out := &models.Output{
 		Address:      addr,
 		AddressIndex: index,
 		OutputID:     outputID,
-		Balance:      balance,
 		OutputStruct: outputStruct,
 	}
 	w.AddUnspentOutput(out)
@@ -128,7 +127,6 @@ func (o *OutputManager) AddOutput(ctx context.Context, w *Wallet, output iotago.
 	out := &models.Output{
 		Address:      addr,
 		AddressIndex: idx,
-		Balance:      output.BaseTokenAmount(),
 		OutputStruct: output,
 	}
 
@@ -176,7 +174,6 @@ func (o *OutputManager) GetOutput(ctx context.Context, addr string, outputID iot
 		output = &models.Output{
 			OutputID:     outputID,
 			Address:      basicOutput.UnlockConditionSet().Address().Address,
-			Balance:      basicOutput.BaseTokenAmount(),
 			OutputStruct: basicOutput,
 		}
 	}

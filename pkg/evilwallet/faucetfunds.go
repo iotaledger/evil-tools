@@ -143,7 +143,7 @@ func (e *EvilWallet) requestFaucetFunds(ctx context.Context, wallet *Wallet) (ou
 	}
 
 	// update wallet with newly created output
-	output = e.outputManager.createOutputFromAddress(wallet, receiveAddr, outputID, iotaOutput)
+	output = e.outputManager.createOutputFromAddress(wallet, e.accWallet.API, receiveAddr, outputID, iotaOutput)
 
 	return output, nil
 }
@@ -198,13 +198,13 @@ func (e *EvilWallet) splitOutputs(ctx context.Context, inputWallet, outputWallet
 	txIDs := make([]iotago.TransactionID, 0)
 	wg := sync.WaitGroup{}
 	// split all outputs stored in the input wallet
-	for addr := range inputWallet.UnspentOutputs() {
+	for id := range inputWallet.UnspentOutputs() {
 		wg.Add(1)
 
-		go func(addr string) {
+		go func(id models.TempOutputID) {
 			defer wg.Done()
 
-			input := inputWallet.UnspentOutput(addr)
+			input := inputWallet.UnspentOutput(id)
 			txID, err := e.splitOutput(ctx, input, inputWallet, outputWallet)
 			if err != nil {
 				e.log.Errorf("Failed to split output %s: %s", input.OutputID.ToHex(), err)
@@ -212,7 +212,7 @@ func (e *EvilWallet) splitOutputs(ctx context.Context, inputWallet, outputWallet
 				return
 			}
 			txIDs = append(txIDs, txID)
-		}(addr)
+		}(id)
 	}
 	wg.Wait()
 	e.log.Debug("All blocks with splitting transactions were posted")

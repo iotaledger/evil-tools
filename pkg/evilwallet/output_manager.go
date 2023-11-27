@@ -9,6 +9,7 @@ import (
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/evil-tools/pkg/utils"
 	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/logger"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
 	iotago "github.com/iotaledger/iota.go/v4"
@@ -18,8 +19,8 @@ import (
 type OutputManager struct {
 	connector models.Connector
 
-	wallets       *Wallets
-	addrWalletMap map[string]*Wallet
+	wallets         *Wallets
+	tempIDWalletMap map[models.TempOutputID]*Wallet
 
 	// stores solid outputs per node
 	issuerSolidOutIDMap map[string]map[iotago.OutputID]types.Empty
@@ -34,26 +35,26 @@ func NewOutputManager(connector models.Connector, wallets *Wallets, log *logger.
 	return &OutputManager{
 		connector:           connector,
 		wallets:             wallets,
-		addrWalletMap:       make(map[string]*Wallet),
+		tempIDWalletMap:     make(map[models.TempOutputID]*Wallet),
 		issuerSolidOutIDMap: make(map[string]map[iotago.OutputID]types.Empty),
 		log:                 log,
 	}
 }
 
 // setOutputIDWalletMap sets wallet for the provided outputID.
-func (o *OutputManager) setAddrWalletMap(address string, wallet *Wallet) {
+func (o *OutputManager) setTempIDWalletMap(id models.TempOutputID, wallet *Wallet) {
 	o.Lock()
 	defer o.Unlock()
 
-	o.addrWalletMap[address] = wallet
+	o.tempIDWalletMap[id] = wallet
 }
 
-// AddressWalletMap returns wallet corresponding to the address stored in OutputManager.
-func (o *OutputManager) AddressWalletMap(outputID string) *Wallet {
+// TempIDWalletMap returns wallet corresponding to the address stored in OutputManager.
+func (o *OutputManager) TempIDWalletMap(outputID models.TempOutputID) *Wallet {
 	o.RLock()
 	defer o.RUnlock()
 
-	return o.addrWalletMap[outputID]
+	return o.tempIDWalletMap[outputID]
 }
 
 // SetOutputIDSolidForIssuer sets solid flag for the provided outputID and issuer.
@@ -106,7 +107,7 @@ func (o *OutputManager) Track(ctx context.Context, outputIDs ...iotago.OutputID)
 
 // createOutputFromAddress creates output, retrieves outputID, and adds it to the wallet.
 // Provided address should be generated from provided wallet. Considers only first output found on address.
-func (o *OutputManager) createOutputFromAddress(w *Wallet, addr *iotago.Ed25519Address, outputID iotago.OutputID, outputStruct iotago.Output) *models.Output {
+func (o *OutputManager) createOutputFromAddress(w *Wallet, api iotago.API, addr *iotago.Ed25519Address, outputID iotago.OutputID, outputStruct iotago.Output) *models.Output {
 	index := w.AddrIndexMap(addr.String())
 	out := &models.Output{
 		Address:      addr,
@@ -114,14 +115,16 @@ func (o *OutputManager) createOutputFromAddress(w *Wallet, addr *iotago.Ed25519A
 		OutputID:     outputID,
 		OutputStruct: outputStruct,
 	}
-	w.AddUnspentOutput(out)
-	o.setAddrWalletMap(out.Address.String(), w)
+
+	tempID := lo.PanicOnErr(models.NewTempOutputID(api, out.OutputStruct))
+	w.AddUnspentOutput(tempID, out)
+	o.setTempIDWalletMap(tempID, w)
 
 	return out
 }
 
 // AddOutput adds existing output from wallet w to the OutputManager.
-func (o *OutputManager) AddOutput(ctx context.Context, w *Wallet, output iotago.Output) *models.Output {
+func (o *OutputManager) AddOutput(ctx context.Context, api iotago.API, w *Wallet, output iotago.Output) *models.Output {
 	addr := output.UnlockConditionSet().Address().Address
 	idx := w.AddrIndexMap(addr.String())
 	out := &models.Output{
@@ -130,6 +133,7 @@ func (o *OutputManager) AddOutput(ctx context.Context, w *Wallet, output iotago.
 		OutputStruct: output,
 	}
 
+	tempID := lo.PanicOnErr(models.NewTempOutputID(api, out.OutputStruct))
 	if w.walletType == Reuse {
 		go func(clt models.Client, wallet *Wallet, outputID iotago.OutputID) {
 			// Reuse wallet should only keep accepted outputs
@@ -139,24 +143,23 @@ func (o *OutputManager) AddOutput(ctx context.Context, w *Wallet, output iotago.
 
 				return
 			}
-
-			w.AddUnspentOutput(out)
-			o.setAddrWalletMap(out.Address.String(), wallet)
+			w.AddUnspentOutput(tempID, out)
+			o.setTempIDWalletMap(tempID, wallet)
 		}(o.connector.GetClient(), w, out.OutputID)
 
 		return out
 	}
 
-	w.AddUnspentOutput(out)
-	o.setAddrWalletMap(out.Address.String(), w)
+	w.AddUnspentOutput(tempID, out)
+	o.setTempIDWalletMap(tempID, w)
 
 	return out
 }
 
 // GetOutput returns the Output for the given address.
 // Firstly checks if output can be retrieved by outputManager from wallet, if not does an API call.
-func (o *OutputManager) GetOutput(ctx context.Context, addr string, outputID iotago.OutputID) (output *models.Output) {
-	output = o.getOutputFromWallet(addr)
+func (o *OutputManager) GetOutput(ctx context.Context, id models.TempOutputID, outputID iotago.OutputID) (output *models.Output) {
+	output = o.getOutputFromWallet(id)
 
 	// get output info via web api
 	if output == nil {
@@ -181,13 +184,13 @@ func (o *OutputManager) GetOutput(ctx context.Context, addr string, outputID iot
 	return output
 }
 
-func (o *OutputManager) getOutputFromWallet(addr string) (output *models.Output) {
+func (o *OutputManager) getOutputFromWallet(id models.TempOutputID) (output *models.Output) {
 	o.RLock()
 	defer o.RUnlock()
 
-	w, ok := o.addrWalletMap[addr]
+	w, ok := o.tempIDWalletMap[id]
 	if ok {
-		output = w.UnspentOutput(addr)
+		output = w.UnspentOutput(id)
 	}
 
 	return

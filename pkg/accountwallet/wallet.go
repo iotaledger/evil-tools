@@ -69,6 +69,7 @@ type AccountWallet struct {
 	latestUsedIndex atomic.Uint64
 
 	client *models.WebClient
+	API    iotago.API
 
 	optsClientBindAddress string
 	optsFaucetURL         string
@@ -88,6 +89,7 @@ func NewAccountWallet(opts ...options.Option[AccountWallet]) (*AccountWallet, er
 
 			return
 		}
+		w.API = w.client.LatestAPI()
 
 		w.faucet, initErr = newFaucet(w.client, w.optsFaucetParams)
 		if initErr != nil {

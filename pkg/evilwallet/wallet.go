@@ -20,11 +20,11 @@ import (
 type Wallet struct {
 	ID                walletID
 	walletType        WalletType
-	unspentOutputs    map[string]*models.Output // maps addr to its unspentOutput
-	indexAddrMap      map[uint64]string
+	unspentOutputs    map[models.TempOutputID]*models.Output // maps addr to its unspentOutput
+	indexTempIDMap    map[uint64]models.TempOutputID
 	addrIndexMap      map[string]uint64
 	inputTransactions map[string]types.Empty
-	reuseAddressPool  map[string]types.Empty
+	reuseTempIDPool   map[models.TempOutputID]types.Empty
 	seed              [32]byte
 
 	lastAddrIdxUsed atomic.Int64 // used during filling in wallet with new outputs
@@ -42,12 +42,12 @@ func NewWallet(wType ...WalletType) *Wallet {
 	idxSpent := atomic.NewInt64(-1)
 	addrUsed := atomic.NewInt64(-1)
 
-	wallet := &Wallet{
+	w := &Wallet{
 		walletType:        walletType,
 		ID:                -1,
 		seed:              tpkg.RandEd25519Seed(),
-		unspentOutputs:    make(map[string]*models.Output),
-		indexAddrMap:      make(map[uint64]string),
+		unspentOutputs:    make(map[models.TempOutputID]*models.Output),
+		indexTempIDMap:    make(map[uint64]models.TempOutputID),
 		addrIndexMap:      make(map[string]uint64),
 		inputTransactions: make(map[string]types.Empty),
 		lastAddrSpent:     *idxSpent,
@@ -56,10 +56,10 @@ func NewWallet(wType ...WalletType) *Wallet {
 	}
 
 	if walletType == Reuse {
-		wallet.reuseAddressPool = make(map[string]types.Empty)
+		w.reuseTempIDPool = make(map[models.TempOutputID]types.Empty)
 	}
 
-	return wallet
+	return w
 }
 
 // Type returns the wallet type.
@@ -76,7 +76,6 @@ func (w *Wallet) Address() *iotago.Ed25519Address {
 	keyManager := lo.PanicOnErr(wallet.NewKeyManager(w.seed[:], index))
 	//nolint:forcetypeassert
 	addr := keyManager.Address(iotago.AddressEd25519).(*iotago.Ed25519Address)
-	w.indexAddrMap[index] = addr.String()
 	w.addrIndexMap[addr.String()] = index
 
 	return addr
@@ -95,18 +94,18 @@ func (w *Wallet) AddressOnIndex(index uint64) *iotago.Ed25519Address {
 }
 
 // UnspentOutput returns the unspent output on the address.
-func (w *Wallet) UnspentOutput(addr string) *models.Output {
+func (w *Wallet) UnspentOutput(id models.TempOutputID) *models.Output {
 	w.RLock()
 	defer w.RUnlock()
 
-	return w.unspentOutputs[addr]
+	return w.unspentOutputs[id]
 }
 
 // UnspentOutputs returns all unspent outputs on the wallet.
-func (w *Wallet) UnspentOutputs() (outputs map[string]*models.Output) {
+func (w *Wallet) UnspentOutputs() (outputs map[models.TempOutputID]*models.Output) {
 	w.RLock()
 	defer w.RUnlock()
-	outputs = make(map[string]*models.Output)
+	outputs = make(map[models.TempOutputID]*models.Output)
 	for addr, outs := range w.unspentOutputs {
 		outputs[addr] = outs
 	}
@@ -114,12 +113,12 @@ func (w *Wallet) UnspentOutputs() (outputs map[string]*models.Output) {
 	return outputs
 }
 
-// IndexAddrMap returns the address for the index specified.
-func (w *Wallet) IndexAddrMap(outIndex uint64) string {
+// IndexTempIDMap returns the address for the index specified.
+func (w *Wallet) IndexTempIDMap(outIndex uint64) models.TempOutputID {
 	w.RLock()
 	defer w.RUnlock()
 
-	return w.indexAddrMap[outIndex]
+	return w.indexTempIDMap[outIndex]
 }
 
 // AddrIndexMap returns the index for the address specified.
@@ -131,24 +130,25 @@ func (w *Wallet) AddrIndexMap(address string) uint64 {
 }
 
 // AddUnspentOutput adds an unspentOutput of a given wallet.
-func (w *Wallet) AddUnspentOutput(output *models.Output) {
+func (w *Wallet) AddUnspentOutput(id models.TempOutputID, output *models.Output) {
 	w.Lock()
 	defer w.Unlock()
 
-	w.unspentOutputs[output.Address.String()] = output
+	w.unspentOutputs[id] = output
+	w.indexTempIDMap[output.AddressIndex] = id
 
 	if w.walletType == Reuse {
-		w.reuseAddressPool[output.Address.String()] = types.Void
+		w.reuseTempIDPool[id] = types.Void
 	}
 }
 
 // UnspentOutputBalance returns the balance on the unspent output sitting on the address specified.
-func (w *Wallet) UnspentOutputBalance(addr string) iotago.BaseToken {
+func (w *Wallet) UnspentOutputBalance(id models.TempOutputID) iotago.BaseToken {
 	w.RLock()
 	defer w.RUnlock()
 
 	total := iotago.BaseToken(0)
-	if out, ok := w.unspentOutputs[addr]; ok {
+	if out, ok := w.unspentOutputs[id]; ok {
 		total += out.OutputStruct.BaseTokenAmount()
 	}
 
@@ -167,7 +167,7 @@ func (w *Wallet) UnspentOutputsLeft() (left int) {
 
 	switch w.walletType {
 	case Reuse:
-		left = len(w.reuseAddressPool)
+		left = len(w.reuseTempIDPool)
 	default:
 		left = int(w.lastAddrIdxUsed.Load() - w.lastAddrSpent.Load())
 	}
@@ -176,30 +176,30 @@ func (w *Wallet) UnspentOutputsLeft() (left int) {
 }
 
 // AddReuseAddress adds address to the reuse ready outputs' addresses pool for a Reuse wallet.
-func (w *Wallet) AddReuseAddress(addr string) {
+func (w *Wallet) AddReuseAddress(id models.TempOutputID) {
 	w.Lock()
 	defer w.Unlock()
 
 	if w.walletType == Reuse {
-		w.reuseAddressPool[addr] = types.Void
+		w.reuseTempIDPool[id] = types.Void
 	}
 }
 
 // GetReuseAddress get random address from reuse addresses reuseOutputsAddresses pool. Address is removed from the pool after selecting.
-func (w *Wallet) GetReuseAddress() string {
+func (w *Wallet) GetReuseAddress() models.TempOutputID {
 	w.Lock()
 	defer w.Unlock()
 
 	if w.walletType == Reuse {
-		if len(w.reuseAddressPool) > 0 {
-			for addr := range w.reuseAddressPool {
-				delete(w.reuseAddressPool, addr)
-				return addr
+		if len(w.reuseTempIDPool) > 0 {
+			for id := range w.reuseTempIDPool {
+				delete(w.reuseTempIDPool, id)
+				return id
 			}
 		}
 	}
 
-	return ""
+	return models.TempOutputID{}
 }
 
 // GetUnspentOutput returns an unspent output on the oldest address ordered by index.
@@ -211,7 +211,7 @@ func (w *Wallet) GetUnspentOutput() *models.Output {
 	default:
 		if w.lastAddrSpent.Load() < w.lastAddrIdxUsed.Load() {
 			idx := w.lastAddrSpent.Inc()
-			addr := w.IndexAddrMap(uint64(idx))
+			addr := w.IndexTempIDMap(uint64(idx))
 			outs := w.UnspentOutput(addr)
 
 			return outs

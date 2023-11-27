@@ -183,7 +183,8 @@ func (e *EvilWallet) PrepareAndPostBlockWithTxBuildData(ctx context.Context, clt
 
 func (e *EvilWallet) setTxOutputIDs(tx *iotago.Transaction) error {
 	for idx, out := range tx.Outputs {
-		modelOutput := e.outputManager.getOutputFromWallet(out.UnlockConditionSet().Address().Address.String())
+		tempID := lo.PanicOnErr(models.NewTempOutputID(e.accWallet.API, out))
+		modelOutput := e.outputManager.getOutputFromWallet(tempID)
 		if modelOutput == nil {
 			return ierrors.Errorf("output not found for address %s", out.UnlockConditionSet().Address().Address.String())
 		}
@@ -256,14 +257,14 @@ func (e *EvilWallet) CreateTransaction(ctx context.Context, options ...Option) (
 		return nil, err
 	}
 
-	alias, remainder, remainderAddr, hasRemainder := e.prepareRemainderOutput(inputs, outputs)
+	alias, remainder, hasRemainder := e.prepareRemainderOutput(inputs, outputs)
 	if hasRemainder {
 		outputs = append(outputs, remainder)
 		if alias != "" && addrAliasMap != nil {
-			addrAliasMap[remainderAddr.String()] = alias
+			tempID := lo.PanicOnErr(models.NewTempOutputID(e.accWallet.API, remainder))
+			addrAliasMap[tempID] = alias
 		}
 	}
-
 	txBuilder, signingKeys := e.prepareTransactionBuild(inputs, outputs, buildOptions.inputWallet)
 	txData := &models.PayloadIssuanceData{
 		Type:               iotago.PayloadSignedTransaction,
@@ -294,9 +295,9 @@ func (e *EvilWallet) addOutputsToOutputManager(ctx context.Context, outputs []io
 		// outputs in the middle of the scenario structure are created with tempWallet,
 		//only outputs that are not used in the scenario structure are added to the outWaller and can be reused.
 		if _, ok := tempAddresses[addr.String()]; ok {
-			output = e.outputManager.AddOutput(ctx, tmpWallet, out)
+			output = e.outputManager.AddOutput(ctx, e.accWallet.API, tmpWallet, out)
 		} else {
-			output = e.outputManager.AddOutput(ctx, outWallet, out)
+			output = e.outputManager.AddOutput(ctx, e.accWallet.API, outWallet, out)
 		}
 
 		modelOutputs = append(modelOutputs, output)
@@ -331,17 +332,18 @@ func (e *EvilWallet) updateInputWallet(buildOptions *Options) error {
 }
 
 // registerOutputAliases adds models.Output references to their aliases to the AliasManager.
-func (e *EvilWallet) registerOutputAliases(outputs []*models.Output, addrAliasMap map[string]string) {
-	if len(addrAliasMap) == 0 {
+func (e *EvilWallet) registerOutputAliases(outputs []*models.Output, idAliasMap map[models.TempOutputID]string) {
+	if len(idAliasMap) == 0 {
 		return
 	}
 
 	for _, out := range outputs {
+		tempID := lo.PanicOnErr(models.NewTempOutputID(e.accWallet.API, out.OutputStruct))
 		// register output alias
-		e.aliasManager.AddOutputAlias(out, addrAliasMap[out.Address.String()])
+		e.aliasManager.AddOutputAlias(out, idAliasMap[tempID])
 
 		// register output as unspent output(input)
-		e.aliasManager.AddInputAlias(out, addrAliasMap[out.Address.String()])
+		e.aliasManager.AddInputAlias(out, idAliasMap[tempID])
 	}
 }
 
@@ -364,7 +366,7 @@ func (e *EvilWallet) prepareInputs(buildOptions *Options) (inputs []*models.Outp
 
 // prepareOutputs creates outputs for different scenarios, if no aliases were provided, new empty outputs are created from buildOptions.outputs balances.
 func (e *EvilWallet) prepareOutputs(ctx context.Context, buildOptions *Options, tempWallet *Wallet) (outputs []iotago.Output,
-	addrAliasMap map[string]string, tempAddresses map[string]types.Empty, err error,
+	addrAliasMap map[models.TempOutputID]string, tempAddresses map[string]types.Empty, err error,
 ) {
 	if buildOptions.areOutputsProvidedWithoutAliases() {
 		outputs = append(outputs, buildOptions.outputs...)
@@ -435,7 +437,7 @@ func (e *EvilWallet) useFreshIfInputWalletNotProvided(buildOptions *Options) (*W
 // that indicates which outputs should be saved to the outputWallet. All other outputs are created with temporary wallet,
 // and their addresses are stored in tempAddresses.
 func (e *EvilWallet) matchOutputsWithAliases(ctx context.Context, buildOptions *Options, tempWallet *Wallet) (outputs []iotago.Output,
-	addrAliasMap map[string]string, tempAddresses map[string]types.Empty, err error,
+	idAliasMap map[models.TempOutputID]string, tempAddresses map[string]types.Empty, err error,
 ) {
 	err = e.updateOutputBalances(ctx, buildOptions)
 	if err != nil {
@@ -443,7 +445,7 @@ func (e *EvilWallet) matchOutputsWithAliases(ctx context.Context, buildOptions *
 	}
 
 	tempAddresses = make(map[string]types.Empty)
-	addrAliasMap = make(map[string]string)
+	idAliasMap = make(map[models.TempOutputID]string)
 	for alias, output := range buildOptions.aliasOutputs {
 		var addr *iotago.Ed25519Address
 		if _, ok := buildOptions.outputBatchAliases[alias]; ok {
@@ -462,16 +464,17 @@ func (e *EvilWallet) matchOutputsWithAliases(ctx context.Context, buildOptions *
 			outputBuilder := builder.NewAccountOutputBuilder(addr, output.BaseTokenAmount())
 			outputs = append(outputs, outputBuilder.MustBuild())
 		}
-
-		addrAliasMap[addr.String()] = alias
+		tempID := lo.PanicOnErr(models.NewTempOutputID(e.accWallet.API, output))
+		idAliasMap[tempID] = alias
 	}
 
 	return
 }
 
-func (e *EvilWallet) prepareRemainderOutput(inputs []*models.Output, outputs []iotago.Output) (alias string, remainderOutput iotago.Output, remainderAddress iotago.Address, added bool) {
+func (e *EvilWallet) prepareRemainderOutput(inputs []*models.Output, outputs []iotago.Output) (alias string, remainderOutput iotago.Output, added bool) {
 	inputBalance := iotago.BaseToken(0)
 
+	var remainderAddress iotago.Address
 	for _, input := range inputs {
 		inputBalance += input.OutputStruct.BaseTokenAmount()
 		remainderAddress = input.Address
@@ -508,7 +511,8 @@ func (e *EvilWallet) updateOutputBalances(ctx context.Context, buildOptions *Opt
 		if buildOptions.areInputsProvidedWithoutAliases() {
 			for _, input := range buildOptions.inputs {
 				// get balance from output manager
-				inputDetails := e.outputManager.GetOutput(ctx, input.Address.String(), input.OutputID)
+				tempID := lo.PanicOnErr(models.NewTempOutputID(e.accWallet.API, input.OutputStruct))
+				inputDetails := e.outputManager.GetOutput(ctx, tempID, input.OutputID)
 				totalBalance += inputDetails.OutputStruct.BaseTokenAmount()
 			}
 		} else {
@@ -565,7 +569,8 @@ func (e *EvilWallet) prepareTransactionBuild(inputs []*models.Output, outputs io
 		addr := input.Address
 		var wlt *Wallet
 		if w == nil { // aliases provided with inputs, use wallet saved in the outputManager
-			wlt = e.outputManager.AddressWalletMap(input.Address.String())
+			tempID := lo.PanicOnErr(models.NewTempOutputID(e.accWallet.API, input.OutputStruct))
+			wlt = e.outputManager.TempIDWalletMap(tempID)
 		} else {
 			wlt = w
 		}

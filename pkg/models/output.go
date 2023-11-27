@@ -3,8 +3,11 @@ package models
 import (
 	"crypto/ed25519"
 
+	"golang.org/x/crypto/blake2b"
+
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/builder"
+	"github.com/iotaledger/iota.go/v4/hexutil"
 	"github.com/iotaledger/iota.go/v4/wallet"
 )
 
@@ -88,4 +91,23 @@ const (
 type IssuancePaymentStrategy struct {
 	AllotmentStrategy AllotmentStrategy
 	IssuerAlias       string
+}
+
+type TempOutputID [32]byte
+
+func NewTempOutputID(api iotago.API, out iotago.Output) (TempOutputID, error) {
+	b, err := api.Encode(out)
+	if err != nil {
+		return TempOutputID{}, err
+	}
+
+	return blake2b.Sum256(b), nil
+}
+
+func (f TempOutputID) Bytes() []byte {
+	return f[:]
+}
+
+func (f TempOutputID) String() string {
+	return hexutil.EncodeHex(f[:])
 }

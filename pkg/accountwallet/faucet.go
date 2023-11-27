@@ -124,7 +124,7 @@ type faucet struct {
 	sync.Mutex
 }
 
-func newFaucet(clt models.Client, faucetParams *faucetParams) (*faucet, error) {
+func newFaucet(clt models.Client, faucetParams *faucetParams) *faucet {
 	genesisSeed, err := base58.Decode(faucetParams.genesisSeed)
 	if err != nil {
 		log.Warnf("failed to decode base58 seed, using the default one: %v", err)
@@ -136,5 +136,5 @@ func newFaucet(clt models.Client, faucetParams *faucetParams) (*faucet, error) {
 		genesisKeyManager: lo.PanicOnErr(wallet.NewKeyManager(genesisSeed, 0)),
 	}
 
-	return f, nil
+	return f
 }

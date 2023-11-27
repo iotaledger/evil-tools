@@ -30,7 +30,7 @@ type OutputManager struct {
 	syncutils.RWMutex
 }
 
-// NewOutputManager creates an OutputManager instance. All outputs are mapped based on their address, so address should never be reused
+// NewOutputManager creates an OutputManager instance. All outputs are mapped based on their address, so address should never be reused.
 func NewOutputManager(connector models.Connector, wallets *Wallets, log *logger.Logger) *OutputManager {
 	return &OutputManager{
 		connector:           connector,

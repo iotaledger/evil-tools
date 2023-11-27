@@ -6,7 +6,6 @@ import (
 	"github.com/iotaledger/hive.go/ierrors"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/builder"
-	"github.com/iotaledger/iota.go/v4/wallet"
 )
 
 // region Options ///////////////////////////////////////////////////////////////////////////
@@ -21,8 +20,6 @@ type Options struct {
 	outputWallet       *Wallet
 	outputBatchAliases map[string]types.Empty
 	reuse              bool
-	allotmentStrategy  models.AllotmentStrategy
-	issuer             wallet.Account
 	// maps input alias to desired output type, used to create account output types
 	specialOutputTypes map[string]iotago.OutputType
 }

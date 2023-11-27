@@ -91,10 +91,7 @@ func NewAccountWallet(opts ...options.Option[AccountWallet]) (*AccountWallet, er
 		}
 		w.API = w.client.LatestAPI()
 
-		w.faucet, initErr = newFaucet(w.client, w.optsFaucetParams)
-		if initErr != nil {
-			return
-		}
+		w.faucet = newFaucet(w.client, w.optsFaucetParams)
 
 		out, err := w.RequestFaucetFunds(context.Background(), tpkg.RandEd25519Address())
 		if err != nil {

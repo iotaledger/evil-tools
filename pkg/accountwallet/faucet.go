@@ -35,7 +35,7 @@ func (a *AccountWallet) RequestBlockBuiltData(ctx context.Context, clt *nodeclie
 		return nil, nil, 0, ierrors.Wrapf(err, "failed to get congestion data for issuer %s", account.Address())
 	}
 
-	version := clt.APIForSlot(issuerResp.Commitment.Slot).Version()
+	version := clt.APIForSlot(issuerResp.LatestCommitment.Slot).Version()
 
 	return congestionResp, issuerResp, version, nil
 }
@@ -92,7 +92,7 @@ func (a *AccountWallet) CreateBlock(ctx context.Context, payload iotago.Payload,
 
 	blockBuilder := builder.NewBasicBlockBuilder(apiForSlot)
 
-	commitmentID, err := issuerResp.Commitment.ID()
+	commitmentID, err := issuerResp.LatestCommitment.ID()
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to get commitment id")
 	}

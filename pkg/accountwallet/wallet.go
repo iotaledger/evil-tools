@@ -92,16 +92,19 @@ func NewAccountWallet(opts ...options.Option[AccountWallet]) (*AccountWallet, er
 		w.API = w.client.LatestAPI()
 
 		w.faucet = newFaucet(w.client, w.optsFaucetParams)
+		//
+		//out, err := w.RequestFaucetFunds(context.Background(), tpkg.RandEd25519Address())
+		//if err != nil {
+		//	initErr = err
+		//	log.Errorf("failed to request faucet funds: %s, faucet not initiated", err.Error())
+		//
+		//	return
+		//}
+		//w.faucet.RequestTokenAmount = out.OutputStruct.BaseTokenAmount()
+		//w.faucet.RequestManaAmount = out.OutputStruct.StoredMana()
 
-		out, err := w.RequestFaucetFunds(context.Background(), tpkg.RandEd25519Address())
-		if err != nil {
-			initErr = err
-			log.Errorf("failed to request faucet funds: %s, faucet not initiated", err.Error())
-
-			return
-		}
-		w.faucet.RequestTokenAmount = out.OutputStruct.BaseTokenAmount()
-		w.faucet.RequestManaAmount = out.OutputStruct.StoredMana()
+		w.faucet.RequestTokenAmount = 1000000000000
+		w.faucet.RequestManaAmount = 100000000
 
 		log.Debugf("faucet initiated with %d tokens and %d mana", w.faucet.RequestTokenAmount, w.faucet.RequestManaAmount)
 		w.accountsAliases[GenesisAccountAlias] = &models.AccountData{

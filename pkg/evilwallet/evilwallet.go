@@ -31,7 +31,7 @@ const (
 )
 
 var (
-	defaultClientsURLs = []string{"http://localhost:8050", "http://localhost:8060"}
+	defaultClientsURLs = []string{"http://localhost:8050"} //, "http://localhost:8060"}
 	defaultFaucetURL   = "http://localhost:8088"
 
 	NoFreshOutputsAvailable = ierrors.New("no fresh wallet is available")

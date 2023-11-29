@@ -18,8 +18,8 @@ import (
 )
 
 const (
-	GenesisAccountAlias   = "genesis-account"
-	MaxFaucetManaRequests = 10
+	GenesisAccountAlias              = "genesis-account"
+	MaxFaucetRequestsForOneOperation = 10
 )
 
 func (a *AccountWallet) RequestBlockBuiltData(ctx context.Context, clt models.Client, account wallet.Account) (*api.CongestionResponse, *api.IssuanceBlockHeaderResponse, iotago.Version, error) {

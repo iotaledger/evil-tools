@@ -14,7 +14,7 @@ import (
 
 const (
 	// FaucetRequestSplitNumber defines the number of outputs to split from a faucet request.
-	FaucetRequestSplitNumber = 125
+	FaucetRequestSplitNumber = 100
 )
 
 // RequestFundsFromFaucet requests funds from the faucet, then track the confirmed status of unspent output,

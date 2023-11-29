@@ -189,7 +189,7 @@ func (a *AccountWallet) registerAccount(alias string, outputID iotago.OutputID, 
 
 	accountID := iotago.AccountIDFromOutputID(outputID)
 	account := wallet.NewEd25519Account(accountID, privateKey)
-
+	log.Debugf("registering account %s with alias %s\noutputID: %s addr: %s\n", accountID.String(), alias, outputID.String(), account.Address().String())
 	a.accountsAliases[alias] = &models.AccountData{
 		Alias:    alias,
 		Account:  account,

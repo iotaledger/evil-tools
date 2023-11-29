@@ -49,6 +49,8 @@ func (a *AccountWallet) RequestFaucetFunds(ctx context.Context, receiveAddr iota
 		return nil, ierrors.Wrap(err, "failed to await faucet funds")
 	}
 
+	log.Debugf("RequestFaucetFunds received faucet funds for addr type: %s, %s", receiveAddr.Type(), receiveAddr.String())
+
 	return &models.Output{
 		OutputID:     outputID,
 		Address:      receiveAddr,

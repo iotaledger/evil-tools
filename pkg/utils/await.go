@@ -41,17 +41,17 @@ func isTransactionStateFailure(transactionState string) bool {
 }
 
 func evaluateBlockIssuanceResponse(resp *api.BlockMetadataResponse) (accepted bool, err error) {
-	if isBlockStateAtLeastAccepted(resp.BlockState) && isTransactionStateAtLeastAccepted(resp.TransactionState) {
+	if isBlockStateAtLeastAccepted(resp.BlockState) && isTransactionStateAtLeastAccepted(resp.TransactionMetadata.TransactionState) {
 		return true, nil
 	}
 
-	if isBlockStateFailure(resp.BlockState) || isTransactionStateFailure(resp.TransactionState) {
+	if isBlockStateFailure(resp.BlockState) || isTransactionStateFailure(resp.TransactionMetadata.TransactionState) {
 		err = ierrors.Errorf("block status failure")
 		if isBlockStateFailure(resp.BlockState) {
 			err = ierrors.Wrapf(err, "block failure reason: %d", resp.BlockFailureReason)
 		}
-		if isTransactionStateFailure(resp.TransactionState) {
-			err = ierrors.Wrapf(err, "transaction failure reason: %d", resp.TransactionFailureReason)
+		if isTransactionStateFailure(resp.TransactionMetadata.TransactionState) {
+			err = ierrors.Wrapf(err, "transaction failure reason: %d", resp.TransactionMetadata.TransactionFailureReason)
 		}
 
 		return false, err
@@ -72,13 +72,13 @@ func AwaitBlockAndPayloadAcceptance(ctx context.Context, clt models.Client, bloc
 
 		accepted, err := evaluateBlockIssuanceResponse(resp)
 		if accepted {
-			Logger.Debugf("Block %s issuance success, status: %s, transaction state: %s", blockID.ToHex(), resp.BlockState, resp.TransactionState)
+			Logger.Debugf("Block %s issuance success, status: %s, transaction state: %s", blockID.ToHex(), resp.BlockState, resp.TransactionMetadata.TransactionState)
 
 			return nil
 		}
 
 		if err != nil {
-			Logger.Debugf("Block %s issuance failure, block failure reason: %d, tx failure reason: %d", blockID.ToHex(), resp.BlockFailureReason, resp.TransactionFailureReason)
+			Logger.Debugf("Block %s issuance failure, block failure reason: %d, tx failure reason: %d", blockID.ToHex(), resp.BlockFailureReason, resp.TransactionMetadata.TransactionFailureReason)
 
 			return err
 		}
@@ -97,13 +97,13 @@ func AwaitBlockWithTransactionToBeAccepted(ctx context.Context, clt models.Clien
 
 		accepted, err := evaluateBlockIssuanceResponse(resp)
 		if accepted {
-			Logger.Debugf("Transaction %s issuance success, state: %s", txID.ToHex(), resp.TransactionState)
+			Logger.Debugf("Transaction %s issuance success, state: %s", txID.ToHex(), resp.TransactionMetadata.TransactionState)
 
 			return nil
 		}
 
 		if err != nil {
-			Logger.Debugf("Transaction %s issuance failure, tx failure reason: %d, block failure reason: %d", txID.ToHex(), resp.TransactionFailureReason, resp.BlockFailureReason)
+			Logger.Debugf("Transaction %s issuance failure, tx failure reason: %d, block failure reason: %d", txID.ToHex(), resp.TransactionMetadata.TransactionFailureReason, resp.BlockFailureReason)
 
 			return err
 		}
@@ -152,7 +152,7 @@ func AwaitOutputToBeAccepted(ctx context.Context, clt models.Client, outputID io
 			continue
 		}
 
-		if isTransactionStateAtLeastAccepted(resp.TransactionState) {
+		if isTransactionStateAtLeastAccepted(resp.TransactionMetadata.TransactionState) {
 			return nil
 		}
 	}
@@ -167,9 +167,9 @@ func AwaitCommitment(ctx context.Context, clt models.Client, slot iotago.SlotInd
 		if err != nil {
 			continue
 		}
-		Logger.Debugf("Awaiting commitment for slot %d, latest committed slot: %d", slot, resp.Commitment.Slot)
+		Logger.Debugf("Awaiting commitment for slot %d, latest committed slot: %d", slot, resp.LatestCommitment.Slot)
 
-		latestCommittedSlot := resp.Commitment.Slot
+		latestCommittedSlot := resp.LatestCommitment.Slot
 		if slot <= latestCommittedSlot {
 			return nil
 		}

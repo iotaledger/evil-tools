@@ -234,7 +234,7 @@ func (a *AccountWallet) checkAccountStatus(ctx context.Context, blkID iotago.Blo
 func (a *AccountWallet) createAccountCreationTransaction(inputs []*models.Output, accountOutput *iotago.AccountOutput, congestionResp *api.CongestionResponse, issuerResp *api.IssuanceBlockHeaderResponse) (*iotago.SignedTransaction, error) {
 	txBuilder := a.createTransactionBuilder(inputs, accountOutput)
 
-	commitmentID, _ := issuerResp.Commitment.ID()
+	commitmentID, _ := issuerResp.LatestCommitment.ID()
 	txBuilder.AddCommitmentInput(&iotago.CommitmentInput{CommitmentID: commitmentID})
 	txBuilder.AddBlockIssuanceCreditInput(&iotago.BlockIssuanceCreditInput{AccountID: accountOutput.AccountID})
 

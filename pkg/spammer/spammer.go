@@ -295,6 +295,22 @@ func (s *Spammer) PrepareAndPostBlock(ctx context.Context, txData *models.Payloa
 		blockID, err = s.EvilWallet.PrepareAndPostBlockWithPayload(ctx, clt, txData.Payload, issuerAccount)
 	case iotago.PayloadSignedTransaction:
 		blockID, tx, err = s.EvilWallet.PrepareAndPostBlockWithTxBuildData(ctx, clt, txData.TransactionBuilder, txData.TxSigningKeys, issuerAccount)
+	default:
+		// unknown payload type
+		s.logError(ErrUnknownPayloadType)
+		s.ErrCounter.CountError(ErrUnknownPayloadType)
+
+		return iotago.EmptyBlockID
+	}
+
+	if err != nil {
+		s.logError(ierrors.Wrap(err, ErrFailPostBlock.Error()))
+		s.ErrCounter.CountError(ierrors.Wrap(err, ErrFailPostBlock.Error()))
+
+		return iotago.EmptyBlockID
+	}
+
+	if txData.Type == iotago.PayloadSignedTransaction {
 		// reuse outputs
 		if s.EvilScenario.OutputWallet.Type() == evilwallet.Reuse {
 			txID, err := tx.ID()
@@ -312,19 +328,6 @@ func (s *Spammer) PrepareAndPostBlock(ctx context.Context, txData *models.Payloa
 
 			s.EvilWallet.SetTxOutputsSolid(outputIDs, clt.URL())
 		}
-	default:
-		// unknown payload type
-		s.logError(ErrUnknownPayloadType)
-		s.ErrCounter.CountError(ErrUnknownPayloadType)
-
-		return iotago.EmptyBlockID
-	}
-
-	if err != nil {
-		s.logError(ierrors.Wrap(err, ErrFailPostBlock.Error()))
-		s.ErrCounter.CountError(ierrors.Wrap(err, ErrFailPostBlock.Error()))
-
-		return iotago.EmptyBlockID
 	}
 
 	if txData.Type != iotago.PayloadSignedTransaction {

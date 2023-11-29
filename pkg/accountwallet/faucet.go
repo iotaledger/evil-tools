@@ -38,23 +38,18 @@ func (a *AccountWallet) RequestBlockBuiltData(ctx context.Context, clt models.Cl
 	return congestionResp, issuerResp, version, nil
 }
 
-func (a *AccountWallet) RequestFaucetFunds(ctx context.Context, receiveAddr iotago.Address) (*models.Output, error) {
+func (a *AccountWallet) RequestFaucetFunds(ctx context.Context, receiveAddr iotago.Address) (iotago.OutputID, iotago.Output, error) {
 	err := a.client.RequestFaucetFunds(ctx, receiveAddr)
 	if err != nil {
-		return nil, ierrors.Wrap(err, "failed to request funds from faucet")
+		return iotago.EmptyOutputID, nil, ierrors.Wrap(err, "failed to request funds from faucet")
 	}
 
 	outputID, outputStruct, err := utils.AwaitAddressUnspentOutputToBeAccepted(ctx, a.client, receiveAddr)
 	if err != nil {
-		return nil, ierrors.Wrap(err, "failed to await faucet funds")
+		return iotago.EmptyOutputID, nil, ierrors.Wrap(err, "failed to await faucet funds")
 	}
 
-	return &models.Output{
-		OutputID:     outputID,
-		Address:      receiveAddr,
-		AddressIndex: 0,
-		OutputStruct: outputStruct,
-	}, nil
+	return outputID, outputStruct, nil
 }
 
 func (a *AccountWallet) PostWithBlock(ctx context.Context, clt models.Client, payload iotago.Payload, issuer wallet.Account, congestionResp *api.CongestionResponse, issuerResp *api.IssuanceBlockHeaderResponse, version iotago.Version, strongParents ...iotago.BlockID) (iotago.BlockID, error) {

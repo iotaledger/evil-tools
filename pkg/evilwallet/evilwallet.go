@@ -272,16 +272,14 @@ func (e *EvilWallet) CreateTransaction(ctx context.Context, options ...Option) (
 		TxSigningKeys:      signingKeys,
 	}
 
-	// we don't have outputID yet,
-
-	addedOutputs := e.addOutputsToOutputManager(ctx, outputs, buildOptions.outputWallet, tempWallet, tempAddresses)
+	addedOutputs := e.addOutputsToOutputManager(outputs, buildOptions.outputWallet, tempWallet, tempAddresses)
 	e.registerOutputAliases(addedOutputs, addrAliasMap)
 
 	return txData, nil
 }
 
 // addOutputsToOutputManager adds output to the OutputManager if.
-func (e *EvilWallet) addOutputsToOutputManager(ctx context.Context, outputs []iotago.Output, outWallet, tmpWallet *Wallet, tempAddresses map[string]types.Empty) []*models.Output {
+func (e *EvilWallet) addOutputsToOutputManager(outputs []iotago.Output, outWallet, tmpWallet *Wallet, tempAddresses map[string]types.Empty) []*models.Output {
 	modelOutputs := make([]*models.Output, 0)
 	for _, out := range outputs {
 		if out.UnlockConditionSet().Address() == nil {
@@ -295,9 +293,9 @@ func (e *EvilWallet) addOutputsToOutputManager(ctx context.Context, outputs []io
 		// outputs in the middle of the scenario structure are created with tempWallet,
 		//only outputs that are not used in the scenario structure are added to the outWaller and can be reused.
 		if _, ok := tempAddresses[addr.String()]; ok {
-			output = e.outputManager.AddOutput(ctx, e.accWallet.API, tmpWallet, out)
+			output = e.outputManager.AddOutput(e.accWallet.API, tmpWallet, out)
 		} else {
-			output = e.outputManager.AddOutput(ctx, e.accWallet.API, outWallet, out)
+			output = e.outputManager.AddOutput(e.accWallet.API, outWallet, out)
 		}
 
 		modelOutputs = append(modelOutputs, output)

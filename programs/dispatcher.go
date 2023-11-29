@@ -25,8 +25,6 @@ func NewDispatcher(accWallet *accountwallet.AccountWallet) *Dispatcher {
 }
 
 func (d *Dispatcher) RunSpam(ctx context.Context, params *CustomSpamParams) {
-	// todo custom spam should return a spammer instance, and the process should run in the background
-	// or we could inject channel to be able to stop the spammer
 	CustomSpam(ctx, params, d.accWallet)
 
 	d.activeSpammers = append(d.activeSpammers, &Runner{

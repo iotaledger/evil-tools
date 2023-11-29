@@ -30,7 +30,7 @@ func SplitBalanceEqually[T iotago.BaseToken | iotago.Mana](splitNumber int, bala
 
 func SprintTransaction(tx *iotago.SignedTransaction) string {
 	txDetails := ""
-	txDetails += fmt.Sprintf("\tTransaction ID; %s, slotCreation: %d\n", lo.PanicOnErr(tx.ID()).ToHex(), tx.Transaction.CreationSlot)
+	txDetails += fmt.Sprintf("\tSigned Transaction ID: %s, txID: %s, slotCreation: %d\n", lo.PanicOnErr(tx.ID()).ToHex(), lo.PanicOnErr(tx.Transaction.ID()).ToHex(), tx.Transaction.CreationSlot)
 	for index, out := range tx.Transaction.TransactionEssence.Inputs {
 		txDetails += fmt.Sprintf("\tInput index: %d, type: %s\n", index, out.Type())
 	}
@@ -118,4 +118,30 @@ func SprintAccount(acc *iotago.AccountOutput) string {
 
 func SprintAvailableManaResult(results *builder.AvailableManaResult) string {
 	return fmt.Sprintf("Available mana results:\nTotal: %d Unbound: %d\nPotential:%d Unbound: %d\nStored: %d Undound: %d", results.TotalMana, results.UnboundMana, results.PotentialMana, results.UnboundPotentialMana, results.StoredMana, results.UnboundStoredMana)
+}
+
+func MinIssuerAccountAmount(protocolParameters iotago.ProtocolParameters) iotago.BaseToken {
+	// create a dummy account with a block issuer feature to calculate the storage score.
+	dummyAccountOutput := &iotago.AccountOutput{
+		Amount:         0,
+		Mana:           0,
+		AccountID:      iotago.EmptyAccountID,
+		FoundryCounter: 0,
+		UnlockConditions: iotago.AccountOutputUnlockConditions{
+			&iotago.AddressUnlockCondition{
+				Address: &iotago.Ed25519Address{},
+			},
+		},
+		Features: iotago.AccountOutputFeatures{
+			&iotago.BlockIssuerFeature{
+				BlockIssuerKeys: iotago.BlockIssuerKeys{
+					&iotago.Ed25519PublicKeyBlockIssuerKey{},
+				},
+			},
+		},
+		ImmutableFeatures: iotago.AccountOutputImmFeatures{},
+	}
+	storageScoreStructure := iotago.NewStorageScoreStructure(protocolParameters.StorageScoreParameters())
+
+	return lo.PanicOnErr(storageScoreStructure.MinDeposit(dummyAccountOutput))
 }

@@ -46,16 +46,16 @@ func CustomConflictSpammingFunc(ctx context.Context, s *Spammer) error {
 	//	IssuerAlias:       s.IssuerAlias,
 	//}
 
-	for _, txsData := range conflictBatch {
-		clients := s.Clients.GetClients(len(txsData))
-		if len(txsData) > len(clients) {
+	for _, payloadsIssuanceData := range conflictBatch {
+		clients := s.Clients.GetClients(len(payloadsIssuanceData))
+		if len(payloadsIssuanceData) > len(clients) {
 			s.log.Debug(ErrFailToPrepareBatch)
 			s.ErrCounter.CountError(ErrInsufficientClients)
 		}
 
 		// send transactions in parallel
 		wg := sync.WaitGroup{}
-		for i, txData := range txsData {
+		for i, issuanceData := range payloadsIssuanceData {
 			wg.Add(1)
 			go func(clt models.Client, tx *models.PayloadIssuanceData) {
 				defer wg.Done()
@@ -65,7 +65,7 @@ func CustomConflictSpammingFunc(ctx context.Context, s *Spammer) error {
 				time.Sleep(time.Duration(rand.Float64()*100) * time.Millisecond)
 
 				s.PrepareAndPostBlock(ctx, tx, s.IssuerAlias, clt)
-			}(clients[i], txData)
+			}(clients[i], issuanceData)
 		}
 		wg.Wait()
 	}
@@ -79,14 +79,14 @@ func CustomConflictSpammingFunc(ctx context.Context, s *Spammer) error {
 func AccountSpammingFunction(ctx context.Context, s *Spammer) error {
 	clt := s.Clients.GetClient()
 	// update scenario
-	txData, aliases, err := s.EvilWallet.PrepareAccountSpam(ctx, s.EvilScenario)
+	issuanceData, aliases, err := s.EvilWallet.PrepareAccountSpam(ctx, s.EvilScenario)
 	if err != nil {
 		s.log.Debugf(ierrors.Wrap(ErrFailToPrepareBatch, err.Error()).Error())
 		s.ErrCounter.CountError(ierrors.Wrap(ErrFailToPrepareBatch, err.Error()))
 
 		return err
 	}
-	s.PrepareAndPostBlock(ctx, txData, s.IssuerAlias, clt)
+	s.PrepareAndPostBlock(ctx, issuanceData, s.IssuerAlias, clt)
 
 	s.State.batchPrepared.Add(1)
 	s.EvilWallet.ClearAliases(aliases)

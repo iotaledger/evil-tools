@@ -247,8 +247,8 @@ func (s *Spammer) StopSpamming() {
 	s.State.logTicker.Stop()
 }
 
-func (s *Spammer) PrepareBlock(ctx context.Context, txData *models.PayloadIssuanceData, issuerAlias string, clt models.Client, strongParents ...iotago.BlockID) *iotago.Block {
-	if txData.Payload == nil {
+func (s *Spammer) PrepareBlock(ctx context.Context, issuanceData *models.PayloadIssuanceData, issuerAlias string, clt models.Client, strongParents ...iotago.BlockID) *iotago.Block {
+	if issuanceData.Payload == nil {
 		s.logError(ErrPayloadIsNil)
 		s.ErrCounter.CountError(ErrPayloadIsNil)
 
@@ -261,7 +261,7 @@ func (s *Spammer) PrepareBlock(ctx context.Context, txData *models.PayloadIssuan
 
 		return nil
 	}
-	block, err := s.EvilWallet.CreateBlock(ctx, clt, txData.Payload, issuerAccount, strongParents...)
+	block, err := s.EvilWallet.CreateBlock(ctx, clt, issuanceData.Payload, issuerAccount, strongParents...)
 	if err != nil {
 		s.logError(ierrors.Wrap(err, ErrFailPostBlock.Error()))
 		s.ErrCounter.CountError(ierrors.Wrap(err, ErrFailPostBlock.Error()))
@@ -272,8 +272,8 @@ func (s *Spammer) PrepareBlock(ctx context.Context, txData *models.PayloadIssuan
 	return block
 }
 
-func (s *Spammer) PrepareAndPostBlock(ctx context.Context, txData *models.PayloadIssuanceData, issuerAlias string, clt models.Client) iotago.BlockID {
-	if txData.Payload == nil && txData.TransactionBuilder == nil {
+func (s *Spammer) PrepareAndPostBlock(ctx context.Context, issuanceData *models.PayloadIssuanceData, issuerAlias string, clt models.Client) iotago.BlockID {
+	if issuanceData.Payload == nil && issuanceData.TransactionBuilder == nil {
 		s.logError(ErrPayloadIsNil)
 		s.ErrCounter.CountError(ErrPayloadIsNil)
 
@@ -290,11 +290,27 @@ func (s *Spammer) PrepareAndPostBlock(ctx context.Context, txData *models.Payloa
 	var blockID iotago.BlockID
 	var tx *iotago.Transaction
 	// built, allot and sign transaction or issue a ready payload
-	switch txData.Type {
+	switch issuanceData.Type {
 	case iotago.PayloadTaggedData:
-		blockID, err = s.EvilWallet.PrepareAndPostBlockWithPayload(ctx, clt, txData.Payload, issuerAccount)
+		blockID, err = s.EvilWallet.PrepareAndPostBlockWithPayload(ctx, clt, issuanceData.Payload, issuerAccount)
 	case iotago.PayloadSignedTransaction:
-		blockID, tx, err = s.EvilWallet.PrepareAndPostBlockWithTxBuildData(ctx, clt, txData.TransactionBuilder, txData.TxSigningKeys, issuerAccount)
+		blockID, tx, err = s.EvilWallet.PrepareAndPostBlockWithTxBuildData(ctx, clt, issuanceData.TransactionBuilder, issuanceData.TxSigningKeys, issuerAccount)
+	default:
+		// unknown payload type
+		s.logError(ErrUnknownPayloadType)
+		s.ErrCounter.CountError(ErrUnknownPayloadType)
+
+		return iotago.EmptyBlockID
+	}
+
+	if err != nil {
+		s.logError(ierrors.Wrap(err, ErrFailPostBlock.Error()))
+		s.ErrCounter.CountError(ierrors.Wrap(err, ErrFailPostBlock.Error()))
+
+		return iotago.EmptyBlockID
+	}
+
+	if issuanceData.Type == iotago.PayloadSignedTransaction {
 		// reuse outputs
 		if s.EvilScenario.OutputWallet.Type() == evilwallet.Reuse {
 			txID, err := tx.ID()
@@ -312,22 +328,9 @@ func (s *Spammer) PrepareAndPostBlock(ctx context.Context, txData *models.Payloa
 
 			s.EvilWallet.SetTxOutputsSolid(outputIDs, clt.URL())
 		}
-	default:
-		// unknown payload type
-		s.logError(ErrUnknownPayloadType)
-		s.ErrCounter.CountError(ErrUnknownPayloadType)
-
-		return iotago.EmptyBlockID
 	}
 
-	if err != nil {
-		s.logError(ierrors.Wrap(err, ErrFailPostBlock.Error()))
-		s.ErrCounter.CountError(ierrors.Wrap(err, ErrFailPostBlock.Error()))
-
-		return iotago.EmptyBlockID
-	}
-
-	if txData.Type != iotago.PayloadSignedTransaction {
+	if issuanceData.Type != iotago.PayloadSignedTransaction {
 		count := s.State.blkSent.Add(1)
 		if count%200 == 0 {
 			s.log.Infof("Blocks issued so far: %d, errors encountered: %d", count, s.ErrCounter.GetTotalErrorCount())

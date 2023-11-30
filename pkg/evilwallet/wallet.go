@@ -199,7 +199,7 @@ func (w *Wallet) GetReuseAddress() models.TempOutputID {
 		}
 	}
 
-	return models.TempOutputID{}
+	return models.EmptyTempOutputID
 }
 
 // GetUnspentOutput returns an unspent output on the oldest address ordered by index.

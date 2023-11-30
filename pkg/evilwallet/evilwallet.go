@@ -31,7 +31,7 @@ const (
 )
 
 var (
-	defaultClientsURLs = []string{"http://localhost:8050"} //, "http://localhost:8060"}
+	defaultClientsURLs = []string{"http://localhost:8050"}
 	defaultFaucetURL   = "http://localhost:8088"
 
 	NoFreshOutputsAvailable = ierrors.New("no fresh wallet is available")
@@ -217,11 +217,11 @@ func (e *EvilWallet) PrepareCustomConflicts(ctx context.Context, conflictsMaps [
 	for _, conflictMap := range conflictsMaps {
 		var txsData []*models.PayloadIssuanceData
 		for _, conflictOptions := range conflictMap {
-			txData, err2 := e.CreateTransaction(ctx, conflictOptions...)
+			issuanceData, err2 := e.CreateTransaction(ctx, conflictOptions...)
 			if err2 != nil {
 				return nil, err2
 			}
-			txsData = append(txsData, txData)
+			txsData = append(txsData, issuanceData)
 		}
 		conflictBatch = append(conflictBatch, txsData)
 	}
@@ -266,22 +266,20 @@ func (e *EvilWallet) CreateTransaction(ctx context.Context, options ...Option) (
 		}
 	}
 	txBuilder, signingKeys := e.prepareTransactionBuild(inputs, outputs, buildOptions.inputWallet)
-	txData := &models.PayloadIssuanceData{
+	issuanceData := &models.PayloadIssuanceData{
 		Type:               iotago.PayloadSignedTransaction,
 		TransactionBuilder: txBuilder,
 		TxSigningKeys:      signingKeys,
 	}
 
-	// we don't have outputID yet,
-
-	addedOutputs := e.addOutputsToOutputManager(ctx, outputs, buildOptions.outputWallet, tempWallet, tempAddresses)
+	addedOutputs := e.addOutputsToOutputManager(outputs, buildOptions.outputWallet, tempWallet, tempAddresses)
 	e.registerOutputAliases(addedOutputs, addrAliasMap)
 
-	return txData, nil
+	return issuanceData, nil
 }
 
 // addOutputsToOutputManager adds output to the OutputManager if.
-func (e *EvilWallet) addOutputsToOutputManager(ctx context.Context, outputs []iotago.Output, outWallet, tmpWallet *Wallet, tempAddresses map[string]types.Empty) []*models.Output {
+func (e *EvilWallet) addOutputsToOutputManager(outputs []iotago.Output, outWallet, tmpWallet *Wallet, tempAddresses map[string]types.Empty) []*models.Output {
 	modelOutputs := make([]*models.Output, 0)
 	for _, out := range outputs {
 		if out.UnlockConditionSet().Address() == nil {
@@ -295,9 +293,9 @@ func (e *EvilWallet) addOutputsToOutputManager(ctx context.Context, outputs []io
 		// outputs in the middle of the scenario structure are created with tempWallet,
 		//only outputs that are not used in the scenario structure are added to the outWaller and can be reused.
 		if _, ok := tempAddresses[addr.String()]; ok {
-			output = e.outputManager.AddOutput(ctx, e.accWallet.API, tmpWallet, out)
+			output = e.outputManager.AddOutput(e.accWallet.API, tmpWallet, out)
 		} else {
-			output = e.outputManager.AddOutput(ctx, e.accWallet.API, outWallet, out)
+			output = e.outputManager.AddOutput(e.accWallet.API, outWallet, out)
 		}
 
 		modelOutputs = append(modelOutputs, output)
@@ -594,9 +592,9 @@ func (e *EvilWallet) PrepareCustomConflictsSpam(ctx context.Context, scenario *E
 func (e *EvilWallet) PrepareAccountSpam(ctx context.Context, scenario *EvilScenario) (*models.PayloadIssuanceData, ScenarioAlias, error) {
 	accountSpamOptions, allAliases := e.prepareFlatOptionsForAccountScenario(scenario)
 
-	txData, err := e.CreateTransaction(ctx, accountSpamOptions...)
+	issuanceData, err := e.CreateTransaction(ctx, accountSpamOptions...)
 
-	return txData, allAliases, err
+	return issuanceData, allAliases, err
 }
 
 func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario) (conflictSlice []ConflictSlice, allAliases ScenarioAlias) {

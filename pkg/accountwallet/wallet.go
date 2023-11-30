@@ -92,16 +92,17 @@ func NewAccountWallet(opts ...options.Option[AccountWallet]) (*AccountWallet, er
 		w.API = w.client.LatestAPI()
 
 		w.faucet = newFaucet(w.client, w.optsFaucetParams)
+
 		//
-		//out, err := w.RequestFaucetFunds(context.Background(), tpkg.RandEd25519Address())
+		//_, output, err := w.RequestFaucetFunds(context.Background(), tpkg.RandEd25519Address())
 		//if err != nil {
 		//	initErr = err
 		//	log.Errorf("failed to request faucet funds: %s, faucet not initiated", err.Error())
 		//
 		//	return
 		//}
-		//w.faucet.RequestTokenAmount = out.OutputStruct.BaseTokenAmount()
-		//w.faucet.RequestManaAmount = out.OutputStruct.StoredMana()
+		//w.faucet.RequestTokenAmount = output.BaseTokenAmount()
+		//w.faucet.RequestManaAmount = output.StoredMana()
 
 		w.faucet.RequestTokenAmount = 1000000000000
 		w.faucet.RequestManaAmount = 100000000
@@ -269,11 +270,14 @@ func (a *AccountWallet) awaitAccountReadiness(ctx context.Context, accData *mode
 func (a *AccountWallet) getFunds(ctx context.Context, addressType iotago.AddressType) (*models.Output, ed25519.PrivateKey, error) {
 	receiverAddr, privateKey, usedIndex := a.getAddress(addressType)
 
-	createdOutput, err := a.RequestFaucetFunds(ctx, receiverAddr)
+	outputID, output, err := a.RequestFaucetFunds(ctx, receiverAddr)
 	if err != nil {
 		return nil, nil, ierrors.Wrap(err, "failed to request funds from Faucet")
 	}
-
+	createdOutput, err := models.NewOutputWithID(a.API, outputID, receiverAddr, usedIndex, privateKey, output)
+	if err != nil {
+		return nil, nil, ierrors.Wrap(err, "failed to create output")
+	}
 	createdOutput.AddressIndex = usedIndex
 	createdOutput.PrivateKey = privateKey
 

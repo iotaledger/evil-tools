@@ -28,35 +28,30 @@ func (a *AccountWallet) RequestBlockBuiltData(ctx context.Context, clt models.Cl
 		return nil, nil, 0, ierrors.Wrapf(err, "failed to get block issuance data for accID %s, addr %s", account.ID().ToHex(), account.Address().String())
 	}
 
-	congestionResp, err := clt.GetCongestion(ctx, account.Address(), lo.PanicOnErr(issuerResp.Commitment.ID()))
+	congestionResp, err := clt.GetCongestion(ctx, account.Address(), lo.PanicOnErr(issuerResp.LatestCommitment.ID()))
 	if err != nil {
 		return nil, nil, 0, ierrors.Wrapf(err, "failed to get congestion data for issuer accID %s, addr %s", account.ID(), account.Address())
 	}
 
-	version := clt.APIForSlot(issuerResp.Commitment.Slot).Version()
+	version := clt.APIForSlot(issuerResp.LatestCommitment.Slot).Version()
 
 	return congestionResp, issuerResp, version, nil
 }
 
-func (a *AccountWallet) RequestFaucetFunds(ctx context.Context, receiveAddr iotago.Address) (*models.Output, error) {
+func (a *AccountWallet) RequestFaucetFunds(ctx context.Context, receiveAddr iotago.Address) (iotago.OutputID, iotago.Output, error) {
 	err := a.client.RequestFaucetFunds(ctx, receiveAddr)
 	if err != nil {
-		return nil, ierrors.Wrap(err, "failed to request funds from faucet")
+		return iotago.EmptyOutputID, nil, ierrors.Wrap(err, "failed to request funds from faucet")
 	}
 
 	outputID, outputStruct, err := utils.AwaitAddressUnspentOutputToBeAccepted(ctx, a.client, receiveAddr)
 	if err != nil {
-		return nil, ierrors.Wrap(err, "failed to await faucet funds")
+		return iotago.EmptyOutputID, nil, ierrors.Wrap(err, "failed to await faucet funds")
 	}
 
 	log.Debugf("RequestFaucetFunds received faucet funds for addr type: %s, %s", receiveAddr.Type(), receiveAddr.String())
 
-	return &models.Output{
-		OutputID:     outputID,
-		Address:      receiveAddr,
-		AddressIndex: 0,
-		OutputStruct: outputStruct,
-	}, nil
+	return outputID, outputStruct, nil
 }
 
 func (a *AccountWallet) PostWithBlock(ctx context.Context, clt models.Client, payload iotago.Payload, issuer wallet.Account, congestionResp *api.CongestionResponse, issuerResp *api.IssuanceBlockHeaderResponse, version iotago.Version, strongParents ...iotago.BlockID) (iotago.BlockID, error) {
@@ -83,7 +78,7 @@ func (a *AccountWallet) CreateBlock(payload iotago.Payload, issuer wallet.Accoun
 	apiForSlot := a.client.APIForSlot(issuingSlot)
 	blockBuilder := builder.NewBasicBlockBuilder(apiForSlot)
 
-	commitmentID, err := issuerResp.Commitment.ID()
+	commitmentID, err := issuerResp.LatestCommitment.ID()
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to get commitment id")
 	}

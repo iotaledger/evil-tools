@@ -159,7 +159,7 @@ func (e *EvilWallet) splitOutput(ctx context.Context, splitOutput *models.Output
 		return iotago.EmptyTransactionID, err
 	}
 
-	txData, err := e.CreateTransaction(ctx,
+	issuanceData, err := e.CreateTransaction(ctx,
 		WithInputs(splitOutput),
 		WithOutputs(outputs),
 		WithInputWallet(inputWallet),
@@ -169,7 +169,7 @@ func (e *EvilWallet) splitOutput(ctx context.Context, splitOutput *models.Output
 		return iotago.EmptyTransactionID, err
 	}
 
-	_, tx, err := e.PrepareAndPostBlockWithTxBuildData(ctx, e.connector.GetClient(), txData.TransactionBuilder, txData.TxSigningKeys, genesisAccount.Account)
+	_, tx, err := e.PrepareAndPostBlockWithTxBuildData(ctx, e.connector.GetClient(), issuanceData.TransactionBuilder, issuanceData.TxSigningKeys, genesisAccount.Account)
 	if err != nil {
 		return iotago.EmptyTransactionID, err
 	}

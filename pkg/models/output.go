@@ -20,11 +20,44 @@ type Input struct {
 // Output contains details of an output ID.
 type Output struct {
 	OutputID     iotago.OutputID
+	TempID       TempOutputID
 	Address      iotago.Address
 	AddressIndex uint64
 	PrivateKey   ed25519.PrivateKey
 
 	OutputStruct iotago.Output
+}
+
+func NewOutputWithEmptyID(api iotago.API, addr iotago.Address, index uint64, privateKey ed25519.PrivateKey, out iotago.Output) (*Output, error) {
+	outID, err := NewTempOutputID(api, out)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Output{
+		OutputID:     iotago.EmptyOutputID,
+		TempID:       outID,
+		Address:      addr,
+		AddressIndex: index,
+		PrivateKey:   privateKey,
+		OutputStruct: out,
+	}, nil
+}
+
+func NewOutputWithID(api iotago.API, outputID iotago.OutputID, addr iotago.Address, index uint64, privateKey ed25519.PrivateKey, out iotago.Output) (*Output, error) {
+	tempID, err := NewTempOutputID(api, out)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Output{
+		OutputID:     outputID,
+		TempID:       tempID,
+		Address:      addr,
+		AddressIndex: index,
+		PrivateKey:   privateKey,
+		OutputStruct: out,
+	}, nil
 }
 
 // Outputs is a list of Output.
@@ -95,10 +128,12 @@ type IssuancePaymentStrategy struct {
 
 type TempOutputID [32]byte
 
+var EmptyTempOutputID = TempOutputID{}
+
 func NewTempOutputID(api iotago.API, out iotago.Output) (TempOutputID, error) {
 	b, err := api.Encode(out)
 	if err != nil {
-		return TempOutputID{}, err
+		return EmptyTempOutputID, err
 	}
 
 	return blake2b.Sum256(b), nil

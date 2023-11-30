@@ -375,7 +375,7 @@ func (a *AccountWallet) createAccountCreationTransaction(inputs []*models.Output
 	txBuilder.AddOutput(accountOutput)
 	txBuilder.SetCreationSlot(currentSlot)
 
-	commitmentID, _ := issuerResp.Commitment.ID()
+	commitmentID, _ := issuerResp.LatestCommitment.ID()
 	txBuilder.AddCommitmentInput(&iotago.CommitmentInput{CommitmentID: commitmentID})
 
 	// allot required mana to the implicit account

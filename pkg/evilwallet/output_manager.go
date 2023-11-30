@@ -109,49 +109,23 @@ func (o *OutputManager) Track(ctx context.Context, outputIDs ...iotago.OutputID)
 // Provided address should be generated from provided wallet. Considers only first output found on address.
 func (o *OutputManager) createOutputFromAddress(w *Wallet, api iotago.API, addr *iotago.Ed25519Address, outputID iotago.OutputID, outputStruct iotago.Output) *models.Output {
 	index := w.AddrIndexMap(addr.String())
-	out := &models.Output{
-		Address:      addr,
-		AddressIndex: index,
-		OutputID:     outputID,
-		OutputStruct: outputStruct,
-	}
+	out := lo.PanicOnErr(models.NewOutputWithID(api, outputID, addr, index, nil, outputStruct))
 
-	tempID := lo.PanicOnErr(models.NewTempOutputID(api, out.OutputStruct))
-	w.AddUnspentOutput(tempID, out)
-	o.setTempIDWalletMap(tempID, w)
+	w.AddUnspentOutput(out.TempID, out)
+	o.setTempIDWalletMap(out.TempID, w)
 
 	return out
 }
 
 // AddOutput adds existing output from wallet w to the OutputManager.
-func (o *OutputManager) AddOutput(ctx context.Context, api iotago.API, w *Wallet, output iotago.Output) *models.Output {
+func (o *OutputManager) AddOutput(api iotago.API, w *Wallet, output iotago.Output) *models.Output {
 	addr := output.UnlockConditionSet().Address().Address
 	idx := w.AddrIndexMap(addr.String())
-	out := &models.Output{
-		Address:      addr,
-		AddressIndex: idx,
-		OutputStruct: output,
-	}
 
-	tempID := lo.PanicOnErr(models.NewTempOutputID(api, out.OutputStruct))
-	if w.walletType == Reuse {
-		go func(clt models.Client, wallet *Wallet, outputID iotago.OutputID) {
-			// Reuse wallet should only keep accepted outputs
-			err := utils.AwaitOutputToBeAccepted(ctx, clt, outputID)
-			if err != nil {
-				o.log.Errorf("Output %s not accepted in time: %v", outputID.String(), err)
+	out := lo.PanicOnErr(models.NewOutputWithEmptyID(api, addr, idx, nil, output))
 
-				return
-			}
-			w.AddUnspentOutput(tempID, out)
-			o.setTempIDWalletMap(tempID, wallet)
-		}(o.connector.GetClient(), w, out.OutputID)
-
-		return out
-	}
-
-	w.AddUnspentOutput(tempID, out)
-	o.setTempIDWalletMap(tempID, w)
+	w.AddUnspentOutput(out.TempID, out)
+	o.setTempIDWalletMap(out.TempID, w)
 
 	return out
 }
@@ -163,6 +137,9 @@ func (o *OutputManager) GetOutput(ctx context.Context, id models.TempOutputID, o
 
 	// get output info via web api
 	if output == nil {
+		if outputID == iotago.EmptyOutputID {
+			return nil
+		}
 		clt := o.connector.GetClient()
 		out := clt.GetOutput(ctx, outputID)
 		if out == nil {

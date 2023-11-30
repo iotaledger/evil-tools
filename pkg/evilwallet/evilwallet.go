@@ -217,11 +217,11 @@ func (e *EvilWallet) PrepareCustomConflicts(ctx context.Context, conflictsMaps [
 	for _, conflictMap := range conflictsMaps {
 		var txsData []*models.PayloadIssuanceData
 		for _, conflictOptions := range conflictMap {
-			txData, err2 := e.CreateTransaction(ctx, conflictOptions...)
+			issuanceData, err2 := e.CreateTransaction(ctx, conflictOptions...)
 			if err2 != nil {
 				return nil, err2
 			}
-			txsData = append(txsData, txData)
+			txsData = append(txsData, issuanceData)
 		}
 		conflictBatch = append(conflictBatch, txsData)
 	}
@@ -266,7 +266,7 @@ func (e *EvilWallet) CreateTransaction(ctx context.Context, options ...Option) (
 		}
 	}
 	txBuilder, signingKeys := e.prepareTransactionBuild(inputs, outputs, buildOptions.inputWallet)
-	txData := &models.PayloadIssuanceData{
+	issuanceData := &models.PayloadIssuanceData{
 		Type:               iotago.PayloadSignedTransaction,
 		TransactionBuilder: txBuilder,
 		TxSigningKeys:      signingKeys,
@@ -275,7 +275,7 @@ func (e *EvilWallet) CreateTransaction(ctx context.Context, options ...Option) (
 	addedOutputs := e.addOutputsToOutputManager(outputs, buildOptions.outputWallet, tempWallet, tempAddresses)
 	e.registerOutputAliases(addedOutputs, addrAliasMap)
 
-	return txData, nil
+	return issuanceData, nil
 }
 
 // addOutputsToOutputManager adds output to the OutputManager if.
@@ -592,9 +592,9 @@ func (e *EvilWallet) PrepareCustomConflictsSpam(ctx context.Context, scenario *E
 func (e *EvilWallet) PrepareAccountSpam(ctx context.Context, scenario *EvilScenario) (*models.PayloadIssuanceData, ScenarioAlias, error) {
 	accountSpamOptions, allAliases := e.prepareFlatOptionsForAccountScenario(scenario)
 
-	txData, err := e.CreateTransaction(ctx, accountSpamOptions...)
+	issuanceData, err := e.CreateTransaction(ctx, accountSpamOptions...)
 
-	return txData, allAliases, err
+	return issuanceData, allAliases, err
 }
 
 func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario) (conflictSlice []ConflictSlice, allAliases ScenarioAlias) {

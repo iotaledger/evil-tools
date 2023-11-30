@@ -287,6 +287,8 @@ func (s *Spammer) PrepareAndPostBlock(ctx context.Context, issuanceData *models.
 		return iotago.EmptyBlockID
 	}
 
+	//s.log.Infof("Loaded account, alias %s, accID %s, addr %s, toAddr %s", issuerAlias, issuerAccount.ID(), issuerAccount.Address().Bech32(iotago.PrefixTestnet), issuerAccount.ID().ToAddress().Bech32(iotago.PrefixTestnet))
+
 	var blockID iotago.BlockID
 	var tx *iotago.Transaction
 	// built, allot and sign transaction or issue a ready payload
@@ -309,6 +311,7 @@ func (s *Spammer) PrepareAndPostBlock(ctx context.Context, issuanceData *models.
 
 		return iotago.EmptyBlockID
 	}
+	s.log.Debugf("Issued block, blockID %s, issuer %s", blockID.String(), issuerAccount.ID().String())
 
 	if issuanceData.Type == iotago.PayloadSignedTransaction {
 		// reuse outputs

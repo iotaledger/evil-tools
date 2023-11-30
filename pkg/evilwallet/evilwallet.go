@@ -151,6 +151,12 @@ func (e *EvilWallet) PrepareAndPostBlockWithPayload(ctx context.Context, clt mod
 }
 
 func (e *EvilWallet) PrepareAndPostBlockWithTxBuildData(ctx context.Context, clt models.Client, txBuilder *builder.TransactionBuilder, signingKeys []iotago.AddressKeys, issuer wallet.Account) (iotago.BlockID, *iotago.Transaction, error) {
+	//faucet, err := e.GetAccount(ctx, accountwallet.GenesisAccountAlias)
+	//if err != nil {
+	//	fmt.Println("PrepareAndPostBlockWithTxBuildData: GetAccount failed", err)
+	//	return iotago.EmptyBlockID, nil, err
+	//}
+
 	congestionResp, issuerResp, version, err := e.accWallet.RequestBlockBuiltData(ctx, clt, issuer)
 	if err != nil {
 		return iotago.EmptyBlockID, nil, ierrors.Wrap(err, "failed to get block built data")

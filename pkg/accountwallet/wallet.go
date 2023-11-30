@@ -41,18 +41,18 @@ func Run(config *Configuration) (*AccountWallet, error) {
 		faucetAccountID:  config.AccountID,
 	}))
 
-	wallet, err := NewAccountWallet(opts...)
+	w, err := NewAccountWallet(opts...)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to create wallet")
 	}
 
 	// load wallet
-	err = wallet.fromAccountStateFile()
+	err = w.fromAccountStateFile()
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to load wallet from file")
 	}
 
-	return wallet, nil
+	return w, nil
 }
 
 func SaveState(w *AccountWallet) error {
@@ -69,6 +69,7 @@ type AccountWallet struct {
 	latestUsedIndex atomic.Uint64
 
 	client *models.WebClient
+	API    iotago.API
 
 	optsClientBindAddress string
 	optsFaucetURL         string
@@ -88,21 +89,19 @@ func NewAccountWallet(opts ...options.Option[AccountWallet]) (*AccountWallet, er
 
 			return
 		}
+		w.API = w.client.LatestAPI()
 
-		w.faucet, initErr = newFaucet(w.client, w.optsFaucetParams)
-		if initErr != nil {
-			return
-		}
+		w.faucet = newFaucet(w.client, w.optsFaucetParams)
 
-		out, err := w.RequestFaucetFunds(context.Background(), tpkg.RandEd25519Address())
+		_, output, err := w.RequestFaucetFunds(context.Background(), tpkg.RandEd25519Address())
 		if err != nil {
 			initErr = err
 			log.Errorf("failed to request faucet funds: %s, faucet not initiated", err.Error())
 
 			return
 		}
-		w.faucet.RequestTokenAmount = out.Balance
-		w.faucet.RequestManaAmount = out.OutputStruct.StoredMana()
+		w.faucet.RequestTokenAmount = output.BaseTokenAmount()
+		w.faucet.RequestManaAmount = output.StoredMana()
 
 		log.Debugf("faucet initiated with %d tokens and %d mana", w.faucet.RequestTokenAmount, w.faucet.RequestManaAmount)
 		w.accountsAliases[GenesisAccountAlias] = &models.AccountData{
@@ -267,11 +266,14 @@ func (a *AccountWallet) awaitAccountReadiness(ctx context.Context, accData *mode
 func (a *AccountWallet) getFunds(ctx context.Context, addressType iotago.AddressType) (*models.Output, ed25519.PrivateKey, error) {
 	receiverAddr, privateKey, usedIndex := a.getAddress(addressType)
 
-	createdOutput, err := a.RequestFaucetFunds(ctx, receiverAddr)
+	outputID, output, err := a.RequestFaucetFunds(ctx, receiverAddr)
 	if err != nil {
 		return nil, nil, ierrors.Wrap(err, "failed to request funds from Faucet")
 	}
-
+	createdOutput, err := models.NewOutputWithID(a.API, outputID, receiverAddr, usedIndex, privateKey, output)
+	if err != nil {
+		return nil, nil, ierrors.Wrap(err, "failed to create output")
+	}
 	createdOutput.AddressIndex = usedIndex
 	createdOutput.PrivateKey = privateKey
 
@@ -319,7 +321,7 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 		return ierrors.Wrapf(err, "failed to build transaction for account alias destruction %s", alias)
 	}
 
-	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(ctx, a.client.Client(), a.faucet.account)
+	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(ctx, a.client, a.faucet.account)
 	if err != nil {
 		return ierrors.Wrap(err, "failed to request block built data for the faucet account")
 	}

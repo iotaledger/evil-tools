@@ -9,13 +9,12 @@ import (
 	"github.com/iotaledger/evil-tools/pkg/utils"
 	"github.com/iotaledger/hive.go/core/safemath"
 	"github.com/iotaledger/hive.go/ierrors"
-	"github.com/iotaledger/hive.go/lo"
 	iotago "github.com/iotaledger/iota.go/v4"
 )
 
 const (
 	// FaucetRequestSplitNumber defines the number of outputs to split from a faucet request.
-	FaucetRequestSplitNumber = 125
+	FaucetRequestSplitNumber = 100
 )
 
 // RequestFundsFromFaucet requests funds from the faucet, then track the confirmed status of unspent output,
@@ -144,7 +143,7 @@ func (e *EvilWallet) requestFaucetFunds(ctx context.Context, wallet *Wallet) (ou
 	}
 
 	// update wallet with newly created output
-	output = e.outputManager.createOutputFromAddress(wallet, receiveAddr, iotaOutput.BaseTokenAmount(), outputID, iotaOutput)
+	output = e.outputManager.createOutputFromAddress(wallet, e.accWallet.API, receiveAddr, outputID, iotaOutput)
 
 	return output, nil
 }
@@ -160,31 +159,26 @@ func (e *EvilWallet) splitOutput(ctx context.Context, splitOutput *models.Output
 		return iotago.EmptyTransactionID, err
 	}
 
-	txData, err := e.CreateTransaction(ctx,
+	issuanceData, err := e.CreateTransaction(ctx,
 		WithInputs(splitOutput),
 		WithOutputs(outputs),
 		WithInputWallet(inputWallet),
 		WithOutputWallet(outputWallet),
-		WithIssuanceStrategy(models.AllotmentStrategyAll, genesisAccount.Account),
 	)
 	if err != nil {
 		return iotago.EmptyTransactionID, err
 	}
 
-	_, err = e.PrepareAndPostBlock(ctx, e.connector.GetClient(), txData.Payload, txData.CongestionResponse, genesisAccount.Account)
+	_, tx, err := e.PrepareAndPostBlockWithTxBuildData(ctx, e.connector.GetClient(), issuanceData.TransactionBuilder, issuanceData.TxSigningKeys, genesisAccount.Account)
 	if err != nil {
-		return iotago.TransactionID{}, err
+		return iotago.EmptyTransactionID, err
 	}
 
-	if txData.Payload.PayloadType() != iotago.PayloadSignedTransaction {
-		return iotago.EmptyTransactionID, ierrors.New("payload type is not signed transaction")
+	txID, err := tx.ID()
+	if err != nil {
+		return iotago.EmptyTransactionID, err
 	}
 
-	signedTx, ok := txData.Payload.(*iotago.SignedTransaction)
-	if !ok {
-		return iotago.EmptyTransactionID, ierrors.New("type assertion error: payload is not a signed transaction")
-	}
-	txID := lo.PanicOnErr(signedTx.Transaction.ID())
 	e.log.Debugf("Splitting output %s finished with tx: %s", splitOutput.OutputID.ToHex(), txID.ToHex())
 
 	return txID, nil
@@ -204,13 +198,13 @@ func (e *EvilWallet) splitOutputs(ctx context.Context, inputWallet, outputWallet
 	txIDs := make([]iotago.TransactionID, 0)
 	wg := sync.WaitGroup{}
 	// split all outputs stored in the input wallet
-	for addr := range inputWallet.UnspentOutputs() {
+	for id := range inputWallet.UnspentOutputs() {
 		wg.Add(1)
 
-		go func(addr string) {
+		go func(id models.TempOutputID) {
 			defer wg.Done()
 
-			input := inputWallet.UnspentOutput(addr)
+			input := inputWallet.UnspentOutput(id)
 			txID, err := e.splitOutput(ctx, input, inputWallet, outputWallet)
 			if err != nil {
 				e.log.Errorf("Failed to split output %s: %s", input.OutputID.ToHex(), err)
@@ -218,7 +212,7 @@ func (e *EvilWallet) splitOutputs(ctx context.Context, inputWallet, outputWallet
 				return
 			}
 			txIDs = append(txIDs, txID)
-		}(addr)
+		}(id)
 	}
 	wg.Wait()
 	e.log.Debug("All blocks with splitting transactions were posted")
@@ -229,7 +223,7 @@ func (e *EvilWallet) splitOutputs(ctx context.Context, inputWallet, outputWallet
 }
 
 func (e *EvilWallet) createSplitOutputs(input *models.Output, receiveWallet *Wallet) ([]*OutputOption, error) {
-	totalAmount := input.Balance
+	totalAmount := input.OutputStruct.BaseTokenAmount()
 	splitNumber := FaucetRequestSplitNumber
 	minDeposit := e.minOutputStorageDeposit
 
@@ -250,10 +244,11 @@ func (e *EvilWallet) createSplitOutputs(input *models.Output, receiveWallet *Wal
 		splitNumber = int(outputsNum)
 	}
 
-	balances := utils.SplitBalanceEqually(splitNumber, input.Balance)
+	balances := utils.SplitBalanceEqually(splitNumber, input.OutputStruct.BaseTokenAmount())
+	manaBalances := utils.SplitBalanceEqually(splitNumber, input.OutputStruct.StoredMana())
 	outputs := make([]*OutputOption, splitNumber)
 	for i, bal := range balances {
-		outputs[i] = &OutputOption{amount: bal, address: receiveWallet.Address(), outputType: iotago.OutputBasic}
+		outputs[i] = &OutputOption{amount: bal, mana: manaBalances[i], address: receiveWallet.Address(), outputType: iotago.OutputBasic}
 	}
 
 	return outputs, nil

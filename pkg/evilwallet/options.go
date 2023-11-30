@@ -6,7 +6,6 @@ import (
 	"github.com/iotaledger/hive.go/ierrors"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/builder"
-	"github.com/iotaledger/iota.go/v4/wallet"
 )
 
 // region Options ///////////////////////////////////////////////////////////////////////////
@@ -21,8 +20,6 @@ type Options struct {
 	outputWallet       *Wallet
 	outputBatchAliases map[string]types.Empty
 	reuse              bool
-	allotmentStrategy  models.AllotmentStrategy
-	issuer             wallet.Account
 	// maps input alias to desired output type, used to create account output types
 	specialOutputTypes map[string]iotago.OutputType
 }
@@ -30,6 +27,7 @@ type Options struct {
 type OutputOption struct {
 	aliasName  string
 	amount     iotago.BaseToken
+	mana       iotago.Mana
 	address    *iotago.Ed25519Address
 	outputType iotago.OutputType
 }
@@ -140,14 +138,15 @@ func WithInputs(inputs interface{}) Option {
 	}
 }
 
-// WithOutputs returns an Option that is used to define a non-colored Outputs for the Transaction in the Block.
+// WithOutputs returns an Option that is used to define Outputs for the Transaction in the Block.
 func WithOutputs(outputsOptions []*OutputOption) Option {
 	return func(options *Options) {
 		for _, outputOptions := range outputsOptions {
 			var output iotago.Output
 			switch outputOptions.outputType {
 			case iotago.OutputBasic:
-				outputBuilder := builder.NewBasicOutputBuilder(outputOptions.address, outputOptions.amount)
+				outputBuilder := builder.NewBasicOutputBuilder(outputOptions.address, outputOptions.amount).
+					Mana(outputOptions.mana)
 				output = outputBuilder.MustBuild()
 			case iotago.OutputAccount:
 				outputBuilder := builder.NewAccountOutputBuilder(outputOptions.address, outputOptions.amount)
@@ -160,13 +159,6 @@ func WithOutputs(outputsOptions []*OutputOption) Option {
 				options.outputs = append(options.outputs, output)
 			}
 		}
-	}
-}
-
-func WithIssuanceStrategy(strategy models.AllotmentStrategy, issuer wallet.Account) Option {
-	return func(options *Options) {
-		options.allotmentStrategy = strategy
-		options.issuer = issuer
 	}
 }
 

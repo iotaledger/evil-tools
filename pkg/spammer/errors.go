@@ -17,6 +17,7 @@ var (
 	ErrFailToPrepareBatch  = ierrors.New("custom conflict batch could not be prepared")
 	ErrInsufficientClients = ierrors.New("insufficient clients to send conflicts")
 	ErrFailGetAccount      = ierrors.New("failed to get account from the account wallet")
+	ErrUnknownPayloadType  = ierrors.New("unknown payload type")
 )
 
 // ErrorCounter counts errors that appeared during the spam,

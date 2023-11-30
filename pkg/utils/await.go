@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	MaxAcceptanceAwait = 30 * time.Second
+	MaxAcceptanceAwait = 90 * time.Second
 	AwaitInterval      = 2 * time.Second
 
 	MaxCommitmentAwait      = 90 * time.Second

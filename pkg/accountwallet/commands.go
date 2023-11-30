@@ -63,12 +63,12 @@ func (a *AccountWallet) createAccountImplicitly(ctx context.Context, params *Cre
 
 func (a *AccountWallet) transitionImplicitAccount(ctx context.Context, implicitAccountOutput *models.Output, blockIssuerKeys iotago.BlockIssuerKeys, privateKey ed25519.PrivateKey, params *CreateAccountParams) (*iotago.AccountAddress, error) {
 	// in case mana in one faucet request is not enough to issue immediately
-	additionalBasicInputs, err := a.requestEnoughFundsForAccountCreation(ctx, iotago.Mana(implicitAccountOutput.Balance))
+	additionalBasicInputs, err := a.requestEnoughFundsForAccountCreation(ctx, iotago.Mana(implicitAccountOutput.OutputStruct.BaseTokenAmount()))
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to request enough funds for account creation")
 	}
 
-	tokenBalance := implicitAccountOutput.Balance + utils.SumOutputsBalance(additionalBasicInputs)
+	tokenBalance := implicitAccountOutput.OutputStruct.BaseTokenAmount() + utils.SumOutputsBalance(additionalBasicInputs)
 
 	// transition from implicit to regular account
 	accAddr, accPrivateKey, accAddrIndex := a.getAddress(iotago.AddressEd25519)
@@ -80,7 +80,7 @@ func (a *AccountWallet) transitionImplicitAccount(ctx context.Context, implicitA
 	log.Infof("Created account %s with %d tokens\n", accountOutput.AccountID.ToHex(), accountOutput.Amount)
 
 	// transaction preparation
-	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(ctx, a.client.Client(), a.faucet.account)
+	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(ctx, a.client, a.faucet.account)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to request block built data for the faucet account")
 	}
@@ -169,12 +169,12 @@ func (a *AccountWallet) createAccountWithFaucet(ctx context.Context, params *Cre
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to get account address and keys")
 	}
-	accountOutput := builder.NewAccountOutputBuilder(accAddr, creationOutput.Balance).
+	accountOutput := builder.NewAccountOutputBuilder(accAddr, creationOutput.OutputStruct.BaseTokenAmount()).
 		// mana  will be updated after allotment
 		// no accountID should be specified during the account creation
 		BlockIssuer(blockIssuerKeys, iotago.MaxSlotIndex).MustBuild()
 
-	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(ctx, a.client.Client(), a.faucet.account)
+	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(ctx, a.client, a.faucet.account)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to request block built data for the faucet account")
 	}

@@ -247,8 +247,8 @@ func (s *Spammer) StopSpamming() {
 	s.State.logTicker.Stop()
 }
 
-func (s *Spammer) PrepareBlock(ctx context.Context, txData *models.PayloadIssuanceData, issuerAlias string, clt models.Client, strongParents ...iotago.BlockID) *iotago.Block {
-	if txData.Payload == nil {
+func (s *Spammer) PrepareBlock(ctx context.Context, issuanceData *models.PayloadIssuanceData, issuerAlias string, clt models.Client, strongParents ...iotago.BlockID) *iotago.Block {
+	if issuanceData.Payload == nil {
 		s.logError(ErrPayloadIsNil)
 		s.ErrCounter.CountError(ErrPayloadIsNil)
 
@@ -261,7 +261,7 @@ func (s *Spammer) PrepareBlock(ctx context.Context, txData *models.PayloadIssuan
 
 		return nil
 	}
-	block, err := s.EvilWallet.CreateBlock(ctx, clt, txData.Payload, txData.CongestionResponse, issuerAccount, strongParents...)
+	block, err := s.EvilWallet.CreateBlock(ctx, clt, issuanceData.Payload, issuerAccount, strongParents...)
 	if err != nil {
 		s.logError(ierrors.Wrap(err, ErrFailPostBlock.Error()))
 		s.ErrCounter.CountError(ierrors.Wrap(err, ErrFailPostBlock.Error()))
@@ -272,8 +272,8 @@ func (s *Spammer) PrepareBlock(ctx context.Context, txData *models.PayloadIssuan
 	return block
 }
 
-func (s *Spammer) PrepareAndPostBlock(ctx context.Context, txData *models.PayloadIssuanceData, issuerAlias string, clt models.Client) iotago.BlockID {
-	if txData.Payload == nil {
+func (s *Spammer) PrepareAndPostBlock(ctx context.Context, issuanceData *models.PayloadIssuanceData, issuerAlias string, clt models.Client) iotago.BlockID {
+	if issuanceData.Payload == nil && issuanceData.TransactionBuilder == nil {
 		s.logError(ErrPayloadIsNil)
 		s.ErrCounter.CountError(ErrPayloadIsNil)
 
@@ -286,44 +286,57 @@ func (s *Spammer) PrepareAndPostBlock(ctx context.Context, txData *models.Payloa
 
 		return iotago.EmptyBlockID
 	}
-	blockID, err := s.EvilWallet.PrepareAndPostBlock(ctx, clt, txData.Payload, txData.CongestionResponse, issuerAccount)
-	if err != nil {
 
+	var blockID iotago.BlockID
+	var tx *iotago.Transaction
+	// built, allot and sign transaction or issue a ready payload
+	switch issuanceData.Type {
+	case iotago.PayloadTaggedData:
+		blockID, err = s.EvilWallet.PrepareAndPostBlockWithPayload(ctx, clt, issuanceData.Payload, issuerAccount)
+	case iotago.PayloadSignedTransaction:
+		blockID, tx, err = s.EvilWallet.PrepareAndPostBlockWithTxBuildData(ctx, clt, issuanceData.TransactionBuilder, issuanceData.TxSigningKeys, issuerAccount)
+	default:
+		// unknown payload type
+		s.logError(ErrUnknownPayloadType)
+		s.ErrCounter.CountError(ErrUnknownPayloadType)
+
+		return iotago.EmptyBlockID
+	}
+
+	if err != nil {
 		s.logError(ierrors.Wrap(err, ErrFailPostBlock.Error()))
 		s.ErrCounter.CountError(ierrors.Wrap(err, ErrFailPostBlock.Error()))
 
 		return iotago.EmptyBlockID
 	}
 
-	if txData.Payload.PayloadType() != iotago.PayloadSignedTransaction {
+	if issuanceData.Type == iotago.PayloadSignedTransaction {
+		// reuse outputs
+		if s.EvilScenario.OutputWallet.Type() == evilwallet.Reuse {
+			txID, err := tx.ID()
+			if err != nil {
+				s.logError(ierrors.Wrap(err, ErrFailPostBlock.Error()))
+				s.ErrCounter.CountError(ierrors.Wrap(err, ErrFailPostBlock.Error()))
+
+				return iotago.EmptyBlockID
+			}
+
+			var outputIDs iotago.OutputIDs
+			for index := range tx.Outputs {
+				outputIDs = append(outputIDs, iotago.OutputIDFromTransactionIDAndIndex(txID, uint16(index)))
+			}
+
+			s.EvilWallet.SetTxOutputsSolid(outputIDs, clt.URL())
+		}
+	}
+
+	if issuanceData.Type != iotago.PayloadSignedTransaction {
 		count := s.State.blkSent.Add(1)
 		if count%200 == 0 {
 			s.log.Infof("Blocks issued so far: %d, errors encountered: %d", count, s.ErrCounter.GetTotalErrorCount())
 		}
 
 		return blockID
-	}
-
-	//nolint:all,forcetypassert
-	signedTx := txData.Payload.(*iotago.SignedTransaction)
-
-	txID, err := signedTx.Transaction.ID()
-	if err != nil {
-		s.log.Debug(ierrors.Wrapf(ErrTransactionInvalid, err.Error()))
-		s.ErrCounter.CountError(ierrors.Wrapf(ErrTransactionInvalid, err.Error()))
-
-		return blockID
-	}
-
-	// reuse outputs
-	if txData.Payload.PayloadType() == iotago.PayloadSignedTransaction {
-		if s.EvilScenario.OutputWallet.Type() == evilwallet.Reuse {
-			var outputIDs iotago.OutputIDs
-			for index := range signedTx.Transaction.Outputs {
-				outputIDs = append(outputIDs, iotago.OutputIDFromTransactionIDAndIndex(txID, uint16(index)))
-			}
-			s.EvilWallet.SetTxOutputsSolid(outputIDs, clt.URL())
-		}
 	}
 
 	count := s.State.blkSent.Add(1)

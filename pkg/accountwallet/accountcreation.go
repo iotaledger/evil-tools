@@ -16,113 +16,6 @@ import (
 	"github.com/iotaledger/iota.go/v4/wallet"
 )
 
-// createImplicitAccount creates an implicit account by creating a tx with implicit outputs, it avoids faucet, as it only requests funds for the input on the transaction.
-func (a *AccountWallet) createImplicitAccount(ctx context.Context, params *CreateAccountParams) (iotago.AccountID, error) {
-	log.Debug("Creating an implicit account")
-	// TODO fix RequestManaAndFundsFromTheFaucet and use it to always get enough storage deposit for the account output
-	//minimumTokenAmount := utils.MinIssuerAccountAmount(a.client.CommittedAPI().ProtocolParameters())
-
-	//inputs, err := a.RequestManaAndFundsFromTheFaucet(ctx, 0, minimumTokenAmount)
-	//if err != nil {
-	//	return ierrors.Wrap(err, "failed to request enough funds for account creation")
-	//}
-
-	out, err := a.getModelFunds(ctx, iotago.AddressEd25519)
-	if err != nil {
-		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to get funds")
-	}
-	inputs := []*models.Output{out}
-	balance := utils.SumOutputsBalance(inputs)
-	implicitAddr, privKey, addrIndex := a.getAddress(iotago.AddressImplicitAccountCreation)
-
-	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(ctx, a.client, a.faucet.account)
-	if err != nil {
-		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to request block built data")
-	}
-	signedTx, err := a.createImplicitOutputTransaction(inputs, implicitAddr, balance, congestionResp.ReferenceManaCost, lo.PanicOnErr(issuerResp.LatestCommitment.ID()))
-	if err != nil {
-		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to create implicit output transaction")
-	}
-	log.Debugf(utils.SprintTransaction(signedTx))
-
-	// issue with block
-	blkID, err := a.PostWithBlock(ctx, a.client, signedTx, a.faucet.account, congestionResp, issuerResp, version)
-	if err != nil {
-		log.Errorf("Failed to post account with block: %s", err)
-
-		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to post transaction")
-	}
-
-	txID, err := signedTx.Transaction.ID()
-	if err != nil {
-		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to get tx id")
-	}
-	implicitOutputID := iotago.OutputIDFromTransactionIDAndIndex(txID, 0)
-	accID := iotago.AccountIDFromOutputID(implicitOutputID)
-	accountAddress, ok := accID.ToAddress().(*iotago.AccountAddress)
-	if !ok {
-		return iotago.EmptyAccountID, ierrors.New("failed to convert account id to address")
-	}
-
-	// post issuance checks, was account really created?
-	err = a.checkAccountStatus(ctx, blkID, lo.PanicOnErr(signedTx.Transaction.ID()), implicitOutputID, accountAddress, accID)
-	if err != nil {
-		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to confirm account creation")
-	}
-	a.registerAccount(params.Alias, implicitOutputID, addrIndex, privKey)
-
-	return accID, nil
-}
-
-func (a *AccountWallet) createImplicitOutputTransaction(inputs []*models.Output, implicitAddress iotago.DirectUnlockableAddress, outputBalance iotago.BaseToken, rmc iotago.Mana, latestCommitmentID iotago.CommitmentID) (*iotago.SignedTransaction, error) {
-	if implicitAddress.Type() != iotago.AddressImplicitAccountCreation {
-		return nil, ierrors.New("invalid address type")
-	}
-
-	// minimum storage deposit for the account
-	minAmount := utils.MinIssuerAccountAmount(a.client.CommittedAPI().ProtocolParameters())
-	if outputBalance < minAmount {
-		return nil, ierrors.Errorf("not enough funds: %d to create an account, minimum storage deposit for the account is: %d", outputBalance, minAmount)
-	}
-
-	currentTime := time.Now()
-	currentSlot := a.client.LatestAPI().TimeProvider().SlotFromTime(currentTime)
-
-	apiForSlot := a.client.APIForSlot(currentSlot)
-	txBuilder := builder.NewTransactionBuilder(apiForSlot)
-
-	txBuilder.SetCreationSlot(currentSlot)
-
-	for _, output := range inputs {
-		txBuilder.AddInput(&builder.TxInput{
-			UnlockTarget: output.Address,
-			InputID:      output.OutputID,
-			Input:        output.OutputStruct,
-		})
-	}
-	txBuilder.AddCommitmentInput(&iotago.CommitmentInput{CommitmentID: latestCommitmentID})
-
-	implicitOutput := builder.NewBasicOutputBuilder(implicitAddress, outputBalance).MustBuild()
-	txBuilder.AddOutput(implicitOutput)
-
-	// allot required mana to the implicit account
-	a.logMissingMana(txBuilder, rmc, a.faucet.account)
-	txBuilder.AllotAllMana(txBuilder.CreationSlot(), a.faucet.account.ID())
-
-	// sign the transaction
-	addrSigner, err := a.GetAddrSignerForIndexes(inputs...)
-	if err != nil {
-		return nil, ierrors.Wrap(err, "failed to get address signer")
-	}
-
-	signedTx, err := txBuilder.Build(addrSigner)
-	if err != nil {
-		return nil, ierrors.Wrap(err, "failed to build tx")
-	}
-
-	return signedTx, nil
-}
-
 // createAccountImplicitly creates an implicit account by sending a faucet request for ImplicitAddressCreation funds.
 // TODO this one, comparing to the non-faucet way, is not working
 func (a *AccountWallet) createAccountImplicitly(ctx context.Context, params *CreateAccountParams) (iotago.AccountID, error) {
@@ -150,40 +43,35 @@ func (a *AccountWallet) createAccountImplicitly(ctx context.Context, params *Cre
 
 	a.registerAccount(params.Alias, implicitAccountOutput.OutputID, implicitAccountOutput.AddressIndex, implicitAccountOutput.PrivateKey)
 
-	//if !params.Transition {
-	//	//nolint:forcetypeassert // we know that the address is of type *iotago.AccountAddress
-	//	accountAddress := iotago.AccountIDFromOutputID(implicitAccountOutput.OutputID).ToAddress().(*iotago.AccountAddress)
-	//
-	//	a.registerAccount(params.Alias, implicitAccountOutput.OutputID, implicitAccountOutput.AddressIndex, privateKey)
-	//	log.Infof("Implicit account created, outputID: %s, implicit accountID: %s", implicitAccountOutput.OutputID.ToHex(), accountAddress.Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()))
-	//
-	//	return iotago.EmptyAccountID, nil
-	//}
-	//
-	//log.Debugf("Transitioning implicit account with implicitAccountID %s for alias %s to regular account", iotago.AccountIDFromOutputID(implicitAccountOutput.OutputID).ToHex(), params.Alias)
-	//
-	//pubKey, isEd25519 := privateKey.Public().(ed25519.PublicKey)
-	//if !isEd25519 {
-	//	return iotago.EmptyAccountID, ierrors.New("Failed to create account: only Ed25519 keys are supported")
-	//}
-	//
-	//implicitAccAddr := iotago.ImplicitAccountCreationAddressFromPubKey(pubKey)
-	//implicitBlockIssuerKey := iotago.Ed25519PublicKeyHashBlockIssuerKeyFromImplicitAccountCreationAddress(implicitAccAddr)
-	//blockIssuerKeys := iotago.NewBlockIssuerKeys(implicitBlockIssuerKey)
-	//
-	//return a.transitionImplicitAccount(ctx, implicitAccountOutput, blockIssuerKeys, privateKey, params)
+	if !params.Transition {
+		log.Infof("Implicit account created, outputID: %s, implicit accountID: %s", implicitAccountOutput.OutputID.ToHex(), accountAddress.Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()))
 
-	return iotago.EmptyAccountID, nil
-}
-
-func (a *AccountWallet) transitionImplicitAccount(ctx context.Context, implicitAccountOutput *models.Output, blockIssuerKeys iotago.BlockIssuerKeys, privateKey ed25519.PrivateKey, params *CreateAccountParams) (iotago.AccountID, error) {
-	// in case mana in one faucet request is not enough to issue immediately
-	additionalBasicInputs, err := a.requestEnoughManaForAccountCreation(ctx, iotago.Mana(implicitAccountOutput.OutputStruct.BaseTokenAmount()))
-	if err != nil {
-		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to request enough funds for account creation")
+		return iotago.EmptyAccountID, nil
 	}
 
-	tokenBalance := implicitAccountOutput.OutputStruct.BaseTokenAmount() + utils.SumOutputsBalance(additionalBasicInputs)
+	log.Debugf("Transitioning implicit account with implicitAccountID %s for alias %s to regular account", iotago.AccountIDFromOutputID(implicitAccountOutput.OutputID).ToHex(), params.Alias)
+
+	pubKey, isEd25519 := implicitAccountOutput.PrivateKey.Public().(ed25519.PublicKey)
+	if !isEd25519 {
+		return iotago.EmptyAccountID, ierrors.New("Failed to create account: only Ed25519 keys are supported")
+	}
+
+	implicitAccAddr := iotago.ImplicitAccountCreationAddressFromPubKey(pubKey)
+	implicitBlockIssuerKey := iotago.Ed25519PublicKeyHashBlockIssuerKeyFromImplicitAccountCreationAddress(implicitAccAddr)
+	blockIssuerKeys := iotago.NewBlockIssuerKeys(implicitBlockIssuerKey)
+
+	return a.transitionImplicitAccount(ctx, implicitAccountOutput, blockIssuerKeys, params)
+}
+
+func (a *AccountWallet) transitionImplicitAccount(ctx context.Context, implicitAccountOutput *models.Output, blockIssuerKeys iotago.BlockIssuerKeys, params *CreateAccountParams) (iotago.AccountID, error) {
+	//  TODO check if works
+	// in case mana in one faucet request is not enough to issue immediately
+	//additionalBasicInputs, err := a.requestEnoughManaForAccountCreation(ctx, iotago.Mana(implicitAccountOutput.OutputStruct.BaseTokenAmount()))
+	//if err != nil {
+	//	return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to request enough funds for account creation")
+	//}
+
+	tokenBalance := implicitAccountOutput.OutputStruct.BaseTokenAmount() // + utils.SumOutputsBalance(additionalBasicInputs)
 
 	// transition from implicit to regular account
 	accAddr, accPrivateKey, accAddrIndex := a.getAddress(iotago.AddressEd25519)
@@ -199,7 +87,8 @@ func (a *AccountWallet) transitionImplicitAccount(ctx context.Context, implicitA
 	if err != nil {
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to request block built data for the faucet account")
 	}
-	inputs := append([]*models.Output{implicitAccountOutput}, additionalBasicInputs...)
+	inputs := []*models.Output{implicitAccountOutput}
+	//inputs := append([]*models.Output{implicitAccountOutput}, additionalBasicInputs...)
 	signedTx, err := a.createAccountCreationTransaction(inputs, accountOutput, congestionResp, issuerResp)
 	if err != nil {
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to create account creation transaction")
@@ -207,7 +96,7 @@ func (a *AccountWallet) transitionImplicitAccount(ctx context.Context, implicitA
 
 	log.Debugf("Transition transaction created:\n%s\n", utils.SprintTransaction(signedTx))
 
-	implicitAccountHandler := wallet.NewEd25519Account(iotago.AccountIDFromOutputID(implicitAccountOutput.OutputID), privateKey)
+	implicitAccountHandler := wallet.NewEd25519Account(iotago.AccountIDFromOutputID(implicitAccountOutput.OutputID), implicitAccountOutput.PrivateKey)
 	blkID, err := a.PostWithBlock(ctx, a.client, signedTx, implicitAccountHandler, congestionResp, issuerResp, version)
 	if err != nil {
 		log.Errorf("Failed to post account with block: %s", err)

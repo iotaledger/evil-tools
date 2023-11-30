@@ -271,7 +271,9 @@ func (a *AccountWallet) getFunds(ctx context.Context, addressType iotago.Address
 		return nil, nil, ierrors.Wrap(err, "failed to request funds from Faucet")
 	}
 	createdOutput, err := models.NewOutputWithID(a.API, outputID, receiverAddr, usedIndex, privateKey, output)
-
+	if err != nil {
+		return nil, nil, ierrors.Wrap(err, "failed to create output")
+	}
 	createdOutput.AddressIndex = usedIndex
 	createdOutput.PrivateKey = privateKey
 

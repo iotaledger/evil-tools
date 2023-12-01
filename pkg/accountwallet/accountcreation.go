@@ -107,14 +107,7 @@ func (a *AccountWallet) transitionImplicitAccount(ctx context.Context, implicitA
 	log.Debugf("Block sent with ID: %s, and no error", blkID.ToHex())
 
 	// get OutputID of account output
-	proof, err := iotago.OutputIDProofFromTransaction(signedTx.Transaction, 0)
-	if err != nil {
-		return iotago.EmptyAccountID, ierrors.Wrap(err, "fail to get output proof of account output in account creation")
-	}
-	accOutputID, err := proof.OutputID(accountOutput)
-	if err != nil {
-		return iotago.EmptyAccountID, ierrors.Wrap(err, "fail to get account outputID")
-	}
+	accOutputID := iotago.OutputIDFromTransactionIDAndIndex(lo.PanicOnErr(signedTx.Transaction.ID()), 0)
 
 	//nolint:forcetypeassert // we know that the address is of type *iotago.AccountAddress
 	err = a.checkAccountStatus(ctx, blkID, lo.PanicOnErr(signedTx.Transaction.ID()), accOutputID, accountAddress, accountID)
@@ -165,25 +158,16 @@ func (a *AccountWallet) createAccountWithFaucet(ctx context.Context, params *Cre
 	log.Debugf("Account creation transaction posted with block: %s, with no error.\n", blkID.ToHex())
 	//nolint:forcetypeassert // we know that the address is of type *iotago.AccountAddress
 
-	// get OutputID of account output
-	proof, err := iotago.OutputIDProofFromTransaction(signedTx.Transaction, 0)
-	if err != nil {
-		return iotago.EmptyAccountID, ierrors.Wrap(err, "fail to get output proof of account output in account creation")
-	}
-	accOutputID, err := proof.OutputID(accountOutput)
-	if err != nil {
-		return iotago.EmptyAccountID, ierrors.Wrap(err, "fail to get account outputID")
-	}
-
-	accountID := iotago.AccountIDFromOutputID(accOutputID)
+	accountOutputID := iotago.OutputIDFromTransactionIDAndIndex(lo.PanicOnErr(signedTx.Transaction.ID()), 0)
+	accountID := iotago.AccountIDFromOutputID(accountOutputID)
 	//nolint:forcetypeassert // we know that the address is of type *iotago.AccountAddress
 	accountAddress := accountID.ToAddress().(*iotago.AccountAddress)
-	err = a.checkAccountStatus(ctx, blkID, lo.PanicOnErr(signedTx.Transaction.ID()), accOutputID, accountAddress, accountID)
+	err = a.checkAccountStatus(ctx, blkID, lo.PanicOnErr(signedTx.Transaction.ID()), accountOutputID, accountAddress, accountID)
 	if err != nil {
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "failure in account creation")
 	}
 
-	a.registerAccount(params.Alias, accOutputID, accAddrIndex, accPrivateKey)
+	a.registerAccount(params.Alias, accountOutputID, accAddrIndex, accPrivateKey)
 
 	return accountID, nil
 }

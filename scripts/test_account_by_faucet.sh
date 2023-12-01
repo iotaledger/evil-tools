@@ -1,4 +1,4 @@
-rm evil-tools
+rm -f evil-tools
 go build
 
 ./evil-tools accounts create --alias A

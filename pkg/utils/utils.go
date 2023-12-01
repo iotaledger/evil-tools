@@ -74,7 +74,7 @@ func PrepareDummyTransactionBuilder(api iotago.API, basicInputCount, basicOutput
 	if accountInput {
 		out := builder.NewAccountOutputBuilder(tpkg.RandAccountAddress(), 100).
 			Mana(100).
-			BlockIssuer(tpkg.RandomBlockIssuerKeysEd25519(1), iotago.MaxSlotIndex).MustBuild()
+			BlockIssuer(tpkg.RandBlockIssuerKeys(1), iotago.MaxSlotIndex).MustBuild()
 		txBuilder.AddInput(&builder.TxInput{
 			UnlockTarget: tpkg.RandEd25519Address(),
 			InputID:      iotago.EmptyOutputID,
@@ -85,7 +85,7 @@ func PrepareDummyTransactionBuilder(api iotago.API, basicInputCount, basicOutput
 	if accountOutput {
 		out := builder.NewAccountOutputBuilder(tpkg.RandAccountAddress(), 100).
 			Mana(100).
-			BlockIssuer(tpkg.RandomBlockIssuerKeysEd25519(1), iotago.MaxSlotIndex).MustBuild()
+			BlockIssuer(tpkg.RandBlockIssuerKeys(1), iotago.MaxSlotIndex).MustBuild()
 		txBuilder.AddOutput(out)
 	}
 

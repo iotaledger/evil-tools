@@ -240,7 +240,7 @@ func (a *AccountWallet) checkAccountStatus(ctx context.Context, blkID iotago.Blo
 	}
 
 	// Check the indexer
-	outputID, account, slot, err := a.client.GetAccountFromIndexer(ctx, accountAddress)
+	outputID, account, _, err := a.client.GetAccountFromIndexer(ctx, accountAddress)
 	if err != nil {
 		log.Debugf("Failed to get account from indexer, even after slot %d is already committed", slot)
 

@@ -12,10 +12,10 @@ import (
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/api"
 	"github.com/iotaledger/iota.go/v4/builder"
+	"github.com/iotaledger/iota.go/v4/wallet"
 )
 
 // createAccountImplicitly creates an implicit account by sending a faucet request for ImplicitAddressCreation funds.
-// TODO this one, comparing to the non-faucet way, is not working
 func (a *AccountWallet) createAccountImplicitly(ctx context.Context, params *CreateAccountParams) (iotago.AccountID, error) {
 	log.Debug("Creating an implicit account")
 	// An implicit account has an implicitly defined Block Issuer Key, corresponding to the address itself.
@@ -34,6 +34,10 @@ func (a *AccountWallet) createAccountImplicitly(ctx context.Context, params *Cre
 	}
 	log.Debug("created implicit account output with outputID: ", implicitOutputID.ToHex(), " accountAddress: ", accountAddress.Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()))
 
+	err = a.checkAccountStatus(ctx, iotago.EmptyBlockID, implicitAccountOutput.OutputID.TransactionID(), implicitOutputID, accountAddress, accID)
+	if err != nil {
+		return iotago.EmptyAccountID, ierrors.Wrap(err, "failure in account creation")
+	}
 	a.registerAccount(params.Alias, implicitAccountOutput.OutputID, implicitAccountOutput.AddressIndex, implicitAccountOutput.PrivateKey)
 
 	if !params.Transition {
@@ -42,21 +46,12 @@ func (a *AccountWallet) createAccountImplicitly(ctx context.Context, params *Cre
 		return accID, nil
 	}
 
-	log.Debugf("Transitioning implicit account with implicitAccountID %s for alias %s to regular account", iotago.AccountIDFromOutputID(implicitAccountOutput.OutputID).ToHex(), params.Alias)
-
-	pubKey, isEd25519 := implicitAccountOutput.PrivateKey.Public().(ed25519.PublicKey)
-	if !isEd25519 {
-		return iotago.EmptyAccountID, ierrors.New("Failed to create account: only Ed25519 keys are supported")
-	}
-
-	implicitAccAddr := iotago.ImplicitAccountCreationAddressFromPubKey(pubKey)
-	implicitBlockIssuerKey := iotago.Ed25519PublicKeyHashBlockIssuerKeyFromImplicitAccountCreationAddress(implicitAccAddr)
-	blockIssuerKeys := iotago.NewBlockIssuerKeys(implicitBlockIssuerKey)
-
-	return a.transitionImplicitAccount(ctx, implicitAccountOutput, blockIssuerKeys, params)
+	return a.transitionImplicitAccount(ctx, implicitAccountOutput, params)
 }
 
-func (a *AccountWallet) transitionImplicitAccount(ctx context.Context, implicitAccountOutput *models.Output, blockIssuerKeys iotago.BlockIssuerKeys, params *CreateAccountParams) (iotago.AccountID, error) {
+func (a *AccountWallet) transitionImplicitAccount(ctx context.Context, implicitAccountOutput *models.Output, params *CreateAccountParams) (iotago.AccountID, error) {
+	log.Debugf("Transitioning implicit account with implicitAccountID %s for alias %s to regular account", iotago.AccountIDFromOutputID(implicitAccountOutput.OutputID).ToHex(), params.Alias)
+
 	//  TODO check if works
 	// in case mana in one faucet request is not enough to issue immediately
 	//additionalBasicInputs, err := a.requestEnoughManaForAccountCreation(ctx, iotago.Mana(implicitAccountOutput.OutputStruct.BaseTokenAmount()))
@@ -64,9 +59,7 @@ func (a *AccountWallet) transitionImplicitAccount(ctx context.Context, implicitA
 	//	return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to request enough funds for account creation")
 	//}
 
-	// probably need to wait longer to have reach required allotted mana. If issued by implicit account
-	// time.Sleep(3 * time.Minute)
-
+	blockIssuerKeys := createBlockIssuerKeysForImplicitAccountTransition(implicitAccountOutput)
 	tokenBalance := implicitAccountOutput.OutputStruct.BaseTokenAmount() // + utils.SumOutputsBalance(additionalBasicInputs)
 	accountID := iotago.AccountIDFromOutputID(implicitAccountOutput.OutputID)
 	//nolint:forcetypeassert // we know that the address is of type *iotago.AccountAddress
@@ -80,9 +73,9 @@ func (a *AccountWallet) transitionImplicitAccount(ctx context.Context, implicitA
 		BlockIssuer(blockIssuerKeys, iotago.MaxSlotIndex).MustBuild()
 
 	log.Infof("Created account %s with %d tokens\n", accountOutput.AccountID.ToHex(), accountOutput.Amount)
+	implicitAccountHandler := wallet.NewEd25519Account(accountID, implicitAccountOutput.PrivateKey)
 
 	// transaction preparation
-	// congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(ctx, a.client, lo.PanicOnErr(a.GetAccount(params.Alias)).Account)
 	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(ctx, a.client, a.faucet.account)
 	if err != nil {
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to request block built data for the faucet account")
@@ -96,9 +89,8 @@ func (a *AccountWallet) transitionImplicitAccount(ctx context.Context, implicitA
 
 	log.Debugf("Transition transaction created:\n%s\n", utils.SprintTransaction(signedTx))
 
-	// implicitAccountHandler := wallet.NewEd25519Account(accountID, implicitAccountOutput.PrivateKey)
 	// post block with faucet
-	blkID, err := a.PostWithBlock(ctx, a.client, signedTx, a.faucet.account, congestionResp, issuerResp, version)
+	blkID, err := a.PostWithBlock(ctx, a.client, signedTx, implicitAccountHandler, congestionResp, issuerResp, version)
 	if err != nil {
 		log.Errorf("Failed to post account with block: %s", err)
 
@@ -118,6 +110,19 @@ func (a *AccountWallet) transitionImplicitAccount(ctx context.Context, implicitA
 	a.registerAccount(params.Alias, accOutputID, accAddrIndex, accPrivateKey)
 
 	return accountID, nil
+}
+
+func createBlockIssuerKeysForImplicitAccountTransition(implicitAccountOutput *models.Output) iotago.BlockIssuerKeys {
+	pubKey, isEd25519 := implicitAccountOutput.PrivateKey.Public().(ed25519.PublicKey)
+	if !isEd25519 {
+		return nil
+	}
+
+	implicitAccAddr := iotago.ImplicitAccountCreationAddressFromPubKey(pubKey)
+	implicitBlockIssuerKey := iotago.Ed25519PublicKeyHashBlockIssuerKeyFromImplicitAccountCreationAddress(implicitAccAddr)
+	blockIssuerKeys := iotago.NewBlockIssuerKeys(implicitBlockIssuerKey)
+
+	return blockIssuerKeys
 }
 
 func (a *AccountWallet) createAccountWithFaucet(ctx context.Context, params *CreateAccountParams) (iotago.AccountID, error) {

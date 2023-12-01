@@ -41,6 +41,10 @@ func isTransactionStateFailure(transactionState string) bool {
 }
 
 func evaluateBlockIssuanceResponse(resp *api.BlockMetadataResponse) (accepted bool, err error) {
+	if resp.TransactionMetadata == nil {
+		return false, ierrors.New("no transaction metadata in block metadata response")
+	}
+
 	if isBlockStateAtLeastAccepted(resp.BlockState) && isTransactionStateAtLeastAccepted(resp.TransactionMetadata.TransactionState) {
 		return true, nil
 	}
@@ -78,9 +82,7 @@ func AwaitBlockAndPayloadAcceptance(ctx context.Context, clt models.Client, bloc
 		}
 
 		if err != nil {
-			Logger.Debugf("Block %s issuance failure, block failure reason: %d, tx failure reason: %d", blockID.ToHex(), resp.BlockFailureReason, resp.TransactionMetadata.TransactionFailureReason)
-
-			return err
+			Logger.Debugf("Block %s issuance failure, block failure reason: %d, tx failure reason: %d", blockID.ToHex(), resp.BlockFailureReason, resp.TransactionMetadata)
 		}
 	}
 

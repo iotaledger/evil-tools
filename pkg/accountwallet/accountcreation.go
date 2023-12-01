@@ -191,7 +191,7 @@ func (a *AccountWallet) createAccountCreationTransaction(inputs []*models.Output
 
 	commitmentID, _ := issuerResp.LatestCommitment.ID()
 	txBuilder.AddCommitmentInput(&iotago.CommitmentInput{CommitmentID: commitmentID})
-
+	txBuilder.AddBlockIssuanceCreditInput(&iotago.BlockIssuanceCreditInput{AccountID: accountOutput.AccountID})
 	// allot required mana to the implicit account
 	a.logMissingMana(txBuilder, congestionResp.ReferenceManaCost, a.faucet.account)
 	txBuilder.AllotAllMana(txBuilder.CreationSlot(), a.faucet.account.ID())

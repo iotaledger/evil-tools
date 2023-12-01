@@ -219,7 +219,7 @@ func (a *AccountWallet) checkAccountStatus(ctx context.Context, blkID iotago.Blo
 		slot = txID.Slot() + 6 // just in case tx was created much before the block
 	}
 
-	log.Infof("Created account with addr %s, accID %s blk ID %s, txID %s and creation output %s awaiting the commitment.", accountAddress.Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()), accountID, blkID.String(), txID.String(), creationOutputID.String())
+	log.Infof("Created account with addr: %s, accID: %s blk ID: %s, txID: %s and creation output: %s awaiting the commitment.", accountAddress.Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()), accountID, blkID.ToHex(), txID.ToHex(), creationOutputID.ToHex())
 
 	// wait for the account to be committed
 	err := utils.AwaitCommitment(ctx, a.client, slot)

@@ -164,7 +164,13 @@ func AwaitOutputToBeAccepted(ctx context.Context, clt models.Client, outputID io
 
 // AwaitCommitment awaits for the commitment of a slot.
 func AwaitCommitment(ctx context.Context, clt models.Client, slot iotago.SlotIndex) error {
-	for t := time.Now(); time.Since(t) < MaxCommitmentAwait; time.Sleep(AwaitCommitmentInterval) {
+	resp, err := clt.GetBlockIssuance(ctx)
+	if err != nil {
+		return ierrors.Wrap(err, "failed to get node info")
+	}
+	currentCommittedSlot := resp.LatestCommitment.Slot
+
+	for t := currentCommittedSlot; t <= slot; t++ {
 		resp, err := clt.GetBlockIssuance(ctx)
 		if err != nil {
 			continue
@@ -175,6 +181,8 @@ func AwaitCommitment(ctx context.Context, clt models.Client, slot iotago.SlotInd
 		if slot <= latestCommittedSlot {
 			return nil
 		}
+
+		time.Sleep(AwaitCommitmentInterval)
 	}
 
 	return ierrors.Errorf("failed to await commitment for slot %d", slot)

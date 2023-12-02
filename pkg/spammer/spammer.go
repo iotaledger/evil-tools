@@ -311,7 +311,7 @@ func (s *Spammer) PrepareAndPostBlock(ctx context.Context, issuanceData *models.
 
 		return iotago.EmptyBlockID
 	}
-	s.log.Debugf("Issued block, blockID %s, issuer %s", blockID.String(), issuerAccount.ID().String())
+	s.log.Debugf("Issued block, blockID %s, issuer %s", blockID.ToHex(), issuerAccount.ID().ToHex())
 
 	if issuanceData.Type == iotago.PayloadSignedTransaction {
 		// reuse outputs

@@ -25,7 +25,6 @@ const (
 
 func (a *AccountWallet) RequestBlockBuiltData(ctx context.Context, clt models.Client, account wallet.Account) (*api.CongestionResponse, *api.IssuanceBlockHeaderResponse, iotago.Version, error) {
 	// TODO this should be later remove after congestion for implicit account will work
-	account = a.faucet.account
 	issuerResp, err := clt.GetBlockIssuance(ctx)
 	if err != nil {
 		return nil, nil, 0, ierrors.Wrapf(err, "failed to get block issuance data for accID %s, addr %s", account.ID().ToHex(), account.Address().String())

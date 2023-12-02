@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 
 	"github.com/iotaledger/evil-tools/pkg/models"
@@ -28,22 +30,18 @@ func SplitBalanceEqually[T iotago.BaseToken | iotago.Mana](splitNumber int, bala
 	return outputBalances
 }
 
-func SprintTransaction(tx *iotago.SignedTransaction) string {
+func SprintTransaction(api iotago.API, tx *iotago.SignedTransaction) string {
+	jsonBytes, err := api.JSONEncode(tx)
+	if err != nil {
+		return ""
+	}
+	var out bytes.Buffer
+	json.Indent(&out, jsonBytes, "", "  ")
+
 	txDetails := ""
 	txDetails += fmt.Sprintf("\tSigned Transaction ID: %s, txID: %s, slotCreation: %d\n", lo.PanicOnErr(tx.ID()).ToHex(), lo.PanicOnErr(tx.Transaction.ID()).ToHex(), tx.Transaction.CreationSlot)
-	for index, out := range tx.Transaction.TransactionEssence.Inputs {
-		txDetails += fmt.Sprintf("\tInput index: %d, type: %s\n", index, out.Type())
-	}
-	for _, out := range tx.Transaction.TransactionEssence.ContextInputs {
-		txDetails += fmt.Sprintf("\tContext input: %s\n", out.Type())
-	}
-	for index, out := range tx.Transaction.Outputs {
-		txDetails += fmt.Sprintf("\tOutput index: %d, base token: %d, stored mana: %d, type: %s\n", index, out.BaseTokenAmount(), out.StoredMana(), out.Type())
-	}
-	txDetails += fmt.Sprintln("\tAllotments:")
-	for _, allotment := range tx.Transaction.Allotments {
-		txDetails += fmt.Sprintf("\tAllotmentID: %s, value: %d\n", allotment.AccountID, allotment.Mana)
-	}
+
+	txDetails += out.String()
 
 	return txDetails
 }

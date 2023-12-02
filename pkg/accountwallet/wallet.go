@@ -187,11 +187,10 @@ func (a *AccountWallet) fromAccountStateFile() error {
 }
 
 //nolint:all,unused
-func (a *AccountWallet) registerAccount(alias string, outputID iotago.OutputID, index uint64, privateKey ed25519.PrivateKey) iotago.AccountID {
+func (a *AccountWallet) registerAccount(alias string, accountID iotago.AccountID, outputID iotago.OutputID, index uint64, privateKey ed25519.PrivateKey) iotago.AccountID {
 	a.accountAliasesMutex.Lock()
 	defer a.accountAliasesMutex.Unlock()
 
-	accountID := iotago.AccountIDFromOutputID(outputID)
 	account := wallet.NewEd25519Account(accountID, privateKey)
 	log.Debugf("registering account %s with alias %s\noutputID: %s addr: %s\n", accountID.String(), alias, outputID.String(), account.Address().String())
 	a.accountsAliases[alias] = &models.AccountData{
@@ -233,7 +232,7 @@ func (a *AccountWallet) checkAccountStatus(ctx context.Context, blkID iotago.Blo
 	if blkID == iotago.EmptyBlockID {
 		resp, err := a.client.GetBlockStateFromTransaction(ctx, txID)
 		if err != nil {
-			log.Debugf("RequestFaucetFunds faucet tx state: %s, block state: %s, tx failure: %d, block failure: %d", resp.TransactionMetadata.TransactionState, resp.BlockState, resp.TransactionMetadata.TransactionFailureReason, resp.BlockFailureReason)
+			log.Debugf("RequestFaucetFunds faucet tx state: %s, block state: %s, tx failure: %d, block failure: %d", resp.TransactionMetadata.TransactionState, resp.BlockState, resp.TransactionMetadata, resp.BlockFailureReason)
 
 			return ierrors.Wrap(err, "failed to get block state from transaction")
 		}

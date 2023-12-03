@@ -79,7 +79,7 @@ func (a *AccountWallet) RequestManaAndFundsFromTheFaucet(ctx context.Context, mi
 				doneChan <- struct{}{}
 			}()
 
-			faucetOutput, err := a.getModelFunds(ctx, iotago.AddressEd25519)
+			faucetOutput, err := a.getFaucetFundsOutput(ctx, iotago.AddressEd25519)
 			if err != nil {
 				log.Errorf("failed to request funds from the faucet: %v", err)
 
@@ -104,7 +104,7 @@ func (a *AccountWallet) RequestManaAndFundsFromTheFaucet(ctx context.Context, mi
 	return outputs, nil
 }
 
-func (a *AccountWallet) getModelFunds(ctx context.Context, addressType iotago.AddressType) (*models.Output, error) {
+func (a *AccountWallet) getFaucetFundsOutput(ctx context.Context, addressType iotago.AddressType) (*models.Output, error) {
 	receiverAddr, privateKey, usedIndex := a.getAddress(addressType)
 
 	outputID, output, err := a.RequestFaucetFunds(ctx, receiverAddr)

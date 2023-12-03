@@ -192,7 +192,6 @@ func (a *AccountWallet) registerAccount(alias string, accountID iotago.AccountID
 	defer a.accountAliasesMutex.Unlock()
 
 	account := wallet.NewEd25519Account(accountID, privateKey)
-	log.Debugf("registering account %s with alias %s\noutputID: %s addr: %s\n", accountID.String(), alias, outputID.String(), account.Address().String())
 	a.accountsAliases[alias] = &models.AccountData{
 		Alias:    alias,
 		Account:  account,
@@ -200,61 +199,55 @@ func (a *AccountWallet) registerAccount(alias string, accountID iotago.AccountID
 		OutputID: outputID,
 		Index:    index,
 	}
+	log.Debugf("registering account %s with alias %s\noutputID: %s addr: %s\n", accountID.String(), alias, outputID.ToHex(), account.Address().String())
 
 	return accountID
 }
 
 // checkAccountStatus checks the status of the account by requesting all possible endpoints.
-// TODO it is not throwing an error if any API request fails, beside the blockMetadata, only logs it, after all is fixed it should fail on any response error.
-func (a *AccountWallet) checkAccountStatus(ctx context.Context, blkID iotago.BlockID, txID iotago.TransactionID, creationOutputID iotago.OutputID, accountAddress *iotago.AccountAddress, accountID iotago.AccountID) error {
+func (a *AccountWallet) checkAccountStatus(ctx context.Context, blkID iotago.BlockID, txID iotago.TransactionID, creationOutputID iotago.OutputID, accountAddress *iotago.AccountAddress, checkIndexer ...bool) error {
 	// request by blockID if provided, otherwise use txID
-	var slot iotago.SlotIndex
-	if blkID != iotago.EmptyBlockID {
-		if err := utils.AwaitBlockAndPayloadAcceptance(ctx, a.client, blkID); err != nil {
-			return ierrors.Wrapf(err, "failed to await block issuance for block %s", blkID.ToHex())
+	slot := blkID.Slot()
+	if blkID == iotago.EmptyBlockID {
+		blkMetadata, err := a.client.GetBlockStateFromTransaction(ctx, txID)
+		if err != nil {
+			return ierrors.Wrapf(err, "failed to get block state from transaction %s", txID.ToHex())
 		}
-		slot = blkID.Slot()
-	} else {
-		slot = txID.Slot() + 6 // just in case tx was created much before the block
+		blkID = blkMetadata.BlockID
+		slot = blkMetadata.BlockID.Slot()
 	}
 
-	log.Infof("Created account with addr: %s, accID: %s blk ID: %s, txID: %s and creation output: %s awaiting the commitment.", accountAddress.Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()), accountID, blkID.ToHex(), txID.ToHex(), creationOutputID.ToHex())
+	if err := utils.AwaitBlockAndPayloadAcceptance(ctx, a.client, blkID); err != nil {
+		return ierrors.Wrapf(err, "failed to await block issuance for block %s", blkID.ToHex())
+	}
 
 	// wait for the account to be committed
+	log.Infof("Created account with addr: %s, blk ID: %s, txID: %s and creation output: %s awaiting the commitment.", accountAddress.Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()), blkID.ToHex(), txID.ToHex(), creationOutputID.ToHex())
 	err := utils.AwaitCommitment(ctx, a.client, slot)
 	if err != nil {
 		log.Errorf("Failed to await commitment for slot %d: %s", slot, err)
 
 		return err
 	}
-	log.Infof("Slot %d is committed", slot)
-
-	if blkID == iotago.EmptyBlockID {
-		resp, err := a.client.GetBlockStateFromTransaction(ctx, txID)
-		if err != nil {
-			log.Debugf("RequestFaucetFunds faucet tx state: %s, block state: %s, tx failure: %d, block failure: %d", resp.TransactionMetadata.TransactionState, resp.BlockState, resp.TransactionMetadata, resp.BlockFailureReason)
-
-			return ierrors.Wrap(err, "failed to get block state from transaction")
-		}
-	}
 
 	// Check the indexer
-	outputID, account, _, err := a.client.GetAccountFromIndexer(ctx, accountAddress)
-	if err != nil {
-		log.Debugf("Failed to get account from indexer, even after slot %d is already committed", slot)
+	if len(checkIndexer) > 0 && checkIndexer[0] {
+		outputID, account, _, err := a.client.GetAccountFromIndexer(ctx, accountAddress)
+		if err != nil {
+			log.Debugf("Failed to get account from indexer, even after slot %d is already committed", slot)
+			return ierrors.Wrapf(err, "failed to get account from indexer, even after slot %d is already committed", slot)
+		}
 
-		//return err
-	} else {
-		log.Debugf("Indexer returned: outputID %s, account %s, slot %d", outputID.String(), account.AccountID, slot)
+		log.Debugf("Indexer returned: outputID %s, account %s, slot %d", outputID.String(), account.AccountID.ToAddress().Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()), slot)
 	}
 
 	// check if the creation output exists
 	outputFromNode, err := a.client.Client().OutputByID(ctx, creationOutputID)
 	if err != nil {
 		log.Debugf("Failed to get output from node, even after slot %d is already committed", slot)
-	} else {
-		log.Debugf("Node returned: outputID %s, output %s", creationOutputID, outputFromNode.Type())
+		return ierrors.Wrapf(err, "failed to get output from node, even after slot %d is already committed", slot)
 	}
+	log.Debugf("Node returned: outputID %s, output %s", creationOutputID.ToHex(), outputFromNode.Type())
 
 	log.Infof("Account created, Bech addr: %s, slot: %d", accountAddress.Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()), slot)
 

@@ -19,25 +19,25 @@ const (
 	AwaitCommitmentInterval = 10 * time.Second
 )
 
-func isBlockStateAtLeastAccepted(blockState string) bool {
-	return blockState == api.BlockStateAccepted.String() ||
-		blockState == api.BlockStateConfirmed.String() ||
-		blockState == api.BlockStateFinalized.String()
+func isBlockStateAtLeastAccepted(blockState api.BlockState) bool {
+	return blockState == api.BlockStateAccepted ||
+		blockState == api.BlockStateConfirmed ||
+		blockState == api.BlockStateFinalized
 }
 
-func isTransactionStateAtLeastAccepted(transactionState string) bool {
-	return transactionState == api.TransactionStateAccepted.String() ||
-		transactionState == api.TransactionStateConfirmed.String() ||
-		transactionState == api.TransactionStateFinalized.String()
+func isTransactionStateAtLeastAccepted(transactionState api.TransactionState) bool {
+	return transactionState == api.TransactionStateAccepted ||
+		transactionState == api.TransactionStateConfirmed ||
+		transactionState == api.TransactionStateFinalized
 }
 
-func isBlockStateFailure(blockState string) bool {
-	return blockState == api.BlockStateFailed.String() ||
-		blockState == api.BlockStateRejected.String()
+func isBlockStateFailure(blockState api.BlockState) bool {
+	return blockState == api.BlockStateFailed ||
+		blockState == api.BlockStateRejected
 }
 
-func isTransactionStateFailure(transactionState string) bool {
-	return transactionState == api.TransactionStateFailed.String()
+func isTransactionStateFailure(transactionState api.TransactionState) bool {
+	return transactionState == api.TransactionStateFailed
 }
 
 func evaluateBlockIssuanceResponse(resp *api.BlockMetadataResponse) (accepted bool, err error) {

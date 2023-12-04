@@ -2,7 +2,6 @@ package accountwallet
 
 import (
 	"context"
-	"math"
 	"sync"
 	"time"
 
@@ -38,70 +37,6 @@ func (a *AccountWallet) RequestBlockBuiltData(ctx context.Context, clt models.Cl
 	version := clt.APIForSlot(issuerResp.LatestCommitment.Slot).Version()
 
 	return congestionResp, issuerResp, version, nil
-}
-
-func (a *AccountWallet) requestEnoughManaForAccountCreation(ctx context.Context, currentMana iotago.Mana) ([]*models.Output, error) {
-	requiredMana, err := a.estimateMinimumRequiredMana(ctx, 1, 0, false, true)
-	if err != nil {
-		return nil, ierrors.Wrap(err, "failed to estimate number of faucet requests to cover minimum required mana")
-	}
-	log.Debugf("Mana required for account creation: %d, requesting additional mana from the faucet", requiredMana)
-	if currentMana >= requiredMana {
-		return []*models.Output{}, nil
-	}
-	additionalBasicInputs, err := a.RequestManaAndFundsFromTheFaucet(ctx, requiredMana, 0)
-	if err != nil {
-		return nil, ierrors.Wrap(err, "failed to request mana from the faucet")
-	}
-	log.Debugf("successfully requested %d new outputs from the faucet", len(additionalBasicInputs))
-
-	return additionalBasicInputs, nil
-}
-
-// RequestManaAndFundsFromTheFaucet sends as many faucet requests to cover for the provided minimum mana and token amount.
-// TODO does not work, need to debug
-func (a *AccountWallet) RequestManaAndFundsFromTheFaucet(ctx context.Context, minManaAmount iotago.Mana, minTokensAmount iotago.BaseToken) ([]*models.Output, error) {
-	if minManaAmount/a.faucet.RequestManaAmount > MaxFaucetRequestsForOneOperation {
-		return nil, ierrors.Errorf("required mana is too large, needs more than %d faucet requests", MaxFaucetRequestsForOneOperation)
-	}
-
-	if minTokensAmount/a.faucet.RequestTokenAmount > MaxFaucetRequestsForOneOperation {
-		return nil, ierrors.Errorf("required token amount is too large, needs more than %d faucet requests", MaxFaucetRequestsForOneOperation)
-	}
-	numOfRequests := int(math.Max(float64(minManaAmount/a.faucet.RequestManaAmount), float64(minTokensAmount/a.faucet.RequestTokenAmount)))
-
-	outputsChan := make(chan *models.Output)
-	doneChan := make(chan struct{})
-	// if there is not enough mana to pay for account creation, request mana from the faucet
-	for i := 0; i < numOfRequests; i++ {
-		go func(ctx context.Context, outputsChan chan *models.Output, doneChan chan struct{}) {
-			defer func() {
-				doneChan <- struct{}{}
-			}()
-
-			faucetOutput, err := a.getFaucetFundsOutput(ctx, iotago.AddressEd25519)
-			if err != nil {
-				log.Errorf("failed to request funds from the faucet: %v", err)
-
-				return
-			}
-
-			outputsChan <- faucetOutput
-		}(ctx, outputsChan, doneChan)
-	}
-
-	outputs := make([]*models.Output, 0)
-	for requestsProcessed := 0; requestsProcessed < numOfRequests; {
-		select {
-		case faucetOutput := <-outputsChan:
-			log.Debugf("Faucet requests, received faucet output: %s", faucetOutput.OutputID.ToHex())
-			outputs = append(outputs, faucetOutput)
-		case <-doneChan:
-			requestsProcessed++
-		}
-	}
-
-	return outputs, nil
 }
 
 func (a *AccountWallet) getFaucetFundsOutput(ctx context.Context, addressType iotago.AddressType) (*models.Output, error) {

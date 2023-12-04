@@ -1,7 +1,6 @@
 package accountwallet
 
 import (
-	"context"
 	"crypto"
 	"crypto/ed25519"
 
@@ -13,21 +12,6 @@ import (
 	"github.com/iotaledger/iota.go/v4/builder"
 	"github.com/iotaledger/iota.go/v4/wallet"
 )
-
-func (a *AccountWallet) estimateMinimumRequiredMana(ctx context.Context, basicInputCount, basicOutputCount int, accountInput bool, accountOutput bool) (iotago.Mana, error) {
-	congestionResp, err := a.client.GetCongestion(ctx, a.faucet.account.Address())
-	if err != nil {
-		return 0, ierrors.Wrapf(err, "failed to get congestion data for faucet accountID")
-	}
-
-	txBuilder := utils.PrepareDummyTransactionBuilder(a.client.APIForSlot(congestionResp.Slot), basicInputCount, basicOutputCount, accountInput, accountOutput)
-	minRequiredAllottedMana, err := txBuilder.MinRequiredAllotedMana(a.client.APIForSlot(congestionResp.Slot).ProtocolParameters().WorkScoreParameters(), congestionResp.ReferenceManaCost, iotago.EmptyAccountID)
-	if err != nil {
-		return 0, ierrors.Wrap(err, "could not calculate min required allotted mana")
-	}
-
-	return minRequiredAllottedMana, nil
-}
 
 func (a *AccountWallet) logMissingMana(finishedTxBuilder *builder.TransactionBuilder, rmc iotago.Mana, issuerAccountID iotago.AccountID) {
 	availableMana, err := finishedTxBuilder.CalculateAvailableMana(finishedTxBuilder.CreationSlot())

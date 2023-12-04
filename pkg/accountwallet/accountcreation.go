@@ -170,11 +170,18 @@ func (a *AccountWallet) createAccountCreationTransaction(inputs []*models.Output
 
 	commitmentID, _ := issuerResp.LatestCommitment.ID()
 	txBuilder.AddCommitmentInput(&iotago.CommitmentInput{CommitmentID: commitmentID})
-	txBuilder.AddBlockIssuanceCreditInput(&iotago.BlockIssuanceCreditInput{AccountID: accountOutput.AccountID})
+
+	// empty accountID means that the account is created from the faucet account
+	accountID := accountOutput.AccountID
+	if accountID == iotago.EmptyAccountID {
+		accountID = a.faucet.account.ID()
+	}
+
+	txBuilder.AddBlockIssuanceCreditInput(&iotago.BlockIssuanceCreditInput{AccountID: accountID})
 	txBuilder.WithTransactionCapabilities(iotago.TransactionCapabilitiesBitMaskWithCapabilities(iotago.WithTransactionCanDoAnything()))
 	// allot required mana to the implicit account
 	a.logMissingMana(txBuilder, congestionResp.ReferenceManaCost, a.faucet.account)
-	txBuilder.AllotAllMana(txBuilder.CreationSlot(), accountOutput.AccountID)
+	txBuilder.AllotAllMana(txBuilder.CreationSlot(), accountID)
 
 	// sign the transaction
 	addrSigner, err := a.GetAddrSignerForIndexes(inputs...)

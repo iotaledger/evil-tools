@@ -156,6 +156,18 @@ func (a *AccountWallet) createAccountCreationTransaction(inputs []*models.Output
 	currentSlot := a.client.LatestAPI().TimeProvider().SlotFromTime(currentTime)
 	apiForSlot := a.client.APIForSlot(currentSlot)
 
+	// empty accountID means that the account is created from the faucet account
+	accountID := accountOutput.AccountID
+	if accountID == iotago.EmptyAccountID {
+		accountID = a.faucet.account.ID()
+	}
+
+	// transaction signer
+	addrSigner, err := a.GetAddrSignerForIndexes(inputs...)
+	if err != nil {
+		return nil, ierrors.Wrap(err, "failed to get address signer")
+	}
+
 	txBuilder := builder.NewTransactionBuilder(apiForSlot)
 	for _, output := range inputs {
 		txBuilder.AddInput(&builder.TxInput{
@@ -165,29 +177,14 @@ func (a *AccountWallet) createAccountCreationTransaction(inputs []*models.Output
 		})
 	}
 
-	txBuilder.AddOutput(accountOutput)
-	txBuilder.SetCreationSlot(currentSlot)
+	txBuilder.
+		AddOutput(accountOutput).
+		SetCreationSlot(currentSlot).
+		AddCommitmentInput(&iotago.CommitmentInput{CommitmentID: lo.Return1(issuerResp.LatestCommitment.ID())}).AddBlockIssuanceCreditInput(&iotago.BlockIssuanceCreditInput{AccountID: accountID}).
+		WithTransactionCapabilities(iotago.TransactionCapabilitiesBitMaskWithCapabilities(iotago.WithTransactionCanDoAnything())).AllotAllMana(txBuilder.CreationSlot(), accountID)
 
-	commitmentID, _ := issuerResp.LatestCommitment.ID()
-	txBuilder.AddCommitmentInput(&iotago.CommitmentInput{CommitmentID: commitmentID})
-
-	// empty accountID means that the account is created from the faucet account
-	accountID := accountOutput.AccountID
-	if accountID == iotago.EmptyAccountID {
-		accountID = a.faucet.account.ID()
-	}
-
-	txBuilder.AddBlockIssuanceCreditInput(&iotago.BlockIssuanceCreditInput{AccountID: accountID})
-	txBuilder.WithTransactionCapabilities(iotago.TransactionCapabilitiesBitMaskWithCapabilities(iotago.WithTransactionCanDoAnything()))
 	// allot required mana to the implicit account
-	a.logMissingMana(txBuilder, congestionResp.ReferenceManaCost, a.faucet.account)
-	txBuilder.AllotAllMana(txBuilder.CreationSlot(), accountID)
-
-	// sign the transaction
-	addrSigner, err := a.GetAddrSignerForIndexes(inputs...)
-	if err != nil {
-		return nil, ierrors.Wrap(err, "failed to get address signer")
-	}
+	a.logMissingMana(txBuilder, congestionResp.ReferenceManaCost, accountID)
 
 	signedTx, err := txBuilder.Build(addrSigner)
 	if err != nil {

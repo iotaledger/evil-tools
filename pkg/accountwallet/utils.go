@@ -29,7 +29,7 @@ func (a *AccountWallet) estimateMinimumRequiredMana(ctx context.Context, basicIn
 	return minRequiredAllottedMana, nil
 }
 
-func (a *AccountWallet) logMissingMana(finishedTxBuilder *builder.TransactionBuilder, rmc iotago.Mana, issuer wallet.Account) {
+func (a *AccountWallet) logMissingMana(finishedTxBuilder *builder.TransactionBuilder, rmc iotago.Mana, issuerAccountID iotago.AccountID) {
 	availableMana, err := finishedTxBuilder.CalculateAvailableMana(finishedTxBuilder.CreationSlot())
 	if err != nil {
 		log.Error("could not calculate available mana")
@@ -37,7 +37,7 @@ func (a *AccountWallet) logMissingMana(finishedTxBuilder *builder.TransactionBui
 		return
 	}
 	log.Debug(utils.SprintAvailableManaResult(availableMana))
-	minRequiredAllottedMana, err := finishedTxBuilder.MinRequiredAllotedMana(a.client.APIForSlot(finishedTxBuilder.CreationSlot()).ProtocolParameters().WorkScoreParameters(), rmc, issuer.Address().AccountID())
+	minRequiredAllottedMana, err := finishedTxBuilder.MinRequiredAllotedMana(a.client.APIForSlot(finishedTxBuilder.CreationSlot()).ProtocolParameters().WorkScoreParameters(), rmc, issuerAccountID)
 	if err != nil {
 		log.Error("could not calculate min required allotted mana")
 

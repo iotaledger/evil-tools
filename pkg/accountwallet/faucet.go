@@ -128,7 +128,7 @@ func newFaucet(clt models.Client, faucetParams *faucetParams) *faucet {
 	f := &faucet{
 		clt:               clt,
 		account:           lo.PanicOnErr(wallet.AccountFromParams(faucetParams.faucetAccountID, faucetParams.faucetPrivateKey)),
-		genesisKeyManager: lo.PanicOnErr(wallet.NewKeyManager(genesisSeed, 0)),
+		genesisKeyManager: lo.PanicOnErr(wallet.NewKeyManager(genesisSeed, wallet.DefaultIOTAPath)),
 	}
 
 	return f

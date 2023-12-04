@@ -217,6 +217,6 @@ func (a *NoAccountParams) Type() AccountOperation {
 
 type StateData struct {
 	Seed          string                 `serix:",lenPrefix=uint8"`
-	LastUsedIndex uint64                 `serix:""`
+	LastUsedIndex uint32                 `serix:""`
 	AccountsData  []*models.AccountState `serix:"accounts,lenPrefix=uint8"`
 }

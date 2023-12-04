@@ -5,6 +5,7 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/iotaledger/evil-tools/pkg/accountwallet"
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/lo"
@@ -21,14 +22,14 @@ type Wallet struct {
 	ID                walletID
 	walletType        WalletType
 	unspentOutputs    map[models.TempOutputID]*models.Output // maps addr to its unspentOutput
-	indexTempIDMap    map[uint64]models.TempOutputID
-	addrIndexMap      map[string]uint64
+	indexTempIDMap    map[uint32]models.TempOutputID
+	addrIndexMap      map[string]uint32
 	inputTransactions map[string]types.Empty
 	reuseTempIDPool   map[models.TempOutputID]types.Empty
 	seed              [32]byte
 
-	lastAddrIdxUsed atomic.Int64 // used during filling in wallet with new outputs
-	lastAddrSpent   atomic.Int64 // used during spamming with outputs one by one
+	lastAddrIdxUsed atomic.Uint32 // used during filling in wallet with new outputs
+	lastAddrSpent   atomic.Uint32 // used during spamming with outputs one by one
 
 	*syncutils.RWMutex
 }
@@ -39,16 +40,16 @@ func NewWallet(wType ...WalletType) *Wallet {
 	if len(wType) > 0 {
 		walletType = wType[0]
 	}
-	idxSpent := atomic.NewInt64(-1)
-	addrUsed := atomic.NewInt64(-1)
+	idxSpent := atomic.NewUint32(0)
+	addrUsed := atomic.NewUint32(0)
 
 	w := &Wallet{
 		walletType:        walletType,
 		ID:                -1,
 		seed:              tpkg.RandEd25519Seed(),
 		unspentOutputs:    make(map[models.TempOutputID]*models.Output),
-		indexTempIDMap:    make(map[uint64]models.TempOutputID),
-		addrIndexMap:      make(map[string]uint64),
+		indexTempIDMap:    make(map[uint32]models.TempOutputID),
+		addrIndexMap:      make(map[string]uint32),
 		inputTransactions: make(map[string]types.Empty),
 		lastAddrSpent:     *idxSpent,
 		lastAddrIdxUsed:   *addrUsed,
@@ -72,8 +73,9 @@ func (w *Wallet) Address() *iotago.Ed25519Address {
 	w.Lock()
 	defer w.Unlock()
 
-	index := uint64(w.lastAddrIdxUsed.Add(1))
-	keyManager := lo.PanicOnErr(wallet.NewKeyManager(w.seed[:], index))
+	index := w.lastAddrIdxUsed.Load()
+	w.lastAddrIdxUsed.Inc()
+	keyManager := lo.PanicOnErr(wallet.NewKeyManager(w.seed[:], accountwallet.BIP32PathForIndex(index)))
 	//nolint:forcetypeassert
 	addr := keyManager.Address(iotago.AddressEd25519).(*iotago.Ed25519Address)
 	w.addrIndexMap[addr.String()] = index
@@ -82,11 +84,11 @@ func (w *Wallet) Address() *iotago.Ed25519Address {
 }
 
 // AddressOnIndex returns a new and unused address of a given wallet.
-func (w *Wallet) AddressOnIndex(index uint64) *iotago.Ed25519Address {
+func (w *Wallet) AddressOnIndex(index uint32) *iotago.Ed25519Address {
 	w.Lock()
 	defer w.Unlock()
 
-	keyManager := lo.PanicOnErr(wallet.NewKeyManager(w.seed[:], index))
+	keyManager := lo.PanicOnErr(wallet.NewKeyManager(w.seed[:], accountwallet.BIP32PathForIndex(index)))
 	//nolint:forcetypeassert
 	addr := keyManager.Address(iotago.AddressEd25519).(*iotago.Ed25519Address)
 
@@ -114,7 +116,7 @@ func (w *Wallet) UnspentOutputs() (outputs map[models.TempOutputID]*models.Outpu
 }
 
 // IndexTempIDMap returns the address for the index specified.
-func (w *Wallet) IndexTempIDMap(outIndex uint64) models.TempOutputID {
+func (w *Wallet) IndexTempIDMap(outIndex uint32) models.TempOutputID {
 	w.RLock()
 	defer w.RUnlock()
 
@@ -122,7 +124,7 @@ func (w *Wallet) IndexTempIDMap(outIndex uint64) models.TempOutputID {
 }
 
 // AddrIndexMap returns the index for the address specified.
-func (w *Wallet) AddrIndexMap(address string) uint64 {
+func (w *Wallet) AddrIndexMap(address string) uint32 {
 	w.RLock()
 	defer w.RUnlock()
 
@@ -211,7 +213,7 @@ func (w *Wallet) GetUnspentOutput() *models.Output {
 	default:
 		if w.lastAddrSpent.Load() < w.lastAddrIdxUsed.Load() {
 			idx := w.lastAddrSpent.Inc()
-			addr := w.IndexTempIDMap(uint64(idx))
+			addr := w.IndexTempIDMap(idx)
 			outs := w.UnspentOutput(addr)
 
 			return outs
@@ -221,11 +223,11 @@ func (w *Wallet) GetUnspentOutput() *models.Output {
 	return nil
 }
 
-func (w *Wallet) KeyPair(index uint64) (ed25519.PrivateKey, ed25519.PublicKey) {
+func (w *Wallet) KeyPair(index uint32) (ed25519.PrivateKey, ed25519.PublicKey) {
 	w.RLock()
 	defer w.RUnlock()
 
-	keyManger := lo.PanicOnErr(wallet.NewKeyManager(w.seed[:], index))
+	keyManger := lo.PanicOnErr(wallet.NewKeyManager(w.seed[:], accountwallet.BIP32PathForIndex(index)))
 
 	return keyManger.KeyPair()
 }

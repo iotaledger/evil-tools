@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/wollac/iota-crypto-demo/pkg/bip32path"
 	"go.uber.org/atomic"
 
 	"github.com/mr-tron/base58"
@@ -14,6 +15,7 @@ import (
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/evil-tools/pkg/utils"
 	"github.com/iotaledger/hive.go/ierrors"
+	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/runtime/options"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/builder"
@@ -66,7 +68,7 @@ type AccountWallet struct {
 	accountsAliases     map[string]*models.AccountData
 	accountAliasesMutex sync.RWMutex
 
-	latestUsedIndex atomic.Uint64
+	latestUsedIndex atomic.Uint32
 
 	client *models.WebClient
 	API    iotago.API
@@ -183,7 +185,7 @@ func (a *AccountWallet) fromAccountStateFile() error {
 }
 
 //nolint:all,unused
-func (a *AccountWallet) registerAccount(alias string, outputID iotago.OutputID, index uint64, privateKey ed25519.PrivateKey) iotago.AccountID {
+func (a *AccountWallet) registerAccount(alias string, outputID iotago.OutputID, index uint32, privateKey ed25519.PrivateKey) iotago.AccountID {
 	a.accountAliasesMutex.Lock()
 	defer a.accountAliasesMutex.Unlock()
 
@@ -286,7 +288,7 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 		return err
 	}
 
-	keyManager, err := wallet.NewKeyManager(a.seed[:], accData.Index)
+	keyManager, err := wallet.NewKeyManager(a.seed[:], BIP32PathForIndex(accData.Index))
 	if err != nil {
 		return err
 	}
@@ -337,4 +339,16 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 	log.Infof("Account %s has been destroyed", alias)
 
 	return nil
+}
+
+func BIP32PathForIndex(index uint32) string {
+	path := lo.PanicOnErr(bip32path.ParsePath(wallet.DefaultIOTAPath))
+	if len(path) != 5 {
+		panic("invalid path length")
+	}
+
+	// Set the index
+	path[4] = index
+
+	return path.String()
 }

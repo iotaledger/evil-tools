@@ -22,13 +22,13 @@ type Output struct {
 	OutputID     iotago.OutputID
 	TempID       TempOutputID
 	Address      iotago.Address
-	AddressIndex uint64
+	AddressIndex uint32
 	PrivateKey   ed25519.PrivateKey
 
 	OutputStruct iotago.Output
 }
 
-func NewOutputWithEmptyID(api iotago.API, addr iotago.Address, index uint64, privateKey ed25519.PrivateKey, out iotago.Output) (*Output, error) {
+func NewOutputWithEmptyID(api iotago.API, addr iotago.Address, index uint32, privateKey ed25519.PrivateKey, out iotago.Output) (*Output, error) {
 	outID, err := NewTempOutputID(api, out)
 	if err != nil {
 		return nil, err
@@ -44,7 +44,7 @@ func NewOutputWithEmptyID(api iotago.API, addr iotago.Address, index uint64, pri
 	}, nil
 }
 
-func NewOutputWithID(api iotago.API, outputID iotago.OutputID, addr iotago.Address, index uint64, privateKey ed25519.PrivateKey, out iotago.Output) (*Output, error) {
+func NewOutputWithID(api iotago.API, outputID iotago.OutputID, addr iotago.Address, index uint32, privateKey ed25519.PrivateKey, out iotago.Output) (*Output, error) {
 	tempID, err := NewTempOutputID(api, out)
 	if err != nil {
 		return nil, err
@@ -75,7 +75,7 @@ type AccountData struct {
 	Status   AccountStatus
 	Account  wallet.Account
 	OutputID iotago.OutputID
-	Index    uint64
+	Index    uint32
 }
 
 type AccountState struct {
@@ -83,7 +83,7 @@ type AccountState struct {
 	AccountID  iotago.AccountID   `serix:""`
 	PrivateKey ed25519.PrivateKey `serix:",lenPrefix=uint8"`
 	OutputID   iotago.OutputID    `serix:""`
-	Index      uint64             `serix:""`
+	Index      uint32             `serix:""`
 }
 
 func AccountStateFromAccountData(acc *AccountData) *AccountState {

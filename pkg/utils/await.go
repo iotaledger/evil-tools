@@ -13,7 +13,7 @@ import (
 
 const (
 	MaxAcceptanceAwait = 90 * time.Second
-	AwaitInterval      = 2 * time.Second
+	AwaitInterval      = 1 * time.Second
 
 	MaxCommitmentAwait      = 90 * time.Second
 	AwaitCommitmentInterval = 10 * time.Second
@@ -41,6 +41,10 @@ func isTransactionStateFailure(transactionState api.TransactionState) bool {
 }
 
 func evaluateBlockIssuanceResponse(resp *api.BlockMetadataResponse) (accepted bool, err error) {
+	if resp.TransactionMetadata == nil {
+		return false, ierrors.New("no transaction metadata in block metadata response")
+	}
+
 	if isBlockStateAtLeastAccepted(resp.BlockState) && isTransactionStateAtLeastAccepted(resp.TransactionMetadata.TransactionState) {
 		return true, nil
 	}
@@ -78,9 +82,7 @@ func AwaitBlockAndPayloadAcceptance(ctx context.Context, clt models.Client, bloc
 		}
 
 		if err != nil {
-			Logger.Debugf("Block %s issuance failure, block failure reason: %d, tx failure reason: %d", blockID.ToHex(), resp.BlockFailureReason, resp.TransactionMetadata.TransactionFailureReason)
-
-			return err
+			Logger.Debugf("Block %s issuance failure, block failure reason: %d, tx failure reason: %d", blockID.ToHex(), resp.BlockFailureReason, resp.TransactionMetadata)
 		}
 	}
 
@@ -161,19 +163,34 @@ func AwaitOutputToBeAccepted(ctx context.Context, clt models.Client, outputID io
 }
 
 // AwaitCommitment awaits for the commitment of a slot.
-func AwaitCommitment(ctx context.Context, clt models.Client, slot iotago.SlotIndex) error {
-	for t := time.Now(); time.Since(t) < MaxCommitmentAwait; time.Sleep(AwaitCommitmentInterval) {
-		resp, err := clt.GetBlockIssuance(ctx)
-		if err != nil {
-			continue
-		}
-		Logger.Debugf("Awaiting commitment for slot %d, latest committed slot: %d", slot, resp.LatestCommitment.Slot)
-
-		latestCommittedSlot := resp.LatestCommitment.Slot
-		if slot <= latestCommittedSlot {
-			return nil
-		}
+func AwaitCommitment(ctx context.Context, clt models.Client, targetSlot iotago.SlotIndex) error {
+	currentCommittedSlot, err := getLatestCommittedSlot(ctx, clt)
+	if err != nil {
+		return ierrors.Wrap(err, "failed to get node info")
 	}
 
-	return ierrors.Errorf("failed to await commitment for slot %d", slot)
+	for t := currentCommittedSlot; t <= targetSlot; t++ {
+		latestCommittedSlot, err := getLatestCommittedSlot(ctx, clt)
+		if err != nil {
+			return ierrors.Wrap(err, "failed to get node info")
+		}
+
+		if targetSlot <= latestCommittedSlot {
+			return nil
+		}
+
+		Logger.Debugf("Awaiting commitment for slot %d, latest committed slot: %d", targetSlot, latestCommittedSlot)
+		time.Sleep(AwaitCommitmentInterval)
+	}
+
+	return ierrors.Errorf("failed to await commitment for slot %d", targetSlot)
+}
+
+func getLatestCommittedSlot(ctx context.Context, clt models.Client) (iotago.SlotIndex, error) {
+	resp, err := clt.Client().Info(ctx)
+	if err != nil {
+		return 0, ierrors.Wrap(err, "failed to get node info")
+	}
+
+	return resp.Status.LatestCommitmentID.Slot(), nil
 }

@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 
 	"github.com/iotaledger/evil-tools/pkg/models"
@@ -28,22 +30,19 @@ func SplitBalanceEqually[T iotago.BaseToken | iotago.Mana](splitNumber int, bala
 	return outputBalances
 }
 
-func SprintTransaction(tx *iotago.SignedTransaction) string {
+func SprintTransaction(api iotago.API, tx *iotago.SignedTransaction) string {
+	jsonBytes, err := api.JSONEncode(tx)
+	if err != nil {
+		return ""
+	}
+	var out bytes.Buffer
+	//nolint:errcheck
+	json.Indent(&out, jsonBytes, "", "  ")
+
 	txDetails := ""
-	txDetails += fmt.Sprintf("\tTransaction ID; %s, slotCreation: %d\n", lo.PanicOnErr(tx.ID()).ToHex(), tx.Transaction.CreationSlot)
-	for index, out := range tx.Transaction.TransactionEssence.Inputs {
-		txDetails += fmt.Sprintf("\tInput index: %d, type: %s\n", index, out.Type())
-	}
-	for _, out := range tx.Transaction.TransactionEssence.ContextInputs {
-		txDetails += fmt.Sprintf("\tContext input: %s\n", out.Type())
-	}
-	for index, out := range tx.Transaction.Outputs {
-		txDetails += fmt.Sprintf("\tOutput index: %d, base token: %d, stored mana: %d, type: %s\n", index, out.BaseTokenAmount(), out.StoredMana(), out.Type())
-	}
-	txDetails += fmt.Sprintln("\tAllotments:")
-	for _, allotment := range tx.Transaction.Allotments {
-		txDetails += fmt.Sprintf("\tAllotmentID: %s, value: %d\n", allotment.AccountID, allotment.Mana)
-	}
+	txDetails += fmt.Sprintf("\tSigned Transaction ID: %s, txID: %s, slotCreation: %d\n", lo.PanicOnErr(tx.ID()).ToHex(), lo.PanicOnErr(tx.Transaction.ID()).ToHex(), tx.Transaction.CreationSlot)
+
+	txDetails += out.String()
 
 	return txDetails
 }
@@ -118,4 +117,30 @@ func SprintAccount(acc *iotago.AccountOutput) string {
 
 func SprintAvailableManaResult(results *builder.AvailableManaResult) string {
 	return fmt.Sprintf("Available mana results:\nTotal: %d Unbound: %d\nPotential:%d Unbound: %d\nStored: %d Undound: %d", results.TotalMana, results.UnboundMana, results.PotentialMana, results.UnboundPotentialMana, results.StoredMana, results.UnboundStoredMana)
+}
+
+func MinIssuerAccountAmount(protocolParameters iotago.ProtocolParameters) iotago.BaseToken {
+	// create a dummy account with a block issuer feature to calculate the storage score.
+	dummyAccountOutput := &iotago.AccountOutput{
+		Amount:         0,
+		Mana:           0,
+		AccountID:      iotago.EmptyAccountID,
+		FoundryCounter: 0,
+		UnlockConditions: iotago.AccountOutputUnlockConditions{
+			&iotago.AddressUnlockCondition{
+				Address: &iotago.Ed25519Address{},
+			},
+		},
+		Features: iotago.AccountOutputFeatures{
+			&iotago.BlockIssuerFeature{
+				BlockIssuerKeys: iotago.BlockIssuerKeys{
+					&iotago.Ed25519PublicKeyBlockIssuerKey{},
+				},
+			},
+		},
+		ImmutableFeatures: iotago.AccountOutputImmFeatures{},
+	}
+	storageScoreStructure := iotago.NewStorageScoreStructure(protocolParameters.StorageScoreParameters())
+
+	return lo.PanicOnErr(storageScoreStructure.MinDeposit(dummyAccountOutput))
 }

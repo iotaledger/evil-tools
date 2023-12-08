@@ -18,24 +18,40 @@ import (
 )
 
 const (
-	GenesisAccountAlias   = "genesis-account"
-	MaxFaucetManaRequests = 10
+	GenesisAccountAlias              = "genesis-account"
+	MaxFaucetRequestsForOneOperation = 10
 )
 
 func (a *AccountWallet) RequestBlockBuiltData(ctx context.Context, clt models.Client, account wallet.Account) (*api.CongestionResponse, *api.IssuanceBlockHeaderResponse, iotago.Version, error) {
+	// TODO this should be later remove after congestion for implicit account will work
 	issuerResp, err := clt.GetBlockIssuance(ctx)
 	if err != nil {
-		return nil, nil, 0, ierrors.Wrap(err, "failed to get block issuance data")
+		return nil, nil, 0, ierrors.Wrapf(err, "failed to get block issuance data for accID %s, addr %s", account.ID().ToHex(), account.Address().String())
 	}
 
 	congestionResp, err := clt.GetCongestion(ctx, account.Address(), lo.PanicOnErr(issuerResp.LatestCommitment.ID()))
 	if err != nil {
-		return nil, nil, 0, ierrors.Wrapf(err, "failed to get congestion data for issuer %s", account.Address())
+		return nil, nil, 0, ierrors.Wrapf(err, "failed to get congestion data for issuer accID %s, addr %s", account.ID(), account.Address())
 	}
 
 	version := clt.APIForSlot(issuerResp.LatestCommitment.Slot).Version()
 
 	return congestionResp, issuerResp, version, nil
+}
+
+func (a *AccountWallet) getFaucetFundsOutput(ctx context.Context, addressType iotago.AddressType) (*models.Output, error) {
+	receiverAddr, privateKey, usedIndex := a.getAddress(addressType)
+
+	outputID, output, err := a.RequestFaucetFunds(ctx, receiverAddr)
+	if err != nil {
+		return nil, ierrors.Wrap(err, "failed to request funds from Faucet")
+	}
+	createdOutput, err := models.NewOutputWithID(a.API, outputID, receiverAddr, usedIndex, privateKey, output)
+	if err != nil {
+		return nil, ierrors.Wrap(err, "failed to create output")
+	}
+
+	return createdOutput, nil
 }
 
 func (a *AccountWallet) RequestFaucetFunds(ctx context.Context, receiveAddr iotago.Address) (iotago.OutputID, iotago.Output, error) {
@@ -48,6 +64,8 @@ func (a *AccountWallet) RequestFaucetFunds(ctx context.Context, receiveAddr iota
 	if err != nil {
 		return iotago.EmptyOutputID, nil, ierrors.Wrap(err, "failed to await faucet funds")
 	}
+
+	log.Debugf("RequestFaucetFunds received faucet funds for addr type: %s, %s", receiveAddr.Type(), receiveAddr.String())
 
 	return outputID, outputStruct, nil
 }

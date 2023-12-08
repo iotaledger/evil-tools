@@ -95,15 +95,19 @@ func NewAccountWallet(opts ...options.Option[AccountWallet]) (*AccountWallet, er
 
 		w.faucet = newFaucet(w.client, w.optsFaucetParams)
 
-		_, output, err := w.RequestFaucetFunds(context.Background(), tpkg.RandEd25519Address())
-		if err != nil {
-			initErr = err
-			log.Errorf("failed to request faucet funds: %s, faucet not initiated", err.Error())
+		//
+		//_, output, err := w.RequestFaucetFunds(context.Background(), tpkg.RandEd25519Address())
+		//if err != nil {
+		//	initErr = err
+		//	log.Errorf("failed to request faucet funds: %s, faucet not initiated", err.Error())
+		//
+		//	return
+		//}
+		//w.faucet.RequestTokenAmount = output.BaseTokenAmount()
+		//w.faucet.RequestManaAmount = output.StoredMana()
 
-			return
-		}
-		w.faucet.RequestTokenAmount = output.BaseTokenAmount()
-		w.faucet.RequestManaAmount = output.StoredMana()
+		w.faucet.RequestTokenAmount = 1000000000000
+		w.faucet.RequestManaAmount = 100000000
 
 		log.Debugf("faucet initiated with %d tokens and %d mana", w.faucet.RequestTokenAmount, w.faucet.RequestManaAmount)
 		w.accountsAliases[GenesisAccountAlias] = &models.AccountData{
@@ -185,13 +189,11 @@ func (a *AccountWallet) fromAccountStateFile() error {
 }
 
 //nolint:all,unused
-func (a *AccountWallet) registerAccount(alias string, outputID iotago.OutputID, index uint32, privateKey ed25519.PrivateKey) iotago.AccountID {
+func (a *AccountWallet) registerAccount(alias string, accountID iotago.AccountID, outputID iotago.OutputID, index uint32, privateKey ed25519.PrivateKey) iotago.AccountID {
 	a.accountAliasesMutex.Lock()
 	defer a.accountAliasesMutex.Unlock()
 
-	accountID := iotago.AccountIDFromOutputID(outputID)
 	account := wallet.NewEd25519Account(accountID, privateKey)
-
 	a.accountsAliases[alias] = &models.AccountData{
 		Alias:    alias,
 		Account:  account,
@@ -199,8 +201,59 @@ func (a *AccountWallet) registerAccount(alias string, outputID iotago.OutputID, 
 		OutputID: outputID,
 		Index:    index,
 	}
+	log.Debugf("registering account %s with alias %s\noutputID: %s addr: %s\n", accountID.String(), alias, outputID.ToHex(), account.Address().String())
 
 	return accountID
+}
+
+// checkAccountStatus checks the status of the account by requesting all possible endpoints.
+func (a *AccountWallet) checkAccountStatus(ctx context.Context, blkID iotago.BlockID, txID iotago.TransactionID, creationOutputID iotago.OutputID, accountAddress *iotago.AccountAddress, checkIndexer ...bool) error {
+	// request by blockID if provided, otherwise use txID
+	slot := blkID.Slot()
+	if blkID == iotago.EmptyBlockID {
+		blkMetadata, err := a.client.GetBlockStateFromTransaction(ctx, txID)
+		if err != nil {
+			return ierrors.Wrapf(err, "failed to get block state from transaction %s", txID.ToHex())
+		}
+		blkID = blkMetadata.BlockID
+		slot = blkMetadata.BlockID.Slot()
+	}
+
+	if err := utils.AwaitBlockAndPayloadAcceptance(ctx, a.client, blkID); err != nil {
+		return ierrors.Wrapf(err, "failed to await block issuance for block %s", blkID.ToHex())
+	}
+
+	// wait for the account to be committed
+	log.Infof("Created account with addr: %s, blk ID: %s, txID: %s and creation output: %s awaiting the commitment.", accountAddress.Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()), blkID.ToHex(), txID.ToHex(), creationOutputID.ToHex())
+	err := utils.AwaitCommitment(ctx, a.client, slot)
+	if err != nil {
+		log.Errorf("Failed to await commitment for slot %d: %s", slot, err)
+
+		return err
+	}
+
+	// Check the indexer
+	if len(checkIndexer) > 0 && checkIndexer[0] {
+		outputID, account, _, err := a.client.GetAccountFromIndexer(ctx, accountAddress)
+		if err != nil {
+			log.Debugf("Failed to get account from indexer, even after slot %d is already committed", slot)
+			return ierrors.Wrapf(err, "failed to get account from indexer, even after slot %d is already committed", slot)
+		}
+
+		log.Debugf("Indexer returned: outputID %s, account %s, slot %d", outputID.String(), account.AccountID.ToAddress().Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()), slot)
+	}
+
+	// check if the creation output exists
+	outputFromNode, err := a.client.Client().OutputByID(ctx, creationOutputID)
+	if err != nil {
+		log.Debugf("Failed to get output from node, even after slot %d is already committed", slot)
+		return ierrors.Wrapf(err, "failed to get output from node, even after slot %d is already committed", slot)
+	}
+	log.Debugf("Node returned: outputID %s, output %s", creationOutputID.ToHex(), outputFromNode.Type())
+
+	log.Infof("Account created, Bech addr: %s, slot: %d", accountAddress.Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()), slot)
+
+	return nil
 }
 
 func (a *AccountWallet) updateAccountStatus(alias string, status models.AccountStatus) (updated bool) {
@@ -263,23 +316,6 @@ func (a *AccountWallet) awaitAccountReadiness(ctx context.Context, accData *mode
 	}
 
 	return a.updateAccountStatus(accData.Alias, models.AccountReady)
-}
-
-func (a *AccountWallet) getFunds(ctx context.Context, addressType iotago.AddressType) (*models.Output, ed25519.PrivateKey, error) {
-	receiverAddr, privateKey, usedIndex := a.getAddress(addressType)
-
-	outputID, output, err := a.RequestFaucetFunds(ctx, receiverAddr)
-	if err != nil {
-		return nil, nil, ierrors.Wrap(err, "failed to request funds from Faucet")
-	}
-	createdOutput, err := models.NewOutputWithID(a.API, outputID, receiverAddr, usedIndex, privateKey, output)
-	if err != nil {
-		return nil, nil, ierrors.Wrap(err, "failed to create output")
-	}
-	createdOutput.AddressIndex = usedIndex
-	createdOutput.PrivateKey = privateKey
-
-	return createdOutput, privateKey, nil
 }
 
 func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error {

@@ -64,9 +64,9 @@ func (a *AccountWallet) getAccountPublicKeys(pubKey crypto.PublicKey) (iotago.Bl
 
 }
 
-func (a *AccountWallet) getAddress(addressType iotago.AddressType) (iotago.DirectUnlockableAddress, ed25519.PrivateKey, uint64) {
+func (a *AccountWallet) getAddress(addressType iotago.AddressType) (iotago.DirectUnlockableAddress, ed25519.PrivateKey, uint32) {
 	newIndex := a.latestUsedIndex.Inc()
-	keyManager := lo.PanicOnErr(wallet.NewKeyManager(a.seed[:], newIndex))
+	keyManager := lo.PanicOnErr(wallet.NewKeyManager(a.seed[:], BIP32PathForIndex(newIndex)))
 	privateKey, _ := keyManager.KeyPair()
 	receiverAddr := keyManager.Address(addressType)
 

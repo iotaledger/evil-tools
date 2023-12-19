@@ -278,7 +278,7 @@ func (e *EvilWallet) CreateTransaction(ctx context.Context, options ...Option) (
 	return issuanceData, nil
 }
 
-// addOutputsToOutputManager adds output to the OutputManager if.
+// addOutputsToOutputManager adds output to the OutputManager.
 func (e *EvilWallet) addOutputsToOutputManager(outputs []iotago.Output, outWallet, tmpWallet *Wallet, tempAddresses map[string]types.Empty) []*models.Output {
 	modelOutputs := make([]*models.Output, 0)
 	for _, out := range outputs {
@@ -318,8 +318,8 @@ func (e *EvilWallet) updateInputWallet(buildOptions *Options) error {
 
 		break
 	}
+	// assign fresh wallet that will be used when only aliases were provided
 	w, err := e.useFreshIfInputWalletNotProvided(buildOptions)
-
 	if err != nil {
 		return err
 	}
@@ -346,12 +346,13 @@ func (e *EvilWallet) registerOutputAliases(outputs []*models.Output, idAliasMap 
 }
 
 func (e *EvilWallet) prepareInputs(buildOptions *Options) (inputs []*models.Output, err error) {
+	// case 1, inputs provided
 	if buildOptions.areInputsProvidedWithoutAliases() {
 		inputs = append(inputs, buildOptions.inputs...)
 
 		return
 	}
-	// append inputs with alias
+	// case 2, no inputs, there has to be aliases provided
 	aliasInputs, err := e.matchInputsWithAliases(buildOptions)
 	if err != nil {
 		return nil, err

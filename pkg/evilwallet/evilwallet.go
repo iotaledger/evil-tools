@@ -383,18 +383,8 @@ func (e *EvilWallet) matchInputsWithAliases(buildOptions *Options) (inputs []*mo
 	for inputAlias := range buildOptions.aliasInputs {
 		in, ok := e.aliasManager.GetInput(inputAlias)
 		if !ok {
-			w, err2 := e.useFreshIfInputWalletNotProvided(buildOptions)
-			if err2 != nil {
-				err = err2
-				return
-			}
-
-			if w == nil {
-				return nil, NoFreshOutputsAvailable
-			}
-
 			// No output found for given alias, use internal Fresh output if wallets are non-empty.
-			in = w.GetUnspentOutput()
+			in = buildOptions.inputWallet.GetUnspentOutput()
 			if in == nil {
 				return nil, NoFreshOutputsAvailable
 			}

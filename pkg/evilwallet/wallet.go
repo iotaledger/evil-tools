@@ -28,8 +28,8 @@ type Wallet struct {
 	reuseTempIDPool   map[models.TempOutputID]types.Empty
 	seed              [32]byte
 
-	lastAddrIdxUsed atomic.Uint32 // used during filling in wallet with new outputs
-	lastAddrSpent   atomic.Uint32 // used during spamming with outputs one by one
+	nextAddrIdxToUse atomic.Uint32 // used during filling in wallet with new outputs
+	nextAddrToSpent  atomic.Uint32 // used during spamming with outputs one by one
 
 	*syncutils.RWMutex
 }
@@ -51,8 +51,8 @@ func NewWallet(wType ...WalletType) *Wallet {
 		indexTempIDMap:    make(map[uint32]models.TempOutputID),
 		addrIndexMap:      make(map[string]uint32),
 		inputTransactions: make(map[string]types.Empty),
-		lastAddrSpent:     *idxSpent,
-		lastAddrIdxUsed:   *addrUsed,
+		nextAddrToSpent:   *idxSpent,
+		nextAddrIdxToUse:  *addrUsed,
 		RWMutex:           &syncutils.RWMutex{},
 	}
 
@@ -73,8 +73,8 @@ func (w *Wallet) Address() *iotago.Ed25519Address {
 	w.Lock()
 	defer w.Unlock()
 
-	index := w.lastAddrIdxUsed.Load()
-	w.lastAddrIdxUsed.Inc()
+	index := w.nextAddrIdxToUse.Load()
+	w.nextAddrIdxToUse.Inc()
 	keyManager := lo.PanicOnErr(wallet.NewKeyManager(w.seed[:], accountwallet.BIP32PathForIndex(index)))
 	//nolint:forcetypeassert
 	addr := keyManager.Address(iotago.AddressEd25519).(*iotago.Ed25519Address)
@@ -171,7 +171,7 @@ func (w *Wallet) UnspentOutputsLeft() (left int) {
 	case Reuse:
 		left = len(w.reuseTempIDPool)
 	default:
-		left = int(w.lastAddrIdxUsed.Load() - w.lastAddrSpent.Load())
+		left = int(w.nextAddrIdxToUse.Load() - w.nextAddrToSpent.Load())
 	}
 
 	return
@@ -211,10 +211,10 @@ func (w *Wallet) GetUnspentOutput() *models.Output {
 		addr := w.GetReuseAddress()
 		return w.UnspentOutput(addr)
 	default:
-		if w.lastAddrSpent.Load() < w.lastAddrIdxUsed.Load() {
-			idx := w.lastAddrSpent.Inc()
-			addr := w.IndexTempIDMap(idx)
-			outs := w.UnspentOutput(addr)
+		if w.nextAddrToSpent.Load() < w.nextAddrIdxToUse.Load() {
+			idx := w.getAndIncNextAddrToSpent()
+			tempID := w.IndexTempIDMap(idx)
+			outs := w.UnspentOutput(tempID)
 
 			return outs
 		}
@@ -249,6 +249,16 @@ func (w *Wallet) KeyPair(index uint32) (ed25519.PrivateKey, ed25519.PublicKey) {
 // UnspentOutputsLength returns the number of unspent outputs on the wallet.
 func (w *Wallet) UnspentOutputsLength() int {
 	return len(w.unspentOutputs)
+}
+
+func (w *Wallet) getAndIncNextAddrToSpent() uint32 {
+	w.Lock()
+	defer w.Unlock()
+
+	idx := w.nextAddrToSpent.Load()
+	w.nextAddrToSpent.Inc()
+
+	return idx
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////

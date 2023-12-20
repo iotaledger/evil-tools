@@ -118,10 +118,10 @@ func (a *AccountWallet) CreateBlock(payload iotago.Payload, issuer wallet.Accoun
 	return blk, nil
 }
 
-type faucetParams struct {
-	faucetPrivateKey string
-	faucetAccountID  string
-	genesisSeed      string
+type FaucetParams struct {
+	FaucetPrivateKey string
+	FaucetAccountID  string
+	GenesisSeed      string
 }
 
 type faucet struct {
@@ -136,15 +136,15 @@ type faucet struct {
 	sync.Mutex
 }
 
-func newFaucet(clt models.Client, faucetParams *faucetParams) *faucet {
-	genesisSeed, err := base58.Decode(faucetParams.genesisSeed)
+func newFaucet(clt models.Client, faucetParams *FaucetParams) *faucet {
+	genesisSeed, err := base58.Decode(faucetParams.GenesisSeed)
 	if err != nil {
 		panic(ierrors.Errorf("failed to decode base58 seed: %w", err))
 	}
 
 	f := &faucet{
 		clt:               clt,
-		account:           lo.PanicOnErr(wallet.AccountFromParams(faucetParams.faucetAccountID, faucetParams.faucetPrivateKey)),
+		account:           lo.PanicOnErr(wallet.AccountFromParams(faucetParams.FaucetAccountID, faucetParams.FaucetPrivateKey)),
 		genesisKeyManager: lo.PanicOnErr(wallet.NewKeyManager(genesisSeed, wallet.DefaultIOTAPath)),
 	}
 

@@ -10,6 +10,7 @@ import (
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/log"
+	"github.com/iotaledger/hive.go/runtime/options"
 	iotago "github.com/iotaledger/iota.go/v4"
 )
 
@@ -54,54 +55,52 @@ const (
 type Spammer struct {
 	log.Logger
 
-	SpamDetails   *SpamDetails
-	State         *State
-	UseRateSetter bool
-	SpamType      SpamType
-	Clients       models.Connector
-	EvilWallet    *evilwallet.EvilWallet
-	EvilScenario  *evilwallet.EvilScenario
-	ErrCounter    *ErrorCounter
-	IssuerAlias   string
+	State      *State
+	Clients    models.Connector
+	ErrCounter *ErrorCounter
 
 	// accessed from spamming functions
-	done         chan bool
-	failed       chan bool
-	spammingFunc SpammingFunc
+	done   chan bool
+	failed chan bool
 
-	TimeDelayBetweenConflicts time.Duration
-	NumberOfSpends            int
+	MaxBatchesSent int
+	NumberOfSpends int
+
+	// options
+	EvilWallet    *evilwallet.EvilWallet
+	EvilScenario  *evilwallet.EvilScenario
+	spammingFunc  SpammingFunc
+	IssuerAlias   string
+	UseRateSetter bool
+	SpamType      SpamType
+	Rate          int
+	MaxDuration   time.Duration
+	BlowballSize  int
 }
 
 // NewSpammer is a constructor of Spammer.
-func NewSpammer(logger log.Logger, options ...Options) *Spammer {
+func NewSpammer(logger log.Logger, opts ...options.Option[Spammer]) *Spammer {
 	state := &State{
 		blkSent:       atomic.NewInt64(0),
 		batchPrepared: atomic.NewInt64(0),
 		logTickTime:   time.Second * 30,
 	}
 
-	s := &Spammer{
-		Logger:       logger.NewChildLogger("Spammer"),
-		SpamDetails:  &SpamDetails{},
-		spammingFunc: CustomConflictSpammingFunc,
-		State:        state,
-		SpamType:     SpamEvilWallet,
-		EvilScenario: evilwallet.NewEvilScenario(),
-		// CommitmentManager: NewCommitmentManager(),
+	spammer := options.Apply(&Spammer{
+		Logger:         logger.NewChildLogger("Spammer"),
+		spammingFunc:   CustomConflictSpammingFunc,
+		State:          state,
+		SpamType:       SpamEvilWallet,
+		EvilScenario:   evilwallet.NewEvilScenario(),
 		UseRateSetter:  true,
 		done:           make(chan bool),
 		failed:         make(chan bool),
 		NumberOfSpends: 2,
-	}
+	}, opts)
 
-	for _, opt := range options {
-		opt(s)
-	}
+	spammer.setup()
 
-	s.setup()
-
-	return s
+	return spammer
 }
 
 func (s *Spammer) BlocksSent() uint64 {
@@ -133,20 +132,18 @@ func (s *Spammer) setup() {
 }
 
 func (s *Spammer) setupSpamDetails() {
-	if s.SpamDetails.Rate <= 0 {
-		s.SpamDetails.Rate = 1
+	if s.Rate <= 0 {
+		s.Rate = 1
 	}
-	if s.SpamDetails.TimeUnit == 0 {
-		s.SpamDetails.TimeUnit = time.Second
-	}
+
 	// provided only maxDuration, calculating the default max for maxBlkSent
-	if s.SpamDetails.MaxDuration > 0 {
-		s.SpamDetails.MaxBatchesSent = int(s.SpamDetails.MaxDuration.Seconds()/s.SpamDetails.TimeUnit.Seconds()*float64(s.SpamDetails.Rate)) + 1
+	if s.MaxDuration > 0 {
+		s.MaxBatchesSent = int(s.MaxDuration.Seconds()/float64(time.Second)*float64(s.Rate)) + 1
 	}
 }
 
 func (s *Spammer) initSpamTicker() *time.Ticker {
-	tickerTime := float64(s.SpamDetails.TimeUnit) / float64(s.SpamDetails.Rate)
+	tickerTime := float64(time.Second) / float64(s.Rate)
 	return time.NewTicker(time.Duration(tickerTime))
 }
 
@@ -156,7 +153,7 @@ func (s *Spammer) initLogTicker() *time.Ticker {
 
 // Spam runs the spammer. Function will stop after maxDuration time will pass or when maxBlkSent will be exceeded.
 func (s *Spammer) Spam(ctx context.Context) {
-	s.LogInfof("Start spamming transactions with %d rate", s.SpamDetails.Rate)
+	s.LogInfof("Start spamming transactions with %d rate", s.Rate)
 	defer func() {
 		s.LogInfo(s.ErrCounter.GetErrorsSummary())
 		s.LogInfof("Finishing spamming, total txns sent: %v, TotalTime: %v, Rate: %f", s.State.blkSent.Load(), s.State.spamDuration.Seconds(), float64(s.State.blkSent.Load())/s.State.spamDuration.Seconds())
@@ -166,8 +163,8 @@ func (s *Spammer) Spam(ctx context.Context) {
 	var newContext context.Context
 	var cancel context.CancelFunc
 
-	if s.SpamDetails.MaxDuration > 0 {
-		newContext, cancel = context.WithDeadline(ctx, s.State.spamStartTime.Add(s.SpamDetails.MaxDuration))
+	if s.MaxDuration > 0 {
+		newContext, cancel = context.WithDeadline(ctx, s.State.spamStartTime.Add(s.MaxDuration))
 	} else {
 		newContext, cancel = context.WithCancel(ctx)
 	}
@@ -223,7 +220,7 @@ func (s *Spammer) logError(err error) {
 }
 
 func (s *Spammer) CheckIfAllSent() {
-	if s.SpamDetails.MaxDuration >= 0 && s.State.batchPrepared.Load() >= int64(s.SpamDetails.MaxBatchesSent) {
+	if s.MaxDuration >= 0 && s.State.batchPrepared.Load() >= int64(s.MaxBatchesSent) {
 		s.LogInfo("Maximum number of blocks sent, stopping spammer...")
 		s.done <- true
 	}

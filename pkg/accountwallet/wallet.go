@@ -24,24 +24,7 @@ import (
 	"github.com/iotaledger/iota.go/v4/wallet"
 )
 
-func Run(logger log.Logger, config *Configuration) (*AccountWallet, error) {
-	var opts []options.Option[AccountWallet]
-	if config.BindAddress != "" {
-		opts = append(opts, WithClientURL(config.BindAddress))
-	}
-	if config.FaucetBindAddress != "" {
-		opts = append(opts, WithFaucetURL(config.FaucetBindAddress))
-	}
-	if config.AccountStatesFile != "" {
-		opts = append(opts, WithAccountStatesFile(config.AccountStatesFile))
-	}
-
-	opts = append(opts, WithFaucetAccountParams(&faucetParams{
-		genesisSeed:      config.GenesisSeed,
-		faucetPrivateKey: config.BlockIssuerPrivateKey,
-		faucetAccountID:  config.AccountID,
-	}))
-
+func Run(logger log.Logger, opts ...options.Option[AccountWallet]) (*AccountWallet, error) {
 	w, err := NewAccountWallet(logger, opts...)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to create wallet")
@@ -76,7 +59,7 @@ type AccountWallet struct {
 	optsClientBindAddress string
 	optsFaucetURL         string
 	optsAccountStatesFile string
-	optsFaucetParams      *faucetParams
+	optsFaucetParams      *FaucetParams
 }
 
 func NewAccountWallet(logger log.Logger, opts ...options.Option[AccountWallet]) (*AccountWallet, error) {

@@ -7,6 +7,7 @@ import (
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
+	"github.com/iotaledger/hive.go/log"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/api"
 )
@@ -65,24 +66,24 @@ func evaluateBlockIssuanceResponse(resp *api.BlockMetadataResponse) (accepted bo
 }
 
 // AwaitBlockAndPayloadAcceptance waits for the block and, if provided, tx to be accepted.
-func AwaitBlockAndPayloadAcceptance(ctx context.Context, clt models.Client, blockID iotago.BlockID) error {
+func AwaitBlockAndPayloadAcceptance(ctx context.Context, logger log.Logger, clt models.Client, blockID iotago.BlockID) error {
 	for t := time.Now(); time.Since(t) < MaxAcceptanceAwait; time.Sleep(AwaitInterval) {
 		resp, err := clt.GetBlockConfirmationState(ctx, blockID)
 		if err != nil {
-			Logger.Debugf("Failed to get block confirmation state: %s", err)
+			logger.LogDebugf("Failed to get block confirmation state: %s", err)
 
 			continue
 		}
 
 		accepted, err := evaluateBlockIssuanceResponse(resp)
 		if accepted {
-			Logger.Debugf("Block %s issuance success, status: %s, transaction state: %s", blockID.ToHex(), resp.BlockState, resp.TransactionMetadata.TransactionState)
+			logger.LogDebugf("Block %s issuance success, status: %s, transaction state: %s", blockID.ToHex(), resp.BlockState, resp.TransactionMetadata.TransactionState)
 
 			return nil
 		}
 
 		if err != nil {
-			Logger.Debugf("Block %s issuance failure, block failure reason: %d, tx failure reason: %d", blockID.ToHex(), resp.BlockFailureReason, resp.TransactionMetadata)
+			logger.LogDebugf("Block %s issuance failure, block failure reason: %d, tx failure reason: %d", blockID.ToHex(), resp.BlockFailureReason, resp.TransactionMetadata)
 		}
 	}
 
@@ -90,7 +91,7 @@ func AwaitBlockAndPayloadAcceptance(ctx context.Context, clt models.Client, bloc
 }
 
 // AwaitBlockWithTransactionToBeAccepted awaits for acceptance of a single transaction.
-func AwaitBlockWithTransactionToBeAccepted(ctx context.Context, clt models.Client, txID iotago.TransactionID) error {
+func AwaitBlockWithTransactionToBeAccepted(ctx context.Context, logger log.Logger, clt models.Client, txID iotago.TransactionID) error {
 	for t := time.Now(); time.Since(t) < MaxAcceptanceAwait; time.Sleep(AwaitInterval) {
 		resp, _ := clt.GetBlockStateFromTransaction(ctx, txID)
 		if resp == nil {
@@ -99,13 +100,13 @@ func AwaitBlockWithTransactionToBeAccepted(ctx context.Context, clt models.Clien
 
 		accepted, err := evaluateBlockIssuanceResponse(resp)
 		if accepted {
-			Logger.Debugf("Transaction %s issuance success, state: %s", txID.ToHex(), resp.TransactionMetadata.TransactionState)
+			logger.LogDebugf("Transaction %s issuance success, state: %s", txID.ToHex(), resp.TransactionMetadata.TransactionState)
 
 			return nil
 		}
 
 		if err != nil {
-			Logger.Debugf("Transaction %s issuance failure, tx failure reason: %d, block failure reason: %d", txID.ToHex(), resp.TransactionMetadata.TransactionFailureReason, resp.BlockFailureReason)
+			logger.LogDebugf("Transaction %s issuance failure, tx failure reason: %d, block failure reason: %d", txID.ToHex(), resp.TransactionMetadata.TransactionFailureReason, resp.BlockFailureReason)
 
 			return err
 		}
@@ -116,7 +117,7 @@ func AwaitBlockWithTransactionToBeAccepted(ctx context.Context, clt models.Clien
 }
 
 // AwaitAddressUnspentOutputToBeAccepted awaits for acceptance of an output created for an address, based on the status of the transaction.
-func AwaitAddressUnspentOutputToBeAccepted(ctx context.Context, clt models.Client, addr iotago.Address) (outputID iotago.OutputID, output iotago.Output, err error) {
+func AwaitAddressUnspentOutputToBeAccepted(ctx context.Context, logger log.Logger, clt models.Client, addr iotago.Address) (outputID iotago.OutputID, output iotago.Output, err error) {
 	addrBech := addr.Bech32(clt.CommittedAPI().ProtocolParameters().Bech32HRP())
 
 	for t := time.Now(); time.Since(t) < MaxAcceptanceAwait; time.Sleep(AwaitInterval) {
@@ -134,7 +135,7 @@ func AwaitAddressUnspentOutputToBeAccepted(ctx context.Context, clt models.Clien
 			}
 
 			if len(unspents) == 0 {
-				Logger.Debugf("no unspent outputs found in indexer for address: %s", addrBech)
+				logger.LogDebugf("no unspent outputs found in indexer for address: %s", addrBech)
 				break
 			}
 
@@ -163,7 +164,7 @@ func AwaitOutputToBeAccepted(ctx context.Context, clt models.Client, outputID io
 }
 
 // AwaitCommitment awaits for the commitment of a slot.
-func AwaitCommitment(ctx context.Context, clt models.Client, targetSlot iotago.SlotIndex) error {
+func AwaitCommitment(ctx context.Context, logger log.Logger, clt models.Client, targetSlot iotago.SlotIndex) error {
 	currentCommittedSlot, err := getLatestCommittedSlot(ctx, clt)
 	if err != nil {
 		return ierrors.Wrap(err, "failed to get node info")
@@ -179,7 +180,7 @@ func AwaitCommitment(ctx context.Context, clt models.Client, targetSlot iotago.S
 			return nil
 		}
 
-		Logger.Debugf("Awaiting commitment for slot %d, latest committed slot: %d", targetSlot, latestCommittedSlot)
+		logger.LogDebugf("Awaiting commitment for slot %d, latest committed slot: %d", targetSlot, latestCommittedSlot)
 		time.Sleep(AwaitCommitmentInterval)
 	}
 

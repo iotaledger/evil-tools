@@ -1,28 +1,31 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 	"strings"
 	"time"
 
+	flag "github.com/spf13/pflag"
+
 	"github.com/iotaledger/evil-tools/pkg/accountwallet"
 	"github.com/iotaledger/evil-tools/pkg/evilwallet"
 	"github.com/iotaledger/evil-tools/pkg/spammer"
+	"github.com/iotaledger/hive.go/app"
+	"github.com/iotaledger/hive.go/app/configuration"
 	"github.com/iotaledger/hive.go/ierrors"
+	"github.com/iotaledger/hive.go/log"
 )
 
-func parseFlags() (help bool) {
+func parseFlags() (string, bool) {
 	if len(os.Args) <= 1 {
-		return true
+		return ScriptSpammer, true
 	}
 	script := os.Args[1]
 
-	Script = script
-	log.Infof("script %s", Script)
+	loggerRoot.LogInfof("script %s", script)
 
-	switch Script {
+	switch script {
 	case ScriptSpammer:
 		parseBasicSpamFlags()
 	case ScriptAccounts:
@@ -35,11 +38,11 @@ func parseFlags() (help bool) {
 		accountsSubcommandsFlags = parseAccountTestFlags(splitedCmds)
 
 	}
-	if Script == "help" || Script == "-h" || Script == "--help" {
-		return true
+	if script == "help" || script == "-h" || script == "--help" {
+		return script, true
 	}
 
-	return
+	return script, false
 }
 
 func parseOptionFlagSet(flagSet *flag.FlagSet, args ...[]string) {
@@ -49,25 +52,49 @@ func parseOptionFlagSet(flagSet *flag.FlagSet, args ...[]string) {
 	}
 	err := flagSet.Parse(commands)
 	if err != nil {
-		log.Errorf("Cannot parse first `script` parameter")
+		loggerRoot.LogError("Cannot parse first `script` parameter")
 		return
 	}
 }
 
-func parseBasicSpamFlags() {
-	urls := optionFlagSet.String("urls", "", "API urls for clients used in test separated with commas")
-	spamType := optionFlagSet.String("spammer", "", "Spammers used during test. Format: strings separated with comma, available options: 'blk' - block,"+
-		" 'tx' - transaction, 'ds' - double spends spammers, 'nds' - n-spends spammer, 'custom' - spams with provided scenario, 'bb' - blowball")
-	rate := optionFlagSet.Int("rate", customSpamParams.Rate, "Spamming rate for provided 'spammer'. Format: numbers separated with comma, e.g. 10,100,1 if three spammers were provided for 'spammer' parameter.")
-	duration := optionFlagSet.String("duration", "", "Spam duration. If not provided spam will lats infinitely. Format: separated by commas list of decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
-	timeunit := optionFlagSet.Duration("unit", customSpamParams.TimeUnit, "Time unit for the spamming rate. Format: decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
-	delayBetweenConflicts := optionFlagSet.Duration("dbc", customSpamParams.DelayBetweenConflicts, "delayBetweenConflicts - Time delay between conflicts in double spend spamming")
-	scenario := optionFlagSet.String("scenario", "", "Name of the EvilBatch that should be used for the spam. By default uses Scenario1. Possible scenarios can be found in evilwallet/customscenarion.go.")
-	deepSpam := optionFlagSet.Bool("deep", customSpamParams.DeepSpam, "Enable the deep spam, by reusing outputs created during the spam. To enable provide an empty flag.")
-	nSpend := optionFlagSet.Int("nSpend", customSpamParams.NSpend, "Number of outputs to be spent in n-spends spammer for the spammer type needs to be set to 'ds'. Default value is 2 for double-spend.")
-	account := optionFlagSet.String("account", "", "Account alias to be used for the spam. Account should be created first with accounts tool.")
+func initRootLoggerFromConfig() log.Logger {
+	config := configuration.New()
 
-	parseOptionFlagSet(optionFlagSet)
+	loggerConfig := &app.LoggerConfig{
+		Name: "",
+		OutputPaths: []string{
+			"stdout",
+			"evil-spammer.log",
+		},
+	}
+	config.BindParameters(flagSetLogger, "logger", loggerConfig)
+
+	// parse the flagSet
+	configuration.ParseFlagSets([]*flag.FlagSet{flagSetLogger})
+
+	// initialize the root logger
+	loggerRoot, err := app.NewLoggerFromConfig(loggerConfig)
+	if err != nil {
+		panic(err)
+	}
+
+	return loggerRoot
+}
+
+func parseBasicSpamFlags() {
+	urls := flagSetOption.String("urls", "", "API urls for clients used in test separated with commas")
+	spamType := flagSetOption.String("spammer", "", "Spammers used during test. Format: strings separated with comma, available options: 'blk' - block,"+
+		" 'tx' - transaction, 'ds' - double spends spammers, 'nds' - n-spends spammer, 'custom' - spams with provided scenario, 'bb' - blowball")
+	rate := flagSetOption.Int("rate", customSpamParams.Rate, "Spamming rate for provided 'spammer'. Format: numbers separated with comma, e.g. 10,100,1 if three spammers were provided for 'spammer' parameter.")
+	duration := flagSetOption.String("duration", "", "Spam duration. If not provided spam will lats infinitely. Format: separated by commas list of decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
+	timeunit := flagSetOption.Duration("unit", customSpamParams.TimeUnit, "Time unit for the spamming rate. Format: decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.")
+	delayBetweenConflicts := flagSetOption.Duration("dbc", customSpamParams.DelayBetweenConflicts, "delayBetweenConflicts - Time delay between conflicts in double spend spamming")
+	scenario := flagSetOption.String("scenario", "", "Name of the EvilBatch that should be used for the spam. By default uses Scenario1. Possible scenarios can be found in evilwallet/customscenarion.go.")
+	deepSpam := flagSetOption.Bool("deep", customSpamParams.DeepSpam, "Enable the deep spam, by reusing outputs created during the spam. To enable provide an empty flag.")
+	nSpend := flagSetOption.Int("nSpend", customSpamParams.NSpend, "Number of outputs to be spent in n-spends spammer for the spammer type needs to be set to 'ds'. Default value is 2 for double-spend.")
+	account := flagSetOption.String("account", "", "Account alias to be used for the spam. Account should be created first with accounts tool.")
+
+	parseOptionFlagSet(flagSetOption)
 
 	if *urls != "" {
 		parsedUrls := parseCommaSepString(*urls)
@@ -210,35 +237,34 @@ func accountUsage() {
 }
 
 func parseCreateAccountFlags(subcommands []string) (*accountwallet.CreateAccountParams, error) {
-	flagSet := flag.NewFlagSet("create", flag.ExitOnError)
-	alias := flagSet.String("alias", "", "The alias name of new created account")
-	noBif := flagSet.Bool("noBIF", false, "Create account without Block Issuer Feature, can only be set false no if implicit is false, as each account created implicitly needs to have BIF.")
-	implicit := flagSet.Bool("implicit", false, "Create an implicit account")
-	noTransition := flagSet.Bool("noTransition", false, "account should not be transitioned to a full account if created with implicit address. Transition enabled by default, to disable provide an empty flag.")
+	alias := flagSetCreate.String("alias", "", "The alias name of new created account")
+	noBif := flagSetCreate.Bool("noBIF", false, "Create account without Block Issuer Feature, can only be set false no if implicit is false, as each account created implicitly needs to have BIF.")
+	implicit := flagSetCreate.Bool("implicit", false, "Create an implicit account")
+	noTransition := flagSetCreate.Bool("noTransition", false, "account should not be transitioned to a full account if created with implicit address. Transition enabled by default, to disable provide an empty flag.")
 
 	if subcommands == nil {
-		flagSet.Usage()
+		flagSetCreate.Usage()
 
 		return nil, ierrors.Errorf("no subcommands")
 	}
 
-	log.Infof("Parsing create account flags, subcommands: %v", subcommands)
-	err := flagSet.Parse(subcommands)
+	loggerRoot.LogInfof("Parsing create account flags, subcommands: %v", subcommands)
+	err := flagSetCreate.Parse(subcommands)
 	if err != nil {
-		log.Errorf("Cannot parse first `script` parameter")
+		loggerRoot.LogError("Cannot parse first `script` parameter")
 
 		return nil, ierrors.Wrap(err, "cannot parse first `script` parameter")
 	}
 
 	if *implicit && *noBif {
-		log.Info("WARN: Implicit account cannot be created without Block Issuance Feature, flag noBIF will be ignored")
+		loggerRoot.LogInfo("WARN: Implicit account cannot be created without Block Issuance Feature, flag noBIF will be ignored")
 		*noBif = false
 	}
 
-	log.Infof("Parsed flags: alias: %s, BIF: %t, implicit: %t, transition: %t", *alias, *noBif, *implicit, *noTransition)
+	loggerRoot.LogInfof("Parsed flags: alias: %s, BIF: %t, implicit: %t, transition: %t", *alias, *noBif, *implicit, *noTransition)
 
 	if !*implicit == !*noTransition {
-		log.Info("WARN: Implicit flag set to false, account will be created non-implicitly by Faucet, no need for transition, flag will be ignored")
+		loggerRoot.LogInfo("WARN: Implicit flag set to false, account will be created non-implicitly by Faucet, no need for transition, flag will be ignored")
 		*noTransition = true
 	}
 
@@ -251,19 +277,18 @@ func parseCreateAccountFlags(subcommands []string) (*accountwallet.CreateAccount
 }
 
 func parseConvertAccountFlags(subcommands []string) (*accountwallet.ConvertAccountParams, error) {
-	flagSet := flag.NewFlagSet("convert", flag.ExitOnError)
-	alias := flagSet.String("alias", "", "The implicit account to be converted to full account with BIF.")
+	alias := flagSetConvert.String("alias", "", "The implicit account to be converted to full account with BIF.")
 
 	if subcommands == nil {
-		flagSet.Usage()
+		flagSetConvert.Usage()
 
 		return nil, ierrors.Errorf("no subcommands")
 	}
 
-	log.Infof("Parsing convert account flags, subcommands: %v", subcommands)
-	err := flagSet.Parse(subcommands)
+	loggerRoot.LogInfof("Parsing convert account flags, subcommands: %v", subcommands)
+	err := flagSetConvert.Parse(subcommands)
 	if err != nil {
-		log.Errorf("Cannot parse first `script` parameter")
+		loggerRoot.LogError("Cannot parse first `script` parameter")
 
 		return nil, ierrors.Wrap(err, "cannot parse first `script` parameter")
 	}
@@ -274,20 +299,19 @@ func parseConvertAccountFlags(subcommands []string) (*accountwallet.ConvertAccou
 }
 
 func parseDestroyAccountFlags(subcommands []string) (*accountwallet.DestroyAccountParams, error) {
-	flagSet := flag.NewFlagSet("destroy", flag.ExitOnError)
-	alias := flagSet.String("alias", "", "The alias name of the account to be destroyed")
-	expirySlot := flagSet.Int64("expirySlot", 0, "The expiry slot of the account to be destroyed")
+	alias := flagSetDestroy.String("alias", "", "The alias name of the account to be destroyed")
+	expirySlot := flagSetDestroy.Int64("expirySlot", 0, "The expiry slot of the account to be destroyed")
 
 	if subcommands == nil {
-		flagSet.Usage()
+		flagSetDestroy.Usage()
 
 		return nil, ierrors.Errorf("no subcommands")
 	}
 
-	log.Infof("Parsing destroy account flags, subcommands: %v", subcommands)
-	err := flagSet.Parse(subcommands)
+	loggerRoot.LogInfof("Parsing destroy account flags, subcommands: %v", subcommands)
+	err := flagSetDestroy.Parse(subcommands)
 	if err != nil {
-		log.Errorf("Cannot parse first `script` parameter")
+		loggerRoot.LogError("Cannot parse first `script` parameter")
 
 		return nil, ierrors.Wrap(err, "cannot parse first `script` parameter")
 	}
@@ -299,21 +323,20 @@ func parseDestroyAccountFlags(subcommands []string) (*accountwallet.DestroyAccou
 }
 
 func parseAllotAccountFlags(subcommands []string) (*accountwallet.AllotAccountParams, error) {
-	flagSet := flag.NewFlagSet("allot", flag.ExitOnError)
-	from := flagSet.String("from", "", "The alias name of the account to allot mana from")
-	to := flagSet.String("to", "", "The alias of the account to allot mana to")
-	amount := flagSet.Int64("amount", 1000, "The amount of mana to allot")
+	from := flagSetAllot.String("from", "", "The alias name of the account to allot mana from")
+	to := flagSetAllot.String("to", "", "The alias of the account to allot mana to")
+	amount := flagSetAllot.Int64("amount", 1000, "The amount of mana to allot")
 
 	if subcommands == nil {
-		flagSet.Usage()
+		flagSetAllot.Usage()
 
 		return nil, ierrors.Errorf("no subcommands")
 	}
 
-	log.Infof("Parsing allot account flags, subcommands: %v", subcommands)
-	err := flagSet.Parse(subcommands)
+	loggerRoot.LogInfof("Parsing allot account flags, subcommands: %v", subcommands)
+	err := flagSetAllot.Parse(subcommands)
 	if err != nil {
-		log.Errorf("Cannot parse first `script` parameter")
+		loggerRoot.LogErrorf("Cannot parse first `script` parameter")
 
 		return nil, ierrors.Wrap(err, "cannot parse first `script` parameter")
 	}
@@ -326,23 +349,22 @@ func parseAllotAccountFlags(subcommands []string) (*accountwallet.AllotAccountPa
 }
 
 func parseStakeAccountFlags(subcommands []string) (*accountwallet.StakeAccountParams, error) {
-	flagSet := flag.NewFlagSet("stake", flag.ExitOnError)
-	alias := flagSet.String("alias", "", "The alias name of the account to stake")
-	amount := flagSet.Int64("amount", 100, "The amount of tokens to stake")
-	fixedCost := flagSet.Int64("fixedCost", 0, "The fixed cost of the account to stake")
-	startEpoch := flagSet.Int64("startEpoch", 0, "The start epoch of the account to stake")
-	endEpoch := flagSet.Int64("endEpoch", 0, "The end epoch of the account to stake")
+	alias := flagSetStake.String("alias", "", "The alias name of the account to stake")
+	amount := flagSetStake.Int64("amount", 100, "The amount of tokens to stake")
+	fixedCost := flagSetStake.Int64("fixedCost", 0, "The fixed cost of the account to stake")
+	startEpoch := flagSetStake.Int64("startEpoch", 0, "The start epoch of the account to stake")
+	endEpoch := flagSetStake.Int64("endEpoch", 0, "The end epoch of the account to stake")
 
 	if subcommands == nil {
-		flagSet.Usage()
+		flagSetStake.Usage()
 
 		return nil, ierrors.Errorf("no subcommands")
 	}
 
-	log.Infof("Parsing staking account flags, subcommands: %v", subcommands)
-	err := flagSet.Parse(subcommands)
+	loggerRoot.LogInfof("Parsing staking account flags, subcommands: %v", subcommands)
+	err := flagSetStake.Parse(subcommands)
 	if err != nil {
-		log.Errorf("Cannot parse first `script` parameter")
+		loggerRoot.LogError("Cannot parse first `script` parameter")
 
 		return nil, ierrors.Wrap(err, "cannot parse first `script` parameter")
 	}
@@ -357,21 +379,20 @@ func parseStakeAccountFlags(subcommands []string) (*accountwallet.StakeAccountPa
 }
 
 func parseDelegateAccountFlags(subcommands []string) (*accountwallet.DelegateAccountParams, error) {
-	flagSet := flag.NewFlagSet("delegate", flag.ExitOnError)
-	from := flagSet.String("from", "", "The alias name of the account to delegate mana from")
-	to := flagSet.String("to", "", "The alias of the account to delegate mana to")
-	amount := flagSet.Int64("amount", 100, "The amount of mana to delegate")
+	from := flagSetDelegate.String("from", "", "The alias name of the account to delegate mana from")
+	to := flagSetDelegate.String("to", "", "The alias of the account to delegate mana to")
+	amount := flagSetDelegate.Int64("amount", 100, "The amount of mana to delegate")
 
 	if subcommands == nil {
-		flagSet.Usage()
+		flagSetDelegate.Usage()
 
 		return nil, ierrors.Errorf("no subcommands")
 	}
 
-	log.Infof("Parsing delegate account flags, subcommands: %v", subcommands)
-	err := flagSet.Parse(subcommands)
+	loggerRoot.LogInfof("Parsing delegate account flags, subcommands: %v", subcommands)
+	err := flagSetDelegate.Parse(subcommands)
 	if err != nil {
-		log.Errorf("Cannot parse first `script` parameter")
+		loggerRoot.LogError("Cannot parse first `script` parameter")
 
 		return nil, ierrors.Wrap(err, "cannot parse first `script` parameter")
 	}
@@ -384,23 +405,22 @@ func parseDelegateAccountFlags(subcommands []string) (*accountwallet.DelegateAcc
 }
 
 func parseUpdateAccountFlags(subcommands []string) (*accountwallet.UpdateAccountParams, error) {
-	flagSet := flag.NewFlagSet("update", flag.ExitOnError)
-	alias := flagSet.String("alias", "", "The alias name of the account to update")
-	bik := flagSet.String("bik", "", "The block issuer key (in hex) to add")
-	amount := flagSet.Int64("addamount", 100, "The amount of token to add")
-	mana := flagSet.Int64("addmana", 100, "The amount of mana to add")
-	expirySlot := flagSet.Int64("expirySlot", 0, "Update the expiry slot of the account")
+	alias := flagSetUpdate.String("alias", "", "The alias name of the account to update")
+	bik := flagSetUpdate.String("bik", "", "The block issuer key (in hex) to add")
+	amount := flagSetUpdate.Int64("addamount", 100, "The amount of token to add")
+	mana := flagSetUpdate.Int64("addmana", 100, "The amount of mana to add")
+	expirySlot := flagSetUpdate.Int64("expirySlot", 0, "Update the expiry slot of the account")
 
 	if subcommands == nil {
-		flagSet.Usage()
+		flagSetUpdate.Usage()
 
 		return nil, ierrors.Errorf("no subcommands")
 	}
 
-	log.Infof("Parsing update account flags, subcommands: %v", subcommands)
-	err := flagSet.Parse(subcommands)
+	loggerRoot.LogInfof("Parsing update account flags, subcommands: %v", subcommands)
+	err := flagSetUpdate.Parse(subcommands)
 	if err != nil {
-		log.Errorf("Cannot parse first `script` parameter")
+		loggerRoot.LogError("Cannot parse first `script` parameter")
 
 		return nil, ierrors.Wrap(err, "cannot parse first `script` parameter")
 	}

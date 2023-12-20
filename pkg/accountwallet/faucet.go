@@ -59,12 +59,12 @@ func (a *AccountWallet) RequestFaucetFunds(ctx context.Context, receiveAddr iota
 		return iotago.EmptyOutputID, nil, ierrors.Wrap(err, "failed to request funds from faucet")
 	}
 
-	outputID, outputStruct, err := utils.AwaitAddressUnspentOutputToBeAccepted(ctx, a.client, receiveAddr)
+	outputID, outputStruct, err := utils.AwaitAddressUnspentOutputToBeAccepted(ctx, a.Logger, a.client, receiveAddr)
 	if err != nil {
 		return iotago.EmptyOutputID, nil, ierrors.Wrap(err, "failed to await faucet funds")
 	}
 
-	log.Debugf("RequestFaucetFunds received faucet funds for addr type: %s, %s", receiveAddr.Type(), receiveAddr.String())
+	a.LogDebugf("RequestFaucetFunds received faucet funds for addr type: %s, %s", receiveAddr.Type(), receiveAddr.String())
 
 	return outputID, outputStruct, nil
 }
@@ -72,14 +72,14 @@ func (a *AccountWallet) RequestFaucetFunds(ctx context.Context, receiveAddr iota
 func (a *AccountWallet) PostWithBlock(ctx context.Context, clt models.Client, payload iotago.Payload, issuer wallet.Account, congestionResp *api.CongestionResponse, issuerResp *api.IssuanceBlockHeaderResponse, version iotago.Version, strongParents ...iotago.BlockID) (iotago.BlockID, error) {
 	signedBlock, err := a.CreateBlock(payload, issuer, congestionResp, issuerResp, version, strongParents...)
 	if err != nil {
-		log.Errorf("failed to create block: %s", err)
+		a.LogErrorf("failed to create block: %s", err)
 
 		return iotago.EmptyBlockID, err
 	}
 
 	blockID, err := clt.PostBlock(ctx, signedBlock)
 	if err != nil {
-		log.Errorf("failed to post block: %s", err)
+		a.LogErrorf("failed to post block: %s", err)
 
 		return iotago.EmptyBlockID, err
 	}
@@ -139,7 +139,7 @@ type faucet struct {
 func newFaucet(clt models.Client, faucetParams *faucetParams) *faucet {
 	genesisSeed, err := base58.Decode(faucetParams.genesisSeed)
 	if err != nil {
-		log.Warnf("failed to decode base58 seed, using the default one: %v", err)
+		panic(ierrors.Errorf("failed to decode base58 seed: %w", err))
 	}
 
 	f := &faucet{

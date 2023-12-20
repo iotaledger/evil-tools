@@ -17,6 +17,7 @@ import (
 	"github.com/iotaledger/evil-tools/pkg/spammer"
 	"github.com/iotaledger/evil-tools/programs"
 	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/log"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
 	"github.com/iotaledger/iota.go/v4/nodeclient"
 )
@@ -139,8 +140,8 @@ var (
 
 // region interactive ///////////////////////////////////////////////////////////////////////////////////////////////////////
 
-func Run(ctx context.Context) {
-	mode := NewInteractiveMode()
+func Run(ctx context.Context, logger log.Logger) {
+	mode := NewInteractiveMode(logger)
 
 	printer = NewPrinter(mode)
 
@@ -182,6 +183,7 @@ func configure(mode *Mode) {
 // region Mode /////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 type Mode struct {
+	log.Logger
 	evilWallet   *evilwallet.EvilWallet
 	shutdown     chan types.Empty
 	mainMenu     chan types.Empty
@@ -205,9 +207,10 @@ type Mode struct {
 	stdOutMutex syncutils.Mutex
 }
 
-func NewInteractiveMode() *Mode {
+func NewInteractiveMode(logger log.Logger) *Mode {
 	return &Mode{
-		evilWallet:   evilwallet.NewEvilWallet(),
+		Logger:       logger.NewChildLogger("InteractiveMode"),
+		evilWallet:   evilwallet.NewEvilWallet(logger),
 		action:       make(chan action),
 		shutdown:     make(chan types.Empty),
 		mainMenu:     make(chan types.Empty),
@@ -438,10 +441,10 @@ func (m *Mode) startSpam(ctx context.Context) {
 
 	var s *spammer.Spammer
 	if m.Config.Scenario == spammer.TypeBlock {
-		s = programs.SpamBlocks(m.evilWallet, m.Config.Rate, time.Second, m.innerConfig.duration, m.Config.UseRateSetter, "")
+		s = programs.SpamBlocks(m.Logger, m.evilWallet, m.Config.Rate, time.Second, m.innerConfig.duration, m.Config.UseRateSetter, "")
 	} else {
 		scenario, _ := evilwallet.GetScenario(m.Config.Scenario)
-		s = programs.SpamNestedConflicts(m.evilWallet, m.Config.Rate, time.Second, m.innerConfig.duration, scenario, m.Config.Deep, m.Config.Reuse, m.Config.UseRateSetter, "")
+		s = programs.SpamNestedConflicts(m.Logger, m.evilWallet, m.Config.Rate, time.Second, m.innerConfig.duration, scenario, m.Config.Deep, m.Config.Reuse, m.Config.UseRateSetter, "")
 		if s == nil {
 			return
 		}

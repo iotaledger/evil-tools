@@ -16,8 +16,6 @@ var (
 )
 
 var (
-	Script = ScriptSpammer
-
 	customSpamParams = programs.CustomSpamParams{
 		ClientURLs:            urls,
 		FaucetURL:             "http://localhost:8088",

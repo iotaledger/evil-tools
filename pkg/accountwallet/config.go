@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/ds/types"
+	"github.com/iotaledger/hive.go/ierrors"
 )
 
 // commands
@@ -120,9 +121,8 @@ func SaveConfiguration(config *Configuration) {
 	defer file.Close()
 
 	jsonConfigs, err := json.MarshalIndent(config, "", "    ")
-
 	if err != nil {
-		log.Errorf("failed to write configs to file %s", err)
+		panic(ierrors.Errorf("failed to marshal configs: %w", err))
 	}
 
 	//nolint:gosec // users should be able to read the file

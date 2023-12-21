@@ -2,10 +2,7 @@ package accountwallet
 
 import (
 	"context"
-	"sync"
 	"time"
-
-	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/evil-tools/pkg/utils"
@@ -115,37 +112,4 @@ func (a *AccountWallet) CreateBlock(payload iotago.Payload, issuer wallet.Accoun
 	}
 
 	return blk, nil
-}
-
-type FaucetParams struct {
-	FaucetPrivateKey string
-	FaucetAccountID  string
-	GenesisSeed      string
-}
-
-type faucet struct {
-	account           wallet.Account
-	genesisKeyManager *wallet.KeyManager
-
-	RequestTokenAmount iotago.BaseToken
-	RequestManaAmount  iotago.Mana
-
-	clt models.Client
-
-	sync.Mutex
-}
-
-func newFaucet(clt models.Client, faucetParams *FaucetParams) *faucet {
-	genesisSeed, err := base58.Decode(faucetParams.GenesisSeed)
-	if err != nil {
-		panic(ierrors.Errorf("failed to decode base58 seed: %v", err))
-	}
-
-	f := &faucet{
-		clt:               clt,
-		account:           lo.PanicOnErr(wallet.AccountFromParams(faucetParams.FaucetAccountID, faucetParams.FaucetPrivateKey)),
-		genesisKeyManager: lo.PanicOnErr(wallet.NewKeyManager(genesisSeed, wallet.DefaultIOTAPath)),
-	}
-
-	return f
 }

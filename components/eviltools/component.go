@@ -44,8 +44,7 @@ func run() error {
 			accountwallet.WithClientURL(ParamsEvilTools.NodeURLs[0]),
 			accountwallet.WithFaucetURL(ParamsEvilTools.FaucetURL),
 			accountwallet.WithAccountStatesFile(ParamsEvilTools.Accounts.AccountStatesFile),
-			accountwallet.WithFaucetAccountParams(&accountwallet.FaucetParams{
-				GenesisSeed:      ParamsEvilTools.Accounts.GenesisSeed,
+			accountwallet.WithFaucetAccountParams(&accountwallet.GenesisAccountParams{
 				FaucetPrivateKey: ParamsEvilTools.Accounts.BlockIssuerPrivateKey,
 				FaucetAccountID:  ParamsEvilTools.Accounts.AccountID,
 			}),

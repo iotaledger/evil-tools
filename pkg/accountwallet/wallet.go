@@ -43,23 +43,30 @@ func SaveState(w *AccountWallet) error {
 	return w.toAccountStateFile()
 }
 
+type GenesisAccountParams struct {
+	FaucetPrivateKey string
+	FaucetAccountID  string
+}
+
 type AccountWallet struct {
 	log.Logger
-	faucet *faucet
-	seed   [32]byte
+	GenesisAccount wallet.Account
+	seed           [32]byte
 
 	accountsAliases     map[string]*models.AccountData
 	accountAliasesMutex sync.RWMutex
 
 	latestUsedIndex atomic.Uint32
 
-	client *models.WebClient
-	API    iotago.API
+	client             *models.WebClient
+	API                iotago.API
+	RequestTokenAmount iotago.BaseToken
+	RequestManaAmount  iotago.Mana
 
-	optsClientBindAddress string
-	optsFaucetURL         string
-	optsAccountStatesFile string
-	optsFaucetParams      *FaucetParams
+	optsClientBindAddress    string
+	optsFaucetURL            string
+	optsAccountStatesFile    string
+	optsGenesisAccountParams *GenesisAccountParams
 }
 
 func NewAccountWallet(logger log.Logger, opts ...options.Option[AccountWallet]) (*AccountWallet, error) {
@@ -80,29 +87,27 @@ func NewAccountWallet(logger log.Logger, opts ...options.Option[AccountWallet]) 
 		}
 		w.API = w.client.LatestAPI()
 
-		w.faucet = newFaucet(w.client, w.optsFaucetParams)
+		w.GenesisAccount = lo.PanicOnErr(wallet.AccountFromParams(w.optsGenesisAccountParams.FaucetAccountID, w.optsGenesisAccountParams.FaucetPrivateKey))
 
-		//
-		//_, output, err := w.RequestFaucetFunds(context.Background(), tpkg.RandEd25519Address())
-		//if err != nil {
-		//	initErr = err
-		//	accountWalletLogger.LogErrorf("failed to request faucet funds: %s, faucet not initiated", err.Error())
-		//
-		//	return
-		//}
-		//w.faucet.RequestTokenAmount = output.BaseTokenAmount()
-		//w.faucet.RequestManaAmount = output.StoredMana()
+		// determine the faucet request amounts
+		_, output, err := w.RequestFaucetFunds(context.Background(), tpkg.RandEd25519Address())
+		if err != nil {
+			initErr = err
+			accountWalletLogger.LogErrorf("failed to request faucet funds: %s, faucet not initiated", err.Error())
 
-		w.faucet.RequestTokenAmount = 1000000000000
-		w.faucet.RequestManaAmount = 100000000
+			return
+		}
+		w.RequestTokenAmount = output.BaseTokenAmount()
+		w.RequestManaAmount = output.StoredMana()
 
-		accountWalletLogger.LogDebugf("faucet initiated with %d tokens and %d mana", w.faucet.RequestTokenAmount, w.faucet.RequestManaAmount)
+		// add genesis account
+		accountWalletLogger.LogDebugf("faucet initiated with %d tokens and %d mana", w.RequestTokenAmount, w.RequestManaAmount)
 		w.accountsAliases[GenesisAccountAlias] = &models.AccountData{
 			Alias:    GenesisAccountAlias,
 			Status:   models.AccountReady,
 			OutputID: iotago.EmptyOutputID,
 			Index:    0,
-			Account:  w.faucet.account,
+			Account:  w.GenesisAccount,
 		}
 	}), initErr
 }
@@ -332,26 +337,21 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 		Input:        accountOutput,
 	})
 
-	// send all tokens to faucet
-	//nolint:all,forcetypassert
-	txBuilder.AddOutput(&iotago.BasicOutput{
-		Amount: accountOutput.BaseTokenAmount(),
-		UnlockConditions: iotago.BasicOutputUnlockConditions{
-			&iotago.AddressUnlockCondition{Address: a.faucet.genesisKeyManager.Address(iotago.AddressEd25519).(*iotago.Ed25519Address)},
-		},
-	})
+	addr, _, _ := a.getAddress(iotago.AddressEd25519)
+	output := builder.NewBasicOutputBuilder(addr, accountOutput.BaseTokenAmount()).MustBuild()
+	txBuilder.AddOutput(output)
 
 	tx, err := txBuilder.Build(keyManager.AddressSigner())
 	if err != nil {
 		return ierrors.Wrapf(err, "failed to build transaction for account alias destruction %s", alias)
 	}
 
-	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(ctx, a.client, a.faucet.account)
+	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(ctx, a.client, a.GenesisAccount)
 	if err != nil {
 		return ierrors.Wrap(err, "failed to request block built data for the faucet account")
 	}
 
-	blockID, err := a.PostWithBlock(ctx, a.client, tx, a.faucet.account, congestionResp, issuerResp, version)
+	blockID, err := a.PostWithBlock(ctx, a.client, tx, a.GenesisAccount, congestionResp, issuerResp, version)
 	if err != nil {
 		return ierrors.Wrapf(err, "failed to post block with ID %s", blockID)
 	}

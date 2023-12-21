@@ -65,14 +65,12 @@ func run() error {
 	// run selected test scenario
 	switch script {
 	case ScriptSpammer:
-		dispatcher := programs.NewDispatcher(accWallet)
-		dispatcher.RunSpam(
+		programs.CustomSpam(
 			Component.Daemon().ContextStopped(),
 			Component.Logger,
 			ParamsEvilTools.NodeURLs,
 			&ParamsEvilTools.Spammer,
-		)
-
+			accWallet)
 	case ScriptAccounts:
 		accountsSubcommandsFlags := parseAccountCommands(getCommands(os.Args[2:]), &ParamsEvilTools.Accounts)
 		accountsSubcommands(

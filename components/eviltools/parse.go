@@ -46,8 +46,8 @@ func getCommands(args []string) []string {
 		}
 
 		if !accountwallet.AvailableCommands(arg) {
-			// invalid command found
-			panic(fmt.Sprintf("invalid command %s", arg))
+			// skip as it might be a flag parameter
+			continue
 		}
 		commands = append(commands, arg)
 	}

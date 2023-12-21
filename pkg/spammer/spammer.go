@@ -138,7 +138,7 @@ func (s *Spammer) setupSpamDetails() {
 
 	// provided only maxDuration, calculating the default max for maxBlkSent
 	if s.MaxDuration > 0 {
-		s.MaxBatchesSent = int(s.MaxDuration.Seconds()/float64(time.Second)*float64(s.Rate)) + 1
+		s.MaxBatchesSent = int(s.MaxDuration.Seconds()*float64(s.Rate)) + 1
 	}
 }
 

@@ -21,7 +21,6 @@ var (
 
 func App() *app.App {
 	return app.New(Name, Version,
-		//app.WithVersionCheck("iotaledger", "evil-tools"),
 		app.WithUsageText(fmt.Sprintf(`Usage of %s (%s %s):
 Provide the first argument for the selected mode:
 	'%s' - can be parametrized with additional flags to run one time spammer. Run 'evil-wallet basic -h' for the list of possible flags.

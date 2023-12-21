@@ -16,7 +16,6 @@ const (
 	MaxAcceptanceAwait = 90 * time.Second
 	AwaitInterval      = 1 * time.Second
 
-	MaxCommitmentAwait      = 90 * time.Second
 	AwaitCommitmentInterval = 10 * time.Second
 )
 

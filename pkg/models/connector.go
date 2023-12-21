@@ -292,7 +292,7 @@ func (c *WebClient) RequestFaucetFunds(ctx context.Context, address iotago.Addre
 		return bytes.NewReader(jsonData)
 	}())
 	if err != nil {
-		return ierrors.Errorf("unable to build http request: %w", err)
+		return ierrors.Errorf("unable to build http request: %v", err)
 	}
 
 	req.Header.Set("Content-Type", api.MIMEApplicationJSON)

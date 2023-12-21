@@ -18,8 +18,7 @@ import (
 )
 
 const (
-	GenesisAccountAlias              = "genesis-account"
-	MaxFaucetRequestsForOneOperation = 10
+	GenesisAccountAlias = "genesis-account"
 )
 
 func (a *AccountWallet) RequestBlockBuiltData(ctx context.Context, clt models.Client, account wallet.Account) (*api.CongestionResponse, *api.IssuanceBlockHeaderResponse, iotago.Version, error) {
@@ -112,7 +111,7 @@ func (a *AccountWallet) CreateBlock(payload iotago.Payload, issuer wallet.Accoun
 
 	blk, err := blockBuilder.Build()
 	if err != nil {
-		return nil, ierrors.Errorf("failed to build block: %w", err)
+		return nil, ierrors.Errorf("failed to build block: %v", err)
 	}
 
 	return blk, nil
@@ -139,7 +138,7 @@ type faucet struct {
 func newFaucet(clt models.Client, faucetParams *FaucetParams) *faucet {
 	genesisSeed, err := base58.Decode(faucetParams.GenesisSeed)
 	if err != nil {
-		panic(ierrors.Errorf("failed to decode base58 seed: %w", err))
+		panic(ierrors.Errorf("failed to decode base58 seed: %v", err))
 	}
 
 	f := &faucet{

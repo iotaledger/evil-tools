@@ -82,7 +82,6 @@ func CustomSpam(ctx context.Context, logger log.Logger, nodeURLs []string, param
 
 	logger.LogInfof("Start spamming with rate: %d, spamming type: %s.", paramsSpammer.Rate, paramsSpammer.Type)
 
-	// TODO here we can shutdown requesting when we will have evil-tools running in the background.
 	// cancel is a context.CancelFunc that can be used to cancel the infinite requesting goroutine.
 	_, err := requestFaucetFunds(ctx, logger, paramsSpammer, w)
 	if err != nil {

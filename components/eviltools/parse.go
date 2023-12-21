@@ -55,7 +55,7 @@ func getCommands(args []string) []string {
 	return commands
 }
 
-func parseAccountCommands(commands []string, paramsAccounts *ParametersAccounts) []accountwallet.AccountSubcommands {
+func parseAccountCommands(commands []string, paramsAccounts *accountwallet.ParametersAccounts) []accountwallet.AccountSubcommands {
 	parsedCmds := make([]accountwallet.AccountSubcommands, 0)
 
 	for _, cmd := range commands {
@@ -141,7 +141,7 @@ func accountUsage() {
 	_, _ = parseStakeAccountFlags(nil)
 }
 
-func parseCreateAccountParams(paramsAccountCreate *ParametersAccountsCreate) (*accountwallet.CreateAccountParams, error) {
+func parseCreateAccountParams(paramsAccountCreate *accountwallet.ParametersAccountsCreate) (*accountwallet.CreateAccountParams, error) {
 	if paramsAccountCreate == nil {
 		return nil, ierrors.New("paramsAccountCreate missing for create account")
 	}
@@ -163,13 +163,13 @@ func parseCreateAccountParams(paramsAccountCreate *ParametersAccountsCreate) (*a
 	}, nil
 }
 
-func parseConvertAccountFlags(paramsAccountConvert *ParametersAccountsConvert) *accountwallet.ConvertAccountParams {
+func parseConvertAccountFlags(paramsAccountConvert *accountwallet.ParametersAccountsConvert) *accountwallet.ConvertAccountParams {
 	return &accountwallet.ConvertAccountParams{
 		AccountAlias: paramsAccountConvert.Alias,
 	}
 }
 
-func parseDestroyAccountFlags(paramsAccountDestroy *ParametersAccountsDestroy) (*accountwallet.DestroyAccountParams, error) {
+func parseDestroyAccountFlags(paramsAccountDestroy *accountwallet.ParametersAccountsDestroy) (*accountwallet.DestroyAccountParams, error) {
 	if paramsAccountDestroy == nil {
 		return nil, ierrors.New("paramsAccountDestroy missing for destroy account")
 	}
@@ -180,7 +180,7 @@ func parseDestroyAccountFlags(paramsAccountDestroy *ParametersAccountsDestroy) (
 	}, nil
 }
 
-func parseAllotAccountFlags(paramsAccountAllot *ParametersAccountsAllot) (*accountwallet.AllotAccountParams, error) {
+func parseAllotAccountFlags(paramsAccountAllot *accountwallet.ParametersAccountsAllot) (*accountwallet.AllotAccountParams, error) {
 	if paramsAccountAllot == nil {
 		return nil, ierrors.New("paramsAccountAllot missing for allot account")
 	}
@@ -191,7 +191,7 @@ func parseAllotAccountFlags(paramsAccountAllot *ParametersAccountsAllot) (*accou
 	}, nil
 }
 
-func parseStakeAccountFlags(paramsAccountStake *ParametersAccountsStake) (*accountwallet.StakeAccountParams, error) {
+func parseStakeAccountFlags(paramsAccountStake *accountwallet.ParametersAccountsStake) (*accountwallet.StakeAccountParams, error) {
 	if paramsAccountStake == nil {
 		return nil, ierrors.New("paramsAccountStake missing for stake account")
 	}
@@ -205,7 +205,7 @@ func parseStakeAccountFlags(paramsAccountStake *ParametersAccountsStake) (*accou
 	}, nil
 }
 
-func parseDelegateAccountFlags(paramsAccountDelegate *ParametersAccountsDelegate) (*accountwallet.DelegateAccountParams, error) {
+func parseDelegateAccountFlags(paramsAccountDelegate *accountwallet.ParametersAccountsDelegate) (*accountwallet.DelegateAccountParams, error) {
 	if paramsAccountDelegate == nil {
 		return nil, ierrors.New("paramsAccountDelegate missing for delegate account")
 	}
@@ -217,7 +217,7 @@ func parseDelegateAccountFlags(paramsAccountDelegate *ParametersAccountsDelegate
 	}, nil
 }
 
-func parseUpdateAccountFlags(paramsAccountUpdate *ParametersAccountsUpdate) (*accountwallet.UpdateAccountParams, error) {
+func parseUpdateAccountFlags(paramsAccountUpdate *accountwallet.ParametersAccountsUpdate) (*accountwallet.UpdateAccountParams, error) {
 	if paramsAccountUpdate == nil {
 		return nil, ierrors.New("paramsAccountUpdate missing for update account")
 	}

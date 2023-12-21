@@ -71,7 +71,6 @@ func run() error {
 			Component.Daemon().ContextStopped(),
 			Component.Logger,
 			ParamsEvilTools.NodeURLs,
-			ParamsEvilTools.FaucetURL,
 			&ParamsEvilTools.Spammer,
 		)
 
@@ -89,7 +88,12 @@ func run() error {
 
 func accountsSubcommands(ctx context.Context, wallet *accountwallet.AccountWallet, subcommands []accountwallet.AccountSubcommands) {
 	for _, sub := range subcommands {
-		accountsSubcommand(ctx, wallet, sub)
+		err := accountsSubcommand(ctx, wallet, sub)
+		if err != nil {
+			Component.LogFatal(ierrors.Wrap(err, "failed to run subcommand").Error())
+
+			return
+		}
 	}
 }
 

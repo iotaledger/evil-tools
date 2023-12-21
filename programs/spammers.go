@@ -76,7 +76,7 @@ func requestInfinitely(ctx context.Context, logger log.Logger, w *evilwallet.Evi
 	}
 }
 
-func CustomSpam(ctx context.Context, logger log.Logger, nodeURLs []string, faucetURL string, paramsSpammer *spammer.ParametersSpammer, accWallet *accountwallet.AccountWallet) {
+func CustomSpam(ctx context.Context, logger log.Logger, nodeURLs []string, paramsSpammer *spammer.ParametersSpammer, accWallet *accountwallet.AccountWallet) {
 	w := evilwallet.NewEvilWallet(logger, evilwallet.WithClients(nodeURLs...), evilwallet.WithAccountsWallet(accWallet))
 	wg := sync.WaitGroup{}
 

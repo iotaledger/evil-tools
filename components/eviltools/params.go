@@ -5,7 +5,6 @@ import (
 	"github.com/iotaledger/hive.go/app"
 )
 
-// account types
 type (
 	ParametersAccountsCreate struct {
 		Alias                string `default:"" usage:"Alias name of the account to update"`

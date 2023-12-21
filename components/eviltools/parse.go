@@ -68,10 +68,7 @@ func parseAccountCommands(commands []string, paramsAccounts *ParametersAccounts)
 			parsedCmds = append(parsedCmds, createAccountParams)
 
 		case AccountSubCommandConvert:
-			convertAccountParams, err := parseConvertAccountFlags(&paramsAccounts.Convert)
-			if err != nil {
-				continue
-			}
+			convertAccountParams := parseConvertAccountFlags(&paramsAccounts.Convert)
 			parsedCmds = append(parsedCmds, convertAccountParams)
 
 		case AccountSubCommandDestroy:
@@ -129,7 +126,7 @@ func accountUsage() {
 	_, _ = parseCreateAccountParams(nil)
 
 	fmt.Printf("COMMAND: %s\n", accountwallet.CmdNameConvertAccount)
-	_, _ = parseConvertAccountFlags(nil)
+	_ = parseConvertAccountFlags(nil)
 
 	fmt.Printf("COMMAND: %s\n", accountwallet.CmdNameDestroyAccount)
 	_, _ = parseDestroyAccountFlags(nil)
@@ -166,10 +163,10 @@ func parseCreateAccountParams(paramsAccountCreate *ParametersAccountsCreate) (*a
 	}, nil
 }
 
-func parseConvertAccountFlags(paramsAccountConvert *ParametersAccountsConvert) (*accountwallet.ConvertAccountParams, error) {
+func parseConvertAccountFlags(paramsAccountConvert *ParametersAccountsConvert) *accountwallet.ConvertAccountParams {
 	return &accountwallet.ConvertAccountParams{
 		AccountAlias: paramsAccountConvert.Alias,
-	}, nil
+	}
 }
 
 func parseDestroyAccountFlags(paramsAccountDestroy *ParametersAccountsDestroy) (*accountwallet.DestroyAccountParams, error) {

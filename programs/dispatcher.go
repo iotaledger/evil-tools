@@ -25,8 +25,8 @@ func NewDispatcher(accWallet *accountwallet.AccountWallet) *Dispatcher {
 	}
 }
 
-func (d *Dispatcher) RunSpam(ctx context.Context, logger log.Logger, nodeURLs []string, faucetURL string, paramsSpammer *spammer.ParametersSpammer) {
-	CustomSpam(ctx, logger, nodeURLs, faucetURL, paramsSpammer, d.accWallet)
+func (d *Dispatcher) RunSpam(ctx context.Context, logger log.Logger, nodeURLs []string, paramsSpammer *spammer.ParametersSpammer) {
+	CustomSpam(ctx, logger, nodeURLs, paramsSpammer, d.accWallet)
 
 	d.activeSpammers = append(d.activeSpammers, &Runner{
 		finished:      make(chan bool),

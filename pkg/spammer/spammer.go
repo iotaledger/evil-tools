@@ -6,6 +6,7 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/iotaledger/evil-tools/pkg/accountwallet"
 	"github.com/iotaledger/evil-tools/pkg/evilwallet"
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/ierrors"
@@ -139,6 +140,10 @@ func (s *Spammer) setupSpamDetails() {
 	// provided only maxDuration, calculating the default max for maxBlkSent
 	if s.MaxDuration > 0 {
 		s.MaxBatchesSent = int(s.MaxDuration.Seconds()*float64(s.Rate)) + 1
+	}
+
+	if s.IssuerAlias == "" {
+		s.IssuerAlias = accountwallet.GenesisAccountAlias
 	}
 }
 

@@ -13,7 +13,7 @@ import (
 	"github.com/iotaledger/evil-tools/pkg/spammer"
 )
 
-func CustomSpam(ctx context.Context, logger log.Logger, nodeURLs []string, paramsSpammer *spammer.ParametersSpammer, accWallet *accountwallet.AccountWallet) {
+func RunSpammer(ctx context.Context, logger log.Logger, nodeURLs []string, paramsSpammer *spammer.ParametersSpammer, accWallet *accountwallet.AccountWallet) {
 	w := evilwallet.NewEvilWallet(logger, evilwallet.WithClients(nodeURLs...), evilwallet.WithAccountsWallet(accWallet))
 	wg := sync.WaitGroup{}
 
@@ -62,16 +62,6 @@ func CustomSpam(ctx context.Context, logger log.Logger, nodeURLs []string, param
 			s := SpamDoubleSpends(logger, w, paramsSpammer)
 			s.Spam(ctx)
 		}()
-	case spammer.TypeCustom:
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			s := SpamNestedConflicts(logger, w, paramsSpammer)
-			if s == nil {
-				return
-			}
-			s.Spam(ctx)
-		}()
 	case spammer.TypeAccounts:
 		wg.Add(1)
 		go func() {
@@ -85,7 +75,21 @@ func CustomSpam(ctx context.Context, logger log.Logger, nodeURLs []string, param
 		}()
 
 	default:
-		logger.LogFatal("Spamming type not recognized. Try one of following: tx, ds, blk, custom, commitments")
+		if !evilwallet.IsScenarioAllowed(paramsSpammer.Type) {
+			logger.LogFatal(fmt.Sprintf("Spamming type not recognized. Try one of following: tx, ds, blk, bb, accounts, %s", evilwallet.AllScenariosListed()))
+
+			return
+		}
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			s := SpamNestedConflicts(logger, w, paramsSpammer)
+			if s == nil {
+				return
+			}
+			s.Spam(ctx)
+		}()
 	}
 
 	wg.Wait()
@@ -151,9 +155,9 @@ func SpamDoubleSpends(logger log.Logger, w *evilwallet.EvilWallet, paramsSpammer
 }
 
 func SpamNestedConflicts(logger log.Logger, w *evilwallet.EvilWallet, paramsSpammer *spammer.ParametersSpammer) *spammer.Spammer {
-	conflictBatch, ok := evilwallet.GetScenario(paramsSpammer.Scenario)
+	conflictBatch, ok := evilwallet.GetScenario(paramsSpammer.Type)
 	if !ok {
-		panic(fmt.Sprintf("Scenario not found: %s", paramsSpammer.Scenario))
+		panic(fmt.Sprintf("Scenario not found: %s", paramsSpammer.Type))
 	}
 
 	scenarioOptions := []evilwallet.ScenarioOption{

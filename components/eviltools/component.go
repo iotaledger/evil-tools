@@ -65,7 +65,7 @@ func run() error {
 	// run selected test scenario
 	switch script {
 	case ScriptSpammer:
-		programs.CustomSpam(
+		programs.RunSpammer(
 			Component.Daemon().ContextStopped(),
 			Component.Logger,
 			ParamsEvilTools.NodeURLs,

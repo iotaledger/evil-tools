@@ -3,8 +3,7 @@ package spammer
 import "time"
 
 type ParametersSpammer struct {
-	Type                  string        `default:"tx" usage:"Spammers used during test. Format: strings separated with comma, available options: 'blk' - block, 'tx' - transaction, 'ds' - double spends spammers, 'nds' - n-spends spammer, 'custom' - spams with provided scenario, 'bb' - blowball"`
-	Scenario              string        `default:"" usage:"Name of the EvilBatch that should be used for the spam. By default uses Scenario1. Possible scenarios can be found in evilwallet/customscenarion.go."`
+	Type                  string        `default:"tx" usage:"Spammers used during test. Format: strings separated with comma, available options: 'blk' - block, 'tx' - transaction, 'ds' - double spends spammers, 'nds' - n-spends spammer, 'bb' - blowball, or one of custom scenarios that can be found in pkg/evilwallet/customscenarion.go"`
 	Rate                  int           `default:"1" usage:"Spamming rate for provided 'spammer'. Format: numbers separated with comma, e.g. 10,100,1 if three spammers were provided for 'spammer' parameter."`
 	Duration              time.Duration `default:"60s" usage:"Spam duration. If not provided spam will lats infinitely. Format: separated by commas list of decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'."`
 	Account               string        `default:"" usage:"Account alias to be used for the spam. Account should be created first with accounts tool."`

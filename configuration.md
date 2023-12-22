@@ -122,28 +122,26 @@ Example:
 
 ### <a id="eviltools_spammer"></a> Spammer
 
-| Name                  | Description                                                                                                                                                                                                                                               | Type    | Default value |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------------- |
-| type                  | Spammers used during test. Format: strings separated with comma, available options: 'blk' - block, 'tx' - transaction, 'ds' - double spends spammers, 'nds' - n-spends spammer, 'custom' - spams with provided scenario, 'bb' - blowball                  | string  | "tx"          |
-| scenario              | Name of the EvilBatch that should be used for the spam. By default uses Scenario1. Possible scenarios can be found in evilwallet/customscenarion.go.                                                                                                      | string  | ""            |
-| rate                  | Spamming rate for provided 'spammer'. Format: numbers separated with comma, e.g. 10,100,1 if three spammers were provided for 'spammer' parameter.                                                                                                        | int     | 1             |
+| Name                  | Description                                                                                                                                                                                                                                                                        | Type    | Default value |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------------- |
+| type                  | Spammers used during test. Format: strings separated with comma, available options: 'blk' - block, 'tx' - transaction, 'ds' - double spends spammers, 'nds' - n-spends spammer, 'bb' - blowball, or one of custom scenarios that can be found in pkg/evilwallet/customscenarion.go | string  | "tx"          |
+| rate                  | Spamming rate for provided 'spammer'. Format: numbers separated with comma, e.g. 10,100,1 if three spammers were provided for 'spammer' parameter.                                                                                                                                 | int     | 1             |
 | duration              | Spam duration. If not provided spam will lats infinitely. Format: separated by commas list of decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.
- Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'. | string  | "1m"          |
-| account               | Account alias to be used for the spam. Account should be created first with accounts tool.                                                                                                                                                                | string  | ""            |
-| rateSetterEnabled     | Enable the rate setter, which will set the rate for the spammer. To enable provide an empty flag.                                                                                                                                                         | boolean | false         |
-| deepSpamEnabled       | Enable the deep spam, by reusing outputs created during the spam. To enable provide an empty flag.                                                                                                                                                        | boolean | false         |
-| reuseEnabled          | Enable the reuse of outputs created during the spam. To enable provide an empty flag.                                                                                                                                                                     | boolean | false         |
-| autoRequestingEnabled | Enable the auto-requesting, which will request tokens from faucet for the spammer. To enable provide an empty flag.                                                                                                                                       | boolean | false         |
-| autoRequestingAmount  | Amount of tokens to be requested from faucet for the spammer. To enable provide an empty flag.                                                                                                                                                            | int     | 1000          |
-| nSpend                | Number of outputs to be spent in n-spends spammer for the spammer type needs to be set to 'ds'. Default value is 2 for double-spend.                                                                                                                      | int     | 2             |
-| blowballSize          | Size of the blowball to be used in blowball spammer. To enable provide an empty flag.                                                                                                                                                                     | int     | 30            |
+ Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.                          | string  | "-1ns"        |
+| account               | Account alias to be used for the spam. Account should be created first with accounts tool.                                                                                                                                                                                         | string  | ""            |
+| rateSetterEnabled     | Enable the rate setter, which will set the rate for the spammer. To enable provide an empty flag.                                                                                                                                                                                  | boolean | false         |
+| deepSpamEnabled       | Enable the deep spam, by reusing outputs created during the spam. To enable provide an empty flag.                                                                                                                                                                                 | boolean | false         |
+| reuseEnabled          | Enable the reuse of outputs created during the spam. To enable provide an empty flag.                                                                                                                                                                                              | boolean | false         |
+| autoRequestingEnabled | Enable the auto-requesting, which will request tokens from faucet for the spammer. To enable provide an empty flag.                                                                                                                                                                | boolean | false         |
+| autoRequestingAmount  | Amount of tokens to be requested from faucet for the spammer. To enable provide an empty flag.                                                                                                                                                                                     | int     | 1000          |
+| nSpend                | Number of outputs to be spent in n-spends spammer for the spammer type needs to be set to 'ds'. Default value is 2 for double-spend.                                                                                                                                               | int     | 2             |
+| blowballSize          | Size of the blowball to be used in blowball spammer. To enable provide an empty flag.                                                                                                                                                                                              | int     | 30            |
 
 ### <a id="eviltools_accounts"></a> Accounts
 
 | Name                                     | Description                                                  | Type   | Default value                                                                                                                      |
 | ---------------------------------------- | ------------------------------------------------------------ | ------ | ---------------------------------------------------------------------------------------------------------------------------------- |
 | accountStatesFile                        | File to store account states in                              | string | "wallet.dat"                                                                                                                       |
-| genesisSeed                              | Seed to use for genesis account                              | string | "7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih"                                                                                     |
 | blockIssuerPrivateKey                    | Block issuer private key (in hex) to use for genesis account | string | "db39d2fde6301d313b108dc9db1ee724d0f405f6fde966bd776365bc5f4a5fb31e4b21eb51dcddf65c20db1065e1f1514658b23a3ddbf48d30c0efc926a9a648" |
 | accountID                                | Account ID to use for genesis account                        | string | "0x6aee704f25558e8aa7630fed0121da53074188abc423b3c5810f80be4936eb6e"                                                               |
 | [create](#eviltools_accounts_create)     | Configuration for create                                     | object |                                                                                                                                    |
@@ -158,7 +156,7 @@ Example:
 
 | Name                 | Description                                                                                                                                             | Type    | Default value |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------------- |
-| alias                | Alias name of the account to update                                                                                                                     | string  | ""            |
+| alias                | Alias name of the account to create                                                                                                                     | string  | ""            |
 | noBlockIssuerFeature | Create account without Block Issuer Feature, can only be set false no if implicit is false, as each account created implicitly needs to have BIF.       | boolean | false         |
 | implicit             | Create an implicit account                                                                                                                              | boolean | false         |
 | noTransition         | Account should not be transitioned to a full account if created with implicit address. Transition enabled by default, to disable provide an empty flag. | boolean | false         |
@@ -222,9 +220,8 @@ Example:
       "faucetURL": "http://localhost:8088",
       "spammer": {
         "type": "tx",
-        "scenario": "",
         "rate": 1,
-        "duration": "1m",
+        "duration": "-1ns",
         "account": "",
         "rateSetterEnabled": false,
         "deepSpamEnabled": false,
@@ -236,7 +233,6 @@ Example:
       },
       "accounts": {
         "accountStatesFile": "wallet.dat",
-        "genesisSeed": "7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih",
         "blockIssuerPrivateKey": "db39d2fde6301d313b108dc9db1ee724d0f405f6fde966bd776365bc5f4a5fb31e4b21eb51dcddf65c20db1065e1f1514658b23a3ddbf48d30c0efc926a9a648",
         "accountID": "0x6aee704f25558e8aa7630fed0121da53074188abc423b3c5810f80be4936eb6e",
         "create": {

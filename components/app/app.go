@@ -23,8 +23,8 @@ func App() *app.App {
 	return app.New(Name, Version,
 		app.WithUsageText(fmt.Sprintf(`Usage of %s (%s %s):
 Provide the first argument for the selected mode:
-	'%s' - can be parametrized with additional flags to run one time spammer. Run 'evil-wallet basic -h' for the list of possible flags.
-	'%s' - tool for account creation and transition. Run 'evil-wallet accounts -h' for the list of possible flags.
+	'%s' - can be parametrized with additional flags to run one time spammer.
+	'%s' - tool for account creation and transition.
 
 Command line flags: %s`, os.Args[0], Name, Version, eviltools.ScriptSpammer, eviltools.ScriptAccounts, os.Args[0])),
 		app.WithInitComponent(InitComponent),

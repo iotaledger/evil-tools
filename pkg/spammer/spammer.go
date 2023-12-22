@@ -19,7 +19,6 @@ const (
 	TypeBlock    = "blk"
 	TypeTx       = "tx"
 	TypeDs       = "ds"
-	TypeCustom   = "custom"
 	TypeAccounts = "accounts"
 	TypeBlowball = "bb"
 )

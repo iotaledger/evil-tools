@@ -16,7 +16,6 @@ const (
 	MaxAcceptanceAwait = 90 * time.Second
 	AwaitInterval      = 1 * time.Second
 
-	MaxCommitmentAwait      = 90 * time.Second
 	AwaitCommitmentInterval = 10 * time.Second
 )
 
@@ -169,7 +168,9 @@ func AwaitCommitment(ctx context.Context, logger log.Logger, clt models.Client, 
 	if err != nil {
 		return ierrors.Wrap(err, "failed to get node info")
 	}
-
+	if targetSlot <= currentCommittedSlot {
+		return nil
+	}
 	for t := currentCommittedSlot; t <= targetSlot; t++ {
 		latestCommittedSlot, err := getLatestCommittedSlot(ctx, clt)
 		if err != nil {

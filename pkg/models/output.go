@@ -113,19 +113,6 @@ type PayloadIssuanceData struct {
 	TxSigningKeys      []iotago.AddressKeys
 }
 
-type AllotmentStrategy uint8
-
-const (
-	AllotmentStrategyNone AllotmentStrategy = iota
-	AllotmentStrategyMinCost
-	AllotmentStrategyAll
-)
-
-type IssuancePaymentStrategy struct {
-	AllotmentStrategy AllotmentStrategy
-	IssuerAlias       string
-}
-
 type TempOutputID [32]byte
 
 var EmptyTempOutputID = TempOutputID{}

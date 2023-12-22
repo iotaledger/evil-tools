@@ -117,7 +117,7 @@ func (a *AccountWallet) createAccountWithFaucet(ctx context.Context, params *Cre
 		// no accountID should be specified during the account creation
 		BlockIssuer(blockIssuerKeys, iotago.MaxSlotIndex).MustBuild()
 
-	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(ctx, a.client, a.faucet.account)
+	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(ctx, a.client, a.GenesisAccount)
 	if err != nil {
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to request block built data for the faucet account")
 	}
@@ -128,14 +128,13 @@ func (a *AccountWallet) createAccountWithFaucet(ctx context.Context, params *Cre
 	}
 	a.LogDebugf("Transaction for account creation signed: %s\n", utils.SprintTransaction(a.client.LatestAPI(), signedTx))
 
-	blkID, err := a.PostWithBlock(ctx, a.client, signedTx, a.faucet.account, congestionResp, issuerResp, version)
+	blkID, err := a.PostWithBlock(ctx, a.client, signedTx, a.GenesisAccount, congestionResp, issuerResp, version)
 	if err != nil {
 		a.LogErrorf("Failed to post account with block: %s", err)
 
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to post transaction")
 	}
 	a.LogDebugf("Account creation transaction posted with block: %s, in slot: %d with no error.\n", blkID.ToHex(), blkID.Slot())
-	//nolint:forcetypeassert // we know that the address is of type *iotago.AccountAddress
 
 	accountOutputID := iotago.OutputIDFromTransactionIDAndIndex(lo.PanicOnErr(signedTx.Transaction.ID()), 0)
 	accountID := iotago.AccountIDFromOutputID(accountOutputID)
@@ -159,7 +158,7 @@ func (a *AccountWallet) createAccountCreationTransaction(inputs []*models.Output
 	// empty accountID means that the account is created from the faucet account
 	accountID := accountOutput.AccountID
 	if accountID == iotago.EmptyAccountID {
-		accountID = a.faucet.account.ID()
+		accountID = a.GenesisAccount.ID()
 	}
 
 	// transaction signer

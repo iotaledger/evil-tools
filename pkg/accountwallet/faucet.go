@@ -2,10 +2,7 @@ package accountwallet
 
 import (
 	"context"
-	"sync"
 	"time"
-
-	"github.com/mr-tron/base58"
 
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/evil-tools/pkg/utils"
@@ -18,8 +15,7 @@ import (
 )
 
 const (
-	GenesisAccountAlias              = "genesis-account"
-	MaxFaucetRequestsForOneOperation = 10
+	GenesisAccountAlias = "genesis-account"
 )
 
 func (a *AccountWallet) RequestBlockBuiltData(ctx context.Context, clt models.Client, account wallet.Account) (*api.CongestionResponse, *api.IssuanceBlockHeaderResponse, iotago.Version, error) {
@@ -112,41 +108,8 @@ func (a *AccountWallet) CreateBlock(payload iotago.Payload, issuer wallet.Accoun
 
 	blk, err := blockBuilder.Build()
 	if err != nil {
-		return nil, ierrors.Errorf("failed to build block: %w", err)
+		return nil, ierrors.Errorf("failed to build block: %v", err)
 	}
 
 	return blk, nil
-}
-
-type faucetParams struct {
-	faucetPrivateKey string
-	faucetAccountID  string
-	genesisSeed      string
-}
-
-type faucet struct {
-	account           wallet.Account
-	genesisKeyManager *wallet.KeyManager
-
-	RequestTokenAmount iotago.BaseToken
-	RequestManaAmount  iotago.Mana
-
-	clt models.Client
-
-	sync.Mutex
-}
-
-func newFaucet(clt models.Client, faucetParams *faucetParams) *faucet {
-	genesisSeed, err := base58.Decode(faucetParams.genesisSeed)
-	if err != nil {
-		panic(ierrors.Errorf("failed to decode base58 seed: %w", err))
-	}
-
-	f := &faucet{
-		clt:               clt,
-		account:           lo.PanicOnErr(wallet.AccountFromParams(faucetParams.faucetAccountID, faucetParams.faucetPrivateKey)),
-		genesisKeyManager: lo.PanicOnErr(wallet.NewKeyManager(genesisSeed, wallet.DefaultIOTAPath)),
-	}
-
-	return f
 }

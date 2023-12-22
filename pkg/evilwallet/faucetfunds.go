@@ -19,17 +19,12 @@ const (
 
 // RequestFundsFromFaucet requests funds from the faucet, then track the confirmed status of unspent output,
 // also register the alias name for the unspent output if provided.
-func (e *EvilWallet) RequestFundsFromFaucet(ctx context.Context, options ...FaucetRequestOption) (initWallet *Wallet, err error) {
+func (e *EvilWallet) RequestFundsFromFaucet(ctx context.Context) (initWallet *Wallet, err error) {
 	initWallet = e.NewWallet(Fresh)
-	buildOptions := NewFaucetRequestOptions(options...)
 
-	output, err := e.requestFaucetFunds(ctx, initWallet)
+	_, err = e.requestFaucetFunds(ctx, initWallet)
 	if err != nil {
 		return
-	}
-
-	if buildOptions.outputAliasName != "" {
-		e.aliasManager.AddInputAlias(output, buildOptions.outputAliasName)
 	}
 
 	e.LogDebug("Funds requested successfully")

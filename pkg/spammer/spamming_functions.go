@@ -158,7 +158,7 @@ func createBlowBallCenter(ctx context.Context, s *Spammer) (iotago.BlockID, erro
 func createBlowBall(ctx context.Context, center iotago.BlockID, s *Spammer) []*iotago.Block {
 	blowBallBlocks := make([]*iotago.Block, 0)
 	// default to 30, if blowball size is not set
-	size := lo.Max(s.SpamDetails.BlowballSize, 30)
+	size := lo.Max(s.BlowballSize, 30)
 
 	for i := 0; i < size; i++ {
 		blk := createSideBlock(ctx, center, s)

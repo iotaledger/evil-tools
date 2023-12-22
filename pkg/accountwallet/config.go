@@ -1,12 +1,8 @@
 package accountwallet
 
 import (
-	"encoding/json"
-	"os"
-
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/ds/types"
-	"github.com/iotaledger/hive.go/ierrors"
 )
 
 // commands
@@ -63,74 +59,6 @@ func AvailableCommands(cmd string) bool {
 	return ok
 }
 
-type Configuration struct {
-	BindAddress           string `json:"bindAddress,omitempty"`
-	FaucetBindAddress     string `json:"faucetBindAddress,omitempty"`
-	AccountStatesFile     string `json:"accountStatesFile,omitempty"`
-	GenesisSeed           string `json:"genesisSeed,omitempty"`
-	BlockIssuerPrivateKey string `json:"blockIssuerPrivateKey,omitempty"`
-	AccountID             string `json:"accountId,omitempty"`
-}
-
-var accountConfigFile = "config.json"
-
-var (
-	dockerAccountConfigJSON = `{
-	"bindAddress": "http://localhost:8050",
-	"faucetBindAddress": "http://localhost:8088",
-	"accountStatesFile": "wallet.dat",
-	"genesisSeed": "7R1itJx5hVuo9w9hjg5cwKFmek4HMSoBDgJZN8hKGxih",
-	"blockIssuerPrivateKey": "db39d2fde6301d313b108dc9db1ee724d0f405f6fde966bd776365bc5f4a5fb31e4b21eb51dcddf65c20db1065e1f1514658b23a3ddbf48d30c0efc926a9a648",
-	"accountID": "0x6aee704f25558e8aa7630fed0121da53074188abc423b3c5810f80be4936eb6e"}`
-)
-
-// LoadConfiguration loads the config file.
-func LoadConfiguration() *Configuration {
-	// open config file
-	config := new(Configuration)
-	file, err := os.Open(accountConfigFile)
-	if err != nil {
-		if !os.IsNotExist(err) {
-			panic(err)
-		}
-
-		//nolint:gosec // users should be able to read the file
-		if err = os.WriteFile(accountConfigFile, []byte(dockerAccountConfigJSON), 0o644); err != nil {
-			panic(err)
-		}
-		if file, err = os.Open(accountConfigFile); err != nil {
-			panic(err)
-		}
-	}
-	defer file.Close()
-
-	// decode config file
-	if err = json.NewDecoder(file).Decode(config); err != nil {
-		panic(err)
-	}
-
-	return config
-}
-
-func SaveConfiguration(config *Configuration) {
-	// open config file
-	file, err := os.Open(accountConfigFile)
-	if err != nil {
-		panic(err)
-	}
-	defer file.Close()
-
-	jsonConfigs, err := json.MarshalIndent(config, "", "    ")
-	if err != nil {
-		panic(ierrors.Errorf("failed to marshal configs: %w", err))
-	}
-
-	//nolint:gosec // users should be able to read the file
-	if err = os.WriteFile(accountConfigFile, jsonConfigs, 0o644); err != nil {
-		panic(err)
-	}
-}
-
 type AccountSubcommands interface {
 	Type() AccountOperation
 }
@@ -158,7 +86,6 @@ func (d *DestroyAccountParams) Type() AccountOperation {
 type AllotAccountParams struct {
 	Amount uint64
 	To     string
-	From   string // if not set we use faucet
 }
 
 func (a *AllotAccountParams) Type() AccountOperation {

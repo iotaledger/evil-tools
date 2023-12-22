@@ -7,9 +7,9 @@ import (
 )
 
 // BigWalletsNeeded calculates how many big wallets needs to be prepared for a spam based on provided spam details.
-func BigWalletsNeeded(rate int, timeUnit, duration time.Duration) int {
+func BigWalletsNeeded(rate int, duration time.Duration) int {
 	bigWalletSize := evilwallet.FaucetRequestSplitNumber * evilwallet.FaucetRequestSplitNumber
-	outputsNeeded := rate * int(duration/timeUnit)
+	outputsNeeded := rate * int(duration/time.Second)
 	walletsNeeded := outputsNeeded/bigWalletSize + 1
 
 	return walletsNeeded

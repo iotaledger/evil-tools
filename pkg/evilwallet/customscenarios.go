@@ -2,6 +2,9 @@ package evilwallet
 
 import (
 	"strconv"
+	"strings"
+
+	"github.com/iotaledger/hive.go/lo"
 )
 
 var scenariosMap map[string]EvilBatch
@@ -25,6 +28,16 @@ func init() {
 func GetScenario(scenarioName string) (batch EvilBatch, ok bool) {
 	batch, ok = scenariosMap[scenarioName]
 	return
+}
+
+// IsScenarioAllowed checks if a scenario is available.
+func IsScenarioAllowed(scenarioName string) bool {
+	_, ok := scenariosMap[scenarioName]
+	return ok
+}
+
+func AllScenariosListed() string {
+	return strings.Join(lo.Keys[string](scenariosMap), ", ")
 }
 
 // SingleTransactionBatch returns an EvilBatch that is a single transaction.

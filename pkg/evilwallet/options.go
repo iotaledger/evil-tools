@@ -195,38 +195,6 @@ type ConflictSlice [][]Option
 
 // endregion  //////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-// region FaucetRequestOptions /////////////////////////////////////////////////////////////////////////////////////////
-
-// FaucetRequestOptions is options for faucet request.
-type FaucetRequestOptions struct {
-	outputAliasName string
-}
-
-// NewFaucetRequestOptions creates options for a faucet request.
-func NewFaucetRequestOptions(options ...FaucetRequestOption) *FaucetRequestOptions {
-	reqOptions := &FaucetRequestOptions{
-		outputAliasName: "",
-	}
-
-	for _, option := range options {
-		option(reqOptions)
-	}
-
-	return reqOptions
-}
-
-// FaucetRequestOption is an option for faucet request.
-type FaucetRequestOption func(*FaucetRequestOptions)
-
-// WithOutputAlias returns an Option that is used to provide the Output of the Transaction.
-func WithOutputAlias(aliasName string) FaucetRequestOption {
-	return func(options *FaucetRequestOptions) {
-		options.outputAliasName = aliasName
-	}
-}
-
-// endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
 // region EvilScenario Options /////////////////////////////////////////////////////////////////////////////////////////
 
 type ScenarioOption func(scenario *EvilScenario)

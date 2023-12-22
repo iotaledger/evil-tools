@@ -16,18 +16,18 @@ import (
 func (a *AccountWallet) logMissingMana(finishedTxBuilder *builder.TransactionBuilder, rmc iotago.Mana, issuerAccountID iotago.AccountID) {
 	availableMana, err := finishedTxBuilder.CalculateAvailableMana(finishedTxBuilder.CreationSlot())
 	if err != nil {
-		log.Error("could not calculate available mana")
+		a.LogError("could not calculate available mana")
 
 		return
 	}
-	log.Debug(utils.SprintAvailableManaResult(availableMana))
+	a.LogDebug(utils.SprintAvailableManaResult(availableMana))
 	minRequiredAllottedMana, err := finishedTxBuilder.MinRequiredAllotedMana(a.client.APIForSlot(finishedTxBuilder.CreationSlot()).ProtocolParameters().WorkScoreParameters(), rmc, issuerAccountID)
 	if err != nil {
-		log.Error("could not calculate min required allotted mana")
+		a.LogError("could not calculate min required allotted mana")
 
 		return
 	}
-	log.Debugf("Min required allotted mana: %d", minRequiredAllottedMana)
+	a.LogDebugf("Min required allotted mana: %d", minRequiredAllottedMana)
 }
 
 func (a *AccountWallet) GetAddrSignerForIndexes(outputs ...*models.Output) (iotago.AddressSigner, error) {

@@ -10,7 +10,7 @@ import (
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
-	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/log"
 	"github.com/iotaledger/hive.go/runtime/options"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/builder"
@@ -41,6 +41,8 @@ var (
 
 // EvilWallet provides a user-friendly way to do complicated double spend scenarios.
 type EvilWallet struct {
+	log.Logger
+
 	wallets       *Wallets
 	accWallet     *accountwallet.AccountWallet
 	connector     models.Connector
@@ -51,22 +53,21 @@ type EvilWallet struct {
 
 	optsClientURLs []string
 	optsFaucetURL  string
-	log            *logger.Logger
 }
 
 // NewEvilWallet creates an EvilWallet instance.
-func NewEvilWallet(opts ...options.Option[EvilWallet]) *EvilWallet {
+func NewEvilWallet(logger log.Logger, opts ...options.Option[EvilWallet]) *EvilWallet {
 	return options.Apply(&EvilWallet{
+		Logger:                  logger.NewChildLogger("EvilWallet"),
 		wallets:                 NewWallets(),
 		aliasManager:            NewAliasManager(),
 		minOutputStorageDeposit: MinOutputStorageDeposit,
 		optsClientURLs:          defaultClientsURLs,
 		optsFaucetURL:           defaultFaucetURL,
-		log:                     utils.NewLogger("EvilWallet"),
 	}, opts, func(w *EvilWallet) {
 		connector := lo.PanicOnErr(models.NewWebClients(w.optsClientURLs, w.optsFaucetURL))
 		w.connector = connector
-		w.outputManager = NewOutputManager(connector, w.wallets, w.log)
+		w.outputManager = NewOutputManager(connector, w.wallets, w.Logger.NewChildLogger("OutputManager"))
 
 		// Get output storage deposit at start
 		minOutputStorageDeposit, err := w.connector.GetClient().CommittedAPI().StorageScoreStructure().MinDeposit(tpkg.RandBasicOutput(iotago.AddressEd25519))

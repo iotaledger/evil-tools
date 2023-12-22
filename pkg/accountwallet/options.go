@@ -23,8 +23,8 @@ func WithAccountStatesFile(fileName string) options.Option[AccountWallet] {
 	}
 }
 
-func WithFaucetAccountParams(params *faucetParams) options.Option[AccountWallet] {
+func WithFaucetAccountParams(params *GenesisAccountParams) options.Option[AccountWallet] {
 	return func(w *AccountWallet) {
-		w.optsFaucetParams = params
+		w.optsGenesisAccountParams = params
 	}
 }

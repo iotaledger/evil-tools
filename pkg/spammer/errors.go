@@ -12,7 +12,6 @@ import (
 
 var (
 	ErrFailPostBlock       = ierrors.New("failed to post block")
-	ErrTransactionInvalid  = ierrors.New("provided transaction is invalid")
 	ErrPayloadIsNil        = ierrors.New("provided payload is nil")
 	ErrFailToPrepareBatch  = ierrors.New("custom conflict batch could not be prepared")
 	ErrInsufficientClients = ierrors.New("insufficient clients to send conflicts")

@@ -10,13 +10,14 @@ import (
 	"github.com/iotaledger/evil-tools/pkg/utils"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/lo"
-	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/log"
 	"github.com/iotaledger/hive.go/runtime/syncutils"
 	iotago "github.com/iotaledger/iota.go/v4"
 )
 
 // OutputManager keeps track of the output statuses.
 type OutputManager struct {
+	log.Logger
 	connector models.Connector
 
 	wallets         *Wallets
@@ -25,19 +26,17 @@ type OutputManager struct {
 	// stores solid outputs per node
 	issuerSolidOutIDMap map[string]map[iotago.OutputID]types.Empty
 
-	log *logger.Logger
-
 	syncutils.RWMutex
 }
 
 // NewOutputManager creates an OutputManager instance. All outputs are mapped based on their address, so address should never be reused.
-func NewOutputManager(connector models.Connector, wallets *Wallets, log *logger.Logger) *OutputManager {
+func NewOutputManager(connector models.Connector, wallets *Wallets, logger log.Logger) *OutputManager {
 	return &OutputManager{
+		Logger:              logger,
 		connector:           connector,
 		wallets:             wallets,
 		tempIDWalletMap:     make(map[models.TempOutputID]*Wallet),
 		issuerSolidOutIDMap: make(map[string]map[iotago.OutputID]types.Empty),
-		log:                 log,
 	}
 }
 
@@ -199,7 +198,7 @@ func (o *OutputManager) AwaitTransactionsAcceptance(ctx context.Context, txIDs .
 	wg := sync.WaitGroup{}
 	semaphore := make(chan bool, 10)
 	txLeft := atomic.NewInt64(int64(len(txIDs)))
-	o.log.Debugf("Awaiting confirmation of %d transactions", len(txIDs))
+	o.LogDebugf("Awaiting confirmation of %d transactions", len(txIDs))
 
 	for _, txID := range txIDs {
 		wg.Add(1)
@@ -210,15 +209,15 @@ func (o *OutputManager) AwaitTransactionsAcceptance(ctx context.Context, txIDs .
 				<-semaphore
 			}()
 
-			err := utils.AwaitBlockWithTransactionToBeAccepted(ctx, clt, txID)
+			err := utils.AwaitBlockWithTransactionToBeAccepted(ctx, o.Logger, clt, txID)
 			txLeft.Dec()
 			if err != nil {
-				o.log.Errorf("Error awaiting transaction %s to be accepted, tx left: %d, err: %s, ", txID.String(), txLeft.Load(), err)
+				o.LogErrorf("Error awaiting transaction %s to be accepted, tx left: %d, err: %s, ", txID.String(), txLeft.Load(), err)
 
 				return
 			}
 
-			o.log.Debugf("Tx %s accepted, tx left: %d", txID.ToHex(), txLeft.Load())
+			o.LogDebugf("Tx %s accepted, tx left: %d", txID.ToHex(), txLeft.Load())
 
 		}(ctx, txID, o.connector.GetClient())
 	}

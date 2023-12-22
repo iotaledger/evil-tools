@@ -34,7 +34,7 @@ func DataSpammingFunction(ctx context.Context, s *Spammer) error {
 func CustomConflictSpammingFunc(ctx context.Context, s *Spammer) error {
 	conflictBatch, aliases, err := s.EvilWallet.PrepareCustomConflictsSpam(ctx, s.EvilScenario)
 	if err != nil {
-		s.log.Debugf(ierrors.Wrap(ErrFailToPrepareBatch, err.Error()).Error())
+		s.LogDebug(ierrors.Wrap(ErrFailToPrepareBatch, err.Error()).Error())
 		s.ErrCounter.CountError(ierrors.Wrap(ErrFailToPrepareBatch, err.Error()))
 
 		return err
@@ -49,7 +49,7 @@ func CustomConflictSpammingFunc(ctx context.Context, s *Spammer) error {
 	for _, payloadsIssuanceData := range conflictBatch {
 		clients := s.Clients.GetClients(len(payloadsIssuanceData))
 		if len(payloadsIssuanceData) > len(clients) {
-			s.log.Debug(ErrFailToPrepareBatch)
+			s.LogDebug(ErrFailToPrepareBatch.Error())
 			s.ErrCounter.CountError(ErrInsufficientClients)
 		}
 
@@ -81,7 +81,7 @@ func AccountSpammingFunction(ctx context.Context, s *Spammer) error {
 	// update scenario
 	issuanceData, aliases, err := s.EvilWallet.PrepareAccountSpam(ctx, s.EvilScenario)
 	if err != nil {
-		s.log.Debugf(ierrors.Wrap(ErrFailToPrepareBatch, err.Error()).Error())
+		s.LogDebug(ierrors.Wrap(ErrFailToPrepareBatch, err.Error()).Error())
 		s.ErrCounter.CountError(ierrors.Wrap(ErrFailToPrepareBatch, err.Error()))
 
 		return err
@@ -103,13 +103,13 @@ func BlowballSpammingFunction(ctx context.Context, s *Spammer) error {
 
 	centerID, err := createBlowBallCenter(ctx, s)
 	if err != nil {
-		s.log.Errorf("failed to performe blowball attack", err)
+		s.LogErrorf("failed to performe blowball attack, error: %s", err)
 		return err
 	}
-	s.log.Infof("blowball center ID: %s", centerID.ToHex())
+	s.LogInfof("blowball center ID: %s", centerID.ToHex())
 
 	// wait for the center block to be an old confirmed block
-	s.log.Infof("wait blowball center to get old...")
+	s.LogInfof("wait blowball center to get old...")
 	time.Sleep(30 * time.Second)
 
 	blowballs := createBlowBall(ctx, centerID, s)
@@ -127,10 +127,10 @@ func BlowballSpammingFunction(ctx context.Context, s *Spammer) error {
 
 			id, err := clt.PostBlock(ctx, blk)
 			if err != nil {
-				s.log.Error("ereror to send blowball blocks")
+				s.LogError("ereror to send blowball blocks")
 				return
 			}
-			s.log.Infof("blowball sent, ID: %s", id.ToHex())
+			s.LogInfof("blowball sent, ID: %s", id.ToHex())
 		}(clt, blk)
 	}
 	wg.Wait()
@@ -150,7 +150,7 @@ func createBlowBallCenter(ctx context.Context, s *Spammer) (iotago.BlockID, erro
 		},
 	}, s.IssuerAlias, clt)
 
-	err := utils.AwaitBlockAndPayloadAcceptance(ctx, clt, centerID)
+	err := utils.AwaitBlockAndPayloadAcceptance(ctx, s.Logger, clt, centerID)
 
 	return centerID, err
 }
@@ -158,7 +158,7 @@ func createBlowBallCenter(ctx context.Context, s *Spammer) (iotago.BlockID, erro
 func createBlowBall(ctx context.Context, center iotago.BlockID, s *Spammer) []*iotago.Block {
 	blowBallBlocks := make([]*iotago.Block, 0)
 	// default to 30, if blowball size is not set
-	size := lo.Max(s.SpamDetails.BlowballSize, 30)
+	size := lo.Max(s.BlowballSize, 30)
 
 	for i := 0; i < size; i++ {
 		blk := createSideBlock(ctx, center, s)

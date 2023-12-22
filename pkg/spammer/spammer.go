@@ -6,12 +6,12 @@ import (
 
 	"go.uber.org/atomic"
 
+	"github.com/iotaledger/evil-tools/pkg/accountwallet"
 	"github.com/iotaledger/evil-tools/pkg/evilwallet"
 	"github.com/iotaledger/evil-tools/pkg/models"
-	"github.com/iotaledger/hive.go/app/configuration"
-	appLogger "github.com/iotaledger/hive.go/app/logger"
 	"github.com/iotaledger/hive.go/ierrors"
-	"github.com/iotaledger/hive.go/logger"
+	"github.com/iotaledger/hive.go/log"
+	"github.com/iotaledger/hive.go/runtime/options"
 	iotago "github.com/iotaledger/iota.go/v4"
 )
 
@@ -19,7 +19,6 @@ const (
 	TypeBlock    = "blk"
 	TypeTx       = "tx"
 	TypeDs       = "ds"
-	TypeCustom   = "custom"
 	TypeAccounts = "accounts"
 	TypeBlowball = "bb"
 )
@@ -54,54 +53,54 @@ const (
 // Not mandatory options, if not provided spammer will use default settings:
 // WithSpamDetails, WithEvilWallet, WithErrorCounter, WithLogTickerInterval.
 type Spammer struct {
-	SpamDetails   *SpamDetails
-	State         *State
-	UseRateSetter bool
-	SpamType      SpamType
-	Clients       models.Connector
-	EvilWallet    *evilwallet.EvilWallet
-	EvilScenario  *evilwallet.EvilScenario
-	ErrCounter    *ErrorCounter
-	IssuerAlias   string
+	log.Logger
 
-	log Logger
+	State      *State
+	Clients    models.Connector
+	ErrCounter *ErrorCounter
 
 	// accessed from spamming functions
-	done         chan bool
-	failed       chan bool
-	spammingFunc SpammingFunc
+	done   chan bool
+	failed chan bool
 
-	TimeDelayBetweenConflicts time.Duration
-	NumberOfSpends            int
+	MaxBatchesSent int
+	NumberOfSpends int
+
+	// options
+	EvilWallet    *evilwallet.EvilWallet
+	EvilScenario  *evilwallet.EvilScenario
+	spammingFunc  SpammingFunc
+	IssuerAlias   string
+	UseRateSetter bool
+	SpamType      SpamType
+	Rate          int
+	MaxDuration   time.Duration
+	BlowballSize  int
 }
 
 // NewSpammer is a constructor of Spammer.
-func NewSpammer(options ...Options) *Spammer {
+func NewSpammer(logger log.Logger, opts ...options.Option[Spammer]) *Spammer {
 	state := &State{
 		blkSent:       atomic.NewInt64(0),
 		batchPrepared: atomic.NewInt64(0),
 		logTickTime:   time.Second * 30,
 	}
-	s := &Spammer{
-		SpamDetails:  &SpamDetails{},
-		spammingFunc: CustomConflictSpammingFunc,
-		State:        state,
-		SpamType:     SpamEvilWallet,
-		EvilScenario: evilwallet.NewEvilScenario(),
-		// CommitmentManager: NewCommitmentManager(),
+
+	spammer := options.Apply(&Spammer{
+		Logger:         logger.NewChildLogger("Spammer"),
+		spammingFunc:   CustomConflictSpammingFunc,
+		State:          state,
+		SpamType:       SpamEvilWallet,
+		EvilScenario:   evilwallet.NewEvilScenario(),
 		UseRateSetter:  true,
 		done:           make(chan bool),
 		failed:         make(chan bool),
 		NumberOfSpends: 2,
-	}
+	}, opts)
 
-	for _, opt := range options {
-		opt(s)
-	}
+	spammer.setup()
 
-	s.setup()
-
-	return s
+	return spammer
 }
 
 func (s *Spammer) BlocksSent() uint64 {
@@ -113,14 +112,10 @@ func (s *Spammer) BatchesPrepared() uint64 {
 }
 
 func (s *Spammer) setup() {
-	if s.log == nil {
-		s.initLogger()
-	}
-
 	switch s.SpamType {
 	case SpamEvilWallet:
 		if s.EvilWallet == nil {
-			s.EvilWallet = evilwallet.NewEvilWallet()
+			s.EvilWallet = evilwallet.NewEvilWallet(s.Logger)
 		}
 		s.Clients = s.EvilWallet.Connector()
 		// case SpamCommitments:
@@ -137,27 +132,22 @@ func (s *Spammer) setup() {
 }
 
 func (s *Spammer) setupSpamDetails() {
-	if s.SpamDetails.Rate <= 0 {
-		s.SpamDetails.Rate = 1
+	if s.Rate <= 0 {
+		s.Rate = 1
 	}
-	if s.SpamDetails.TimeUnit == 0 {
-		s.SpamDetails.TimeUnit = time.Second
-	}
-	// provided only maxDuration, calculating the default max for maxBlkSent
-	if s.SpamDetails.MaxDuration > 0 {
-		s.SpamDetails.MaxBatchesSent = int(s.SpamDetails.MaxDuration.Seconds()/s.SpamDetails.TimeUnit.Seconds()*float64(s.SpamDetails.Rate)) + 1
-	}
-}
 
-func (s *Spammer) initLogger() {
-	config := configuration.New()
-	_ = appLogger.InitGlobalLogger(config)
-	logger.SetLevel(logger.LevelDebug)
-	s.log = logger.NewLogger("Spammer")
+	// provided only maxDuration, calculating the default max for maxBlkSent
+	if s.MaxDuration > 0 {
+		s.MaxBatchesSent = int(s.MaxDuration.Seconds()*float64(s.Rate)) + 1
+	}
+
+	if s.IssuerAlias == "" {
+		s.IssuerAlias = accountwallet.GenesisAccountAlias
+	}
 }
 
 func (s *Spammer) initSpamTicker() *time.Ticker {
-	tickerTime := float64(s.SpamDetails.TimeUnit) / float64(s.SpamDetails.Rate)
+	tickerTime := float64(time.Second) / float64(s.Rate)
 	return time.NewTicker(time.Duration(tickerTime))
 }
 
@@ -167,18 +157,18 @@ func (s *Spammer) initLogTicker() *time.Ticker {
 
 // Spam runs the spammer. Function will stop after maxDuration time will pass or when maxBlkSent will be exceeded.
 func (s *Spammer) Spam(ctx context.Context) {
-	s.log.Infof("Start spamming transactions with %d rate", s.SpamDetails.Rate)
+	s.LogInfof("Start spamming transactions with %d rate", s.Rate)
 	defer func() {
-		s.log.Info(s.ErrCounter.GetErrorsSummary())
-		s.log.Infof("Finishing spamming, total txns sent: %v, TotalTime: %v, Rate: %f", s.State.blkSent.Load(), s.State.spamDuration.Seconds(), float64(s.State.blkSent.Load())/s.State.spamDuration.Seconds())
+		s.LogInfo(s.ErrCounter.GetErrorsSummary())
+		s.LogInfof("Finishing spamming, total txns sent: %v, TotalTime: %v, Rate: %f", s.State.blkSent.Load(), s.State.spamDuration.Seconds(), float64(s.State.blkSent.Load())/s.State.spamDuration.Seconds())
 	}()
 
 	s.State.spamStartTime = time.Now()
 	var newContext context.Context
 	var cancel context.CancelFunc
 
-	if s.SpamDetails.MaxDuration > 0 {
-		newContext, cancel = context.WithDeadline(ctx, s.State.spamStartTime.Add(s.SpamDetails.MaxDuration))
+	if s.MaxDuration > 0 {
+		newContext, cancel = context.WithDeadline(ctx, s.State.spamStartTime.Add(s.MaxDuration))
 	} else {
 		newContext, cancel = context.WithCancel(ctx)
 	}
@@ -189,9 +179,9 @@ func (s *Spammer) Spam(ctx context.Context) {
 		for {
 			select {
 			case <-s.State.logTicker.C:
-				s.log.Infof("Blocks issued so far: %d, errors encountered: %d", s.State.blkSent.Load(), s.ErrCounter.GetTotalErrorCount())
+				s.LogInfof("Blocks issued so far: %d, errors encountered: %d", s.State.blkSent.Load(), s.ErrCounter.GetTotalErrorCount())
 			case <-ctx.Done():
-				s.log.Infof("Maximum spam duration exceeded, stopping spammer....")
+				s.LogInfo("Maximum spam duration exceeded, stopping spammer....")
 				return
 			case <-s.State.spamTicker.C:
 				if goroutineCount.Load() > 100 {
@@ -230,12 +220,12 @@ func (s *Spammer) logError(err error) {
 		return
 	}
 
-	s.log.Debug(err)
+	s.LogDebug(err.Error())
 }
 
 func (s *Spammer) CheckIfAllSent() {
-	if s.SpamDetails.MaxDuration >= 0 && s.State.batchPrepared.Load() >= int64(s.SpamDetails.MaxBatchesSent) {
-		s.log.Infof("Maximum number of blocks sent, stopping spammer...")
+	if s.MaxDuration >= 0 && s.State.batchPrepared.Load() >= int64(s.MaxBatchesSent) {
+		s.LogInfo("Maximum number of blocks sent, stopping spammer...")
 		s.done <- true
 	}
 }
@@ -309,7 +299,7 @@ func (s *Spammer) PrepareAndPostBlock(ctx context.Context, issuanceData *models.
 
 		return iotago.EmptyBlockID
 	}
-	s.log.Debugf("Issued block, blockID %s, issuer %s", blockID.ToHex(), issuerAccount.ID().ToHex())
+	s.LogDebugf("Issued block, blockID %s, issuer %s", blockID.ToHex(), issuerAccount.ID().ToHex())
 
 	if issuanceData.Type == iotago.PayloadSignedTransaction {
 		// reuse outputs
@@ -334,7 +324,7 @@ func (s *Spammer) PrepareAndPostBlock(ctx context.Context, issuanceData *models.
 	if issuanceData.Type != iotago.PayloadSignedTransaction {
 		count := s.State.blkSent.Add(1)
 		if count%200 == 0 {
-			s.log.Infof("Blocks issued so far: %d, errors encountered: %d", count, s.ErrCounter.GetTotalErrorCount())
+			s.LogInfof("Blocks issued so far: %d, errors encountered: %d", count, s.ErrCounter.GetTotalErrorCount())
 		}
 
 		return blockID
@@ -343,21 +333,10 @@ func (s *Spammer) PrepareAndPostBlock(ctx context.Context, issuanceData *models.
 	count := s.State.blkSent.Add(1)
 	//s.log.Debugf("Last block sent, ID: %s, txCount: %d", blockID.ToHex(), count)
 	if count%200 == 0 {
-		s.log.Infof("Blocks issued so far: %d, errors encountered: %d", count, s.ErrCounter.GetTotalErrorCount())
+		s.LogInfof("Blocks issued so far: %d, errors encountered: %d", count, s.ErrCounter.GetTotalErrorCount())
 	}
 
 	return blockID
 }
 
 // endregion ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-type Logger interface {
-	Infof(template string, args ...interface{})
-	Info(args ...interface{})
-	Debugf(template string, args ...interface{})
-	Debug(args ...interface{})
-	Warn(args ...interface{})
-	Warnf(template string, args ...interface{})
-	Error(args ...interface{})
-	Errorf(template string, args ...interface{})
-}

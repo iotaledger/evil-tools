@@ -11,7 +11,7 @@ require (
 	github.com/iotaledger/hive.go/log v0.0.0-20231219135817-5e9eb90d6129
 	github.com/iotaledger/hive.go/runtime v0.0.0-20231219135817-5e9eb90d6129
 	github.com/iotaledger/iota-crypto-demo v0.0.0-20231208171603-786bb32fdb00
-	github.com/iotaledger/iota.go/v4 v4.0.0-20231219130133-667f32aa821d
+	github.com/iotaledger/iota.go/v4 v4.0.0-20231221155706-c9fe55bd3b7c
 	github.com/mr-tron/base58 v1.2.0
 	go.uber.org/atomic v1.11.0
 	golang.org/x/crypto v0.17.0

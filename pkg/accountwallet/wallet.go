@@ -216,7 +216,7 @@ func (a *AccountWallet) checkAccountStatus(ctx context.Context, blkID iotago.Blo
 	}
 
 	// wait for the account to be committed
-	a.LogInfof("Created account with addr: %s, blk ID: %s, txID: %s and creation output: %s awaiting the commitment.", accountAddress.Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()), blkID.ToHex(), txID.ToHex(), creationOutputID.ToHex())
+	a.LogInfof("Checking for commitment of account, blk ID: %s, txID: %s and creation output: %s\nBech addr: %s", blkID.ToHex(), txID.ToHex(), creationOutputID.ToHex(), accountAddress.Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()))
 	err := utils.AwaitCommitment(ctx, a.Logger, a.client, slot)
 	if err != nil {
 		a.LogErrorf("Failed to await commitment for slot %d: %s", slot, err)
@@ -243,7 +243,7 @@ func (a *AccountWallet) checkAccountStatus(ctx context.Context, blkID iotago.Blo
 	}
 	a.LogDebugf("Node returned: outputID %s, output %s", creationOutputID.ToHex(), outputFromNode.Type())
 
-	a.LogInfof("Account created, Bech addr: %s, slot: %d", accountAddress.Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()), slot)
+	a.LogInfof("Account present in commitment for slot %d\nBech addr: %s", slot, accountAddress.Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()))
 
 	return nil
 }
@@ -332,7 +332,7 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 
 	txBuilder := builder.NewTransactionBuilder(apiForSlot)
 	txBuilder.AddInput(&builder.TxInput{
-		UnlockTarget: a.accountsAliases[alias].Account.Address(),
+		UnlockTarget: accountOutput.UnlockConditionSet().Address().Address,
 		InputID:      accData.OutputID,
 		Input:        accountOutput,
 	})

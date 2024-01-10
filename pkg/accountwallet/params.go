@@ -5,7 +5,7 @@ type (
 		Alias                string `default:"" usage:"Alias name of the account to create"`
 		NoBlockIssuerFeature bool   `default:"false" usage:"Create account without Block Issuer Feature, can only be set false no if implicit is false, as each account created implicitly needs to have BIF."`
 		Implicit             bool   `default:"false" usage:"Create an implicit account"`
-		NoTransition         bool   `default:"false" usage:"account should not be transitioned to a full account if created with implicit address. Transition enabled by default, to disable provide an empty flag."`
+		Transition           bool   `default:"false" usage:"account should be transitioned to a full account if created with implicit address. Transition disabled by default, to enable provide an empty flag."`
 	}
 
 	ParametersAccountsConvert struct {

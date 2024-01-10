@@ -96,7 +96,7 @@ func accountsSubcommands(ctx context.Context, wallet *accountwallet.AccountWalle
 
 //nolint:all,forcetypassert
 func accountsSubcommand(ctx context.Context, wallet *accountwallet.AccountWallet, subCommand accountwallet.AccountSubcommands) error {
-	Component.LogInfof("Run subcommand: %s, with parametetr set: %v", accountwallet.OperationCreateAccount.String(), subCommand)
+	Component.LogInfof("Run subcommand: %s, with parameter set: %v", subCommand.Type().String(), subCommand)
 
 	switch subCommand.Type() {
 	case accountwallet.OperationCreateAccount:

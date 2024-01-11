@@ -154,12 +154,12 @@ Example:
 
 ### <a id="eviltools_accounts_create"></a> Create
 
-| Name                 | Description                                                                                                                                             | Type    | Default value |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------------- |
-| alias                | Alias name of the account to create                                                                                                                     | string  | ""            |
-| noBlockIssuerFeature | Create account without Block Issuer Feature, can only be set false no if implicit is false, as each account created implicitly needs to have BIF.       | boolean | false         |
-| implicit             | Create an implicit account                                                                                                                              | boolean | false         |
-| transition         | Account should be transitioned to a full account if created with implicit address. Transition disabled by default, to enable provide an empty flag. | boolean | false         |
+| Name                 | Description                                                                                                                                         | Type    | Default value |
+| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------------- |
+| alias                | Alias name of the account to create                                                                                                                 | string  | ""            |
+| noBlockIssuerFeature | Create account without Block Issuer Feature, can only be set false no if implicit is false, as each account created implicitly needs to have BIF.   | boolean | false         |
+| implicit             | Create an implicit account                                                                                                                          | boolean | false         |
+| transition           | Account should be transitioned to a full account if created with implicit address. Transition disabled by default, to enable provide an empty flag. | boolean | false         |
 
 ### <a id="eviltools_accounts_convert"></a> Convert
 

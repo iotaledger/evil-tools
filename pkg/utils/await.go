@@ -82,7 +82,7 @@ func AwaitBlockAndPayloadAcceptance(ctx context.Context, logger log.Logger, clt 
 		}
 
 		if err != nil {
-			logger.LogDebugf("Block %s issuance failure, block failure reason: %d, tx failure reason: %d", blockID.ToHex(), resp.BlockFailureReason, resp.TransactionMetadata)
+			logger.LogDebugf("Block %s issuance failure, block failure reason: %d, tx failure reason: %d", blockID.ToHex(), resp.BlockFailureReason, resp.TransactionMetadata.TransactionFailureReason)
 		}
 	}
 

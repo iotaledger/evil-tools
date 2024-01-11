@@ -67,7 +67,7 @@ func (a *AccountWallet) transitionImplicitAccount(ctx context.Context, implicitA
 
 	// transaction preparation, issue block with implicit account
 	implicitAccountIssuer := wallet.NewEd25519Account(accountID, implicitAccountOutput.PrivateKey)
-	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(ctx, a.client, implicitAccountIssuer)
+	congestionResp, issuerResp, version, err := a.RequestBlockIssuanceData(ctx, a.client, implicitAccountIssuer)
 	if err != nil {
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to request block built data for the implicit account")
 	}
@@ -119,7 +119,7 @@ func (a *AccountWallet) createAccountWithFaucet(ctx context.Context, params *Cre
 		// no accountID should be specified during the account creation
 		BlockIssuer(blockIssuerKeys, iotago.MaxSlotIndex).MustBuild()
 
-	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(ctx, a.client, a.GenesisAccount)
+	congestionResp, issuerResp, version, err := a.RequestBlockIssuanceData(ctx, a.client, a.GenesisAccount)
 	if err != nil {
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to request block built data for the faucet account")
 	}

@@ -125,7 +125,7 @@ func (e *EvilWallet) GetAccount(ctx context.Context, alias string) (wallet.Accou
 
 // CreateBlock creates a block with the freshly requested Congestion and Issuance data.
 func (e *EvilWallet) CreateBlock(ctx context.Context, clt models.Client, payload iotago.Payload, issuer wallet.Account, strongParents ...iotago.BlockID) (*iotago.Block, error) {
-	congestionResp, issuerResp, version, err := e.accWallet.RequestBlockBuiltData(ctx, clt, issuer)
+	congestionResp, issuerResp, version, err := e.accWallet.RequestBlockIssuanceData(ctx, clt, issuer)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to get block built data")
 	}
@@ -139,7 +139,7 @@ func (e *EvilWallet) CreateBlock(ctx context.Context, clt models.Client, payload
 }
 
 func (e *EvilWallet) PrepareAndPostBlockWithPayload(ctx context.Context, clt models.Client, payload iotago.Payload, issuer wallet.Account) (iotago.BlockID, error) {
-	congestionResp, issuerResp, version, err := e.accWallet.RequestBlockBuiltData(ctx, clt, issuer)
+	congestionResp, issuerResp, version, err := e.accWallet.RequestBlockIssuanceData(ctx, clt, issuer)
 	if err != nil {
 		return iotago.EmptyBlockID, ierrors.Wrap(err, "failed to get block built data")
 	}
@@ -152,7 +152,7 @@ func (e *EvilWallet) PrepareAndPostBlockWithPayload(ctx context.Context, clt mod
 }
 
 func (e *EvilWallet) PrepareAndPostBlockWithTxBuildData(ctx context.Context, clt models.Client, txBuilder *builder.TransactionBuilder, signingKeys []iotago.AddressKeys, issuer wallet.Account) (iotago.BlockID, *iotago.Transaction, error) {
-	congestionResp, issuerResp, version, err := e.accWallet.RequestBlockBuiltData(ctx, clt, issuer)
+	congestionResp, issuerResp, version, err := e.accWallet.RequestBlockIssuanceData(ctx, clt, issuer)
 	if err != nil {
 		return iotago.EmptyBlockID, nil, ierrors.Wrap(err, "failed to get block built data")
 	}

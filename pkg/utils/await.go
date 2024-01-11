@@ -188,15 +188,6 @@ func AwaitCommitment(ctx context.Context, logger log.Logger, clt models.Client, 
 	return ierrors.Errorf("failed to await commitment for slot %d", targetSlot)
 }
 
-func getRegisteredValidators(ctx context.Context, clt models.Client) (*api.ValidatorsResponse, error) {
-	resp, err := clt.Client().Validators(ctx)
-	if err != nil {
-		return nil, ierrors.Wrap(err, "failed to get validators from api")
-	}
-
-	return resp, nil
-}
-
 func getLatestCommittedSlot(ctx context.Context, clt models.Client) (iotago.SlotIndex, error) {
 	resp, err := clt.Client().Info(ctx)
 	if err != nil {

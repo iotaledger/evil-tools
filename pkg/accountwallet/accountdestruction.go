@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/iotaledger/evil-tools/pkg/utils"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
 	iotago "github.com/iotaledger/iota.go/v4"
@@ -44,8 +45,8 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 		commitmentID := lo.Return1(issuerResp.LatestCommitment.ID())
 		commitmentSlot := commitmentID.Slot()
 		pastBoundedSlot := commitmentSlot + apiForSlot.ProtocolParameters().MaxCommittableAge()
-		// transition it to expire if it is not already as soon as possible
-		if accountOutput.FeatureSet().BlockIssuer().ExpirySlot > pastBoundedSlot {
+		// transition it to expire if it is not already expired relative to latest commitment
+		if accountOutput.FeatureSet().BlockIssuer().ExpirySlot > commitmentSlot {
 			// start building the transaction
 			txBuilder := builder.NewTransactionBuilder(apiForSlot)
 			// add the account output as input
@@ -91,12 +92,14 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 
 			// update the account output details in the wallet
 			a.registerAccount(alias, accData.Account.ID(), expiredAccountOutputID, accData.Index, accData.Account.PrivateKey())
+
+			// wait until the expiry slot has been committed
+			a.LogInfof("Waiting for expiry slot %d to be committed, 1 slot after expiry slot", expiredAccountOutput.FeatureSet().BlockIssuer().ExpirySlot+1)
+			if err := utils.AwaitCommitment(ctx, a.Logger, a.client, expiredAccountOutput.FeatureSet().BlockIssuer().ExpirySlot+1); err != nil {
+				return ierrors.Wrap(err, "failed to await commitment of expiry slot")
+			}
 		}
-		// wait until the expiry time has passed
-		if time.Now().Before(apiForSlot.TimeProvider().SlotEndTime(pastBoundedSlot)) {
-			a.LogInfof("Waiting for slot %d when account expires", pastBoundedSlot)
-			time.Sleep(time.Until(apiForSlot.TimeProvider().SlotEndTime(pastBoundedSlot)))
-		}
+
 	}
 	{
 		// next, issue a transaction to destroy the account output
@@ -145,7 +148,7 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 		if err != nil {
 			return ierrors.Wrap(err, "failed to get block issuance data for account")
 		}
-		a.LogInfo("BIC: ", conRespAccount.BlockIssuanceCredits, ", Expiry: ", expiredAccountOutput.FeatureSet().BlockIssuer().ExpirySlot, ", Current slot: ", issuingSlot)
+		a.LogDebugf("BIC: %d, Expiry Slot: %d, Commitment Input Slot: %d", conRespAccount.BlockIssuanceCredits, expiredAccountOutput.FeatureSet().BlockIssuer().ExpirySlot, commitmentID.Slot())
 
 		// issue the transaction in a block
 		blockID, err := a.PostWithBlock(ctx, a.client, signedTx, a.GenesisAccount, congestionResp, issuerResp, version)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/evil-tools/pkg/utils"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
@@ -44,38 +45,14 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 		}
 		commitmentID := lo.Return1(issuerResp.LatestCommitment.ID())
 		commitmentSlot := commitmentID.Slot()
-		pastBoundedSlot := commitmentSlot + apiForSlot.ProtocolParameters().MaxCommittableAge()
 		// transition it to expire if it is not already expired relative to latest commitment
 		if accountOutput.FeatureSet().BlockIssuer().ExpirySlot > commitmentSlot {
-			// start building the transaction
-			txBuilder := builder.NewTransactionBuilder(apiForSlot)
-			// add the account output as input
-			txBuilder.AddInput(&builder.TxInput{
-				UnlockTarget: accountOutput.UnlockConditionSet().Address().Address,
-				InputID:      accData.OutputID,
-				Input:        accountOutput,
-			})
-			// create an account output with updated expiry slot set to commitment slot + MaxCommittableAge (pastBoundedSlot)
-			// nolint:forcetypeassert // we know that this is an account output
-			accountBuilder := builder.NewAccountOutputBuilderFromPrevious(accountOutput.(*iotago.AccountOutput))
-			accountBuilder.BlockIssuer(accountOutput.FeatureSet().BlockIssuer().BlockIssuerKeys, pastBoundedSlot)
-			expiredAccountOutput := accountBuilder.MustBuild()
-			// add the expired account output as output
-			txBuilder.AddOutput(expiredAccountOutput)
-			// add the commitment input
-			txBuilder.AddCommitmentInput(&iotago.CommitmentInput{CommitmentID: commitmentID})
-			// add a block issuance credit input
-			txBuilder.AddBlockIssuanceCreditInput(&iotago.BlockIssuanceCreditInput{AccountID: accData.Account.ID()})
-			// set the creation slot to the issuance slot
-			txBuilder.SetCreationSlot(issuingSlot)
-			// set the transaction capabilities to be able to do anything
-			txBuilder.WithTransactionCapabilities(iotago.TransactionCapabilitiesBitMaskWithCapabilities(iotago.WithTransactionCanDoAnything()))
-			// build the transaction
-			signedTx, err := txBuilder.Build(keyManager.AddressSigner())
+			pastBoundedSlot := commitmentSlot + apiForSlot.ProtocolParameters().MaxCommittableAge()
+			// change the expiry slot to expire as soon as possible
+			signedTx, err := a.changeExpirySlotTransaction(ctx, pastBoundedSlot, issuingSlot, accData, commitmentID, keyManager.AddressSigner())
 			if err != nil {
 				return ierrors.Wrap(err, "failed to build transaction")
 			}
-
 			// issue the transaction in a block
 			blockID, err := a.PostWithBlock(ctx, a.client, signedTx, a.GenesisAccount, congestionResp, issuerResp, version)
 			if err != nil {
@@ -94,8 +71,8 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 			a.registerAccount(alias, accData.Account.ID(), expiredAccountOutputID, accData.Index, accData.Account.PrivateKey())
 
 			// wait until the expiry slot has been committed
-			a.LogInfof("Waiting for expiry slot %d to be committed, 1 slot after expiry slot", expiredAccountOutput.FeatureSet().BlockIssuer().ExpirySlot+1)
-			if err := utils.AwaitCommitment(ctx, a.Logger, a.client, expiredAccountOutput.FeatureSet().BlockIssuer().ExpirySlot+1); err != nil {
+			a.LogInfof("Waiting for expiry slot %d to be committed, 1 slot after expiry slot", pastBoundedSlot+1)
+			if err := utils.AwaitCommitment(ctx, a.Logger, a.client, pastBoundedSlot+1); err != nil {
 				return ierrors.Wrap(err, "failed to await commitment of expiry slot")
 			}
 		}
@@ -105,51 +82,24 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 		// next, issue a transaction to destroy the account output
 		issuingTime := time.Now()
 		issuingSlot := a.client.LatestAPI().TimeProvider().SlotFromTime(issuingTime)
-		apiForSlot := a.client.APIForSlot(issuingSlot)
+
+		// get the details of the expired account output
+		accData, err := a.GetAccount(alias)
+		if err != nil {
+			return err
+		}
 		// get the latest block issuance data from the node
 		congestionResp, issuerResp, version, err := a.RequestBlockIssuanceData(ctx, a.client, a.GenesisAccount)
 		if err != nil {
 			return ierrors.Wrap(err, "failed to request block built data for the faucet account")
 		}
 		commitmentID := lo.Return1(issuerResp.LatestCommitment.ID())
-		// start building the transaction
-		txBuilder := builder.NewTransactionBuilder(apiForSlot)
-		// add the expired account output on the input side
-		accData, err := a.GetAccount(alias)
-		if err != nil {
-			return err
-		}
-		expiredAccountOutput := a.client.GetOutput(ctx, accData.OutputID)
-		txBuilder.AddInput(&builder.TxInput{
-			UnlockTarget: expiredAccountOutput.UnlockConditionSet().Address().Address,
-			InputID:      accData.OutputID,
-			Input:        expiredAccountOutput,
-		})
-		// add a basic output to output side
-		addr, _, _ := a.getAddress(iotago.AddressEd25519)
-		basicOutput := builder.NewBasicOutputBuilder(addr, expiredAccountOutput.BaseTokenAmount()).MustBuild()
-		txBuilder.AddOutput(basicOutput)
-		// set the creation slot to the issuance slot
-		txBuilder.SetCreationSlot(issuingSlot)
-		// add the commitment input
-		txBuilder.AddCommitmentInput(&iotago.CommitmentInput{CommitmentID: commitmentID})
-		// add a block issuance credit input
-		txBuilder.AddBlockIssuanceCreditInput(&iotago.BlockIssuanceCreditInput{AccountID: accData.Account.ID()})
-		// set the transaction capabilities to be able to do anything
-		txBuilder.WithTransactionCapabilities(iotago.TransactionCapabilitiesBitMaskWithCapabilities(iotago.WithTransactionCanDoAnything()))
-		// build the transaction
-		signedTx, err := txBuilder.Build(keyManager.AddressSigner())
+
+		// create a transaction destroying the account
+		signedTx, err := a.destroyAccountTransaction(ctx, issuingSlot, accData, commitmentID, keyManager.AddressSigner())
 		if err != nil {
 			return ierrors.Wrap(err, "failed to build transaction")
 		}
-
-		// DEBUG: check that BIC is not negative
-		conRespAccount, _, _, err := a.RequestBlockIssuanceData(ctx, a.client, accData.Account)
-		if err != nil {
-			return ierrors.Wrap(err, "failed to get block issuance data for account")
-		}
-		a.LogDebugf("BIC: %d, Expiry Slot: %d, Commitment Input Slot: %d", conRespAccount.BlockIssuanceCredits, expiredAccountOutput.FeatureSet().BlockIssuer().ExpirySlot, commitmentID.Slot())
-
 		// issue the transaction in a block
 		blockID, err := a.PostWithBlock(ctx, a.client, signedTx, a.GenesisAccount, congestionResp, issuerResp, version)
 		if err != nil {
@@ -164,13 +114,6 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 			return ierrors.Wrap(err, "failure checking for commitment of account transition")
 		}
 
-		// check that the basic output is retrievable
-		// TODO: move this to checkIndexer within the checkAccountStatus function
-		// check for the basic output being committed, indicating the account output has been consumed (destroyed)
-		if output := a.client.GetOutput(ctx, basicOutputID); output == nil {
-			return ierrors.Wrap(err, "failed to get basic output from node after commitment")
-		}
-
 		// remove account from wallet
 		delete(a.accountsAliases, alias)
 
@@ -178,4 +121,62 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 	}
 
 	return nil
+}
+
+func (a *AccountWallet) changeExpirySlotTransaction(ctx context.Context, newExpirySlot iotago.SlotIndex, issuingSlot iotago.SlotIndex, accData *models.AccountData, commitmentID iotago.CommitmentID, addressSigner iotago.AddressSigner) (*iotago.SignedTransaction, error) {
+	// start building the transaction
+	apiForSlot := a.client.APIForSlot(issuingSlot)
+	txBuilder := builder.NewTransactionBuilder(apiForSlot)
+	accountOutput := a.client.GetOutput(ctx, accData.OutputID)
+
+	// add the account output as input
+	txBuilder.AddInput(&builder.TxInput{
+		UnlockTarget: accountOutput.UnlockConditionSet().Address().Address,
+		InputID:      accData.OutputID,
+		Input:        accountOutput,
+	})
+	// create an account output with updated expiry slot set to commitment slot + MaxCommittableAge (pastBoundedSlot)
+	// nolint:forcetypeassert // we know that this is an account output
+	accountBuilder := builder.NewAccountOutputBuilderFromPrevious(accountOutput.(*iotago.AccountOutput))
+	accountBuilder.BlockIssuer(accountOutput.FeatureSet().BlockIssuer().BlockIssuerKeys, newExpirySlot)
+	expiredAccountOutput := accountBuilder.MustBuild()
+	// add the expired account output as output
+	txBuilder.AddOutput(expiredAccountOutput)
+	// add the commitment input
+	txBuilder.AddCommitmentInput(&iotago.CommitmentInput{CommitmentID: commitmentID})
+	// add a block issuance credit input
+	txBuilder.AddBlockIssuanceCreditInput(&iotago.BlockIssuanceCreditInput{AccountID: accData.Account.ID()})
+	// set the creation slot to the issuance slot
+	txBuilder.SetCreationSlot(issuingSlot)
+	// set the transaction capabilities to be able to do anything
+	txBuilder.WithTransactionCapabilities(iotago.TransactionCapabilitiesBitMaskWithCapabilities(iotago.WithTransactionCanDoAnything()))
+	// build the transaction
+	return txBuilder.Build(addressSigner)
+}
+
+func (a *AccountWallet) destroyAccountTransaction(ctx context.Context, issuingSlot iotago.SlotIndex, accData *models.AccountData, commitmentID iotago.CommitmentID, addressSigner iotago.AddressSigner) (*iotago.SignedTransaction, error) {
+	// start building the transaction
+	apiForSlot := a.client.APIForSlot(issuingSlot)
+	txBuilder := builder.NewTransactionBuilder(apiForSlot)
+	expiredAccountOutput := a.client.GetOutput(ctx, accData.OutputID)
+	txBuilder.AddInput(&builder.TxInput{
+		UnlockTarget: expiredAccountOutput.UnlockConditionSet().Address().Address,
+		InputID:      accData.OutputID,
+		Input:        expiredAccountOutput,
+	})
+	// add a basic output to output side
+	addr, _, _ := a.getAddress(iotago.AddressEd25519)
+	basicOutput := builder.NewBasicOutputBuilder(addr, expiredAccountOutput.BaseTokenAmount()).MustBuild()
+	txBuilder.AddOutput(basicOutput)
+	// set the creation slot to the issuance slot
+	txBuilder.SetCreationSlot(issuingSlot)
+	// add the commitment input
+	txBuilder.AddCommitmentInput(&iotago.CommitmentInput{CommitmentID: commitmentID})
+	// add a block issuance credit input
+	txBuilder.AddBlockIssuanceCreditInput(&iotago.BlockIssuanceCreditInput{AccountID: accData.Account.ID()})
+	// set the transaction capabilities to be able to do anything
+	txBuilder.WithTransactionCapabilities(iotago.TransactionCapabilitiesBitMaskWithCapabilities(iotago.WithTransactionCanDoAnything()))
+
+	// build the transaction
+	return txBuilder.Build(addressSigner)
 }

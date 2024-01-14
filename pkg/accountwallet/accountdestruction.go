@@ -115,7 +115,7 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 		}
 
 		// remove account from wallet
-		delete(a.accountsAliases, alias)
+		a.deleteAccount(alias)
 
 		a.LogInfof("Account %s has been destroyed", alias)
 	}

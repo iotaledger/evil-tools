@@ -196,6 +196,15 @@ func (a *AccountWallet) registerAccount(alias string, accountID iotago.AccountID
 	return accountID
 }
 
+func (a *AccountWallet) deleteAccount(alias string) {
+	a.accountAliasesMutex.Lock()
+	defer a.accountAliasesMutex.Unlock()
+
+	delete(a.accountsAliases, alias)
+
+	a.LogDebugf("deleting account with alias %s", alias)
+}
+
 // checkAccountStatus checks the status of the account by requesting all possible endpoints.
 func (a *AccountWallet) checkAccountStatus(ctx context.Context, blkID iotago.BlockID, txID iotago.TransactionID, creationOutputID iotago.OutputID, accountAddress *iotago.AccountAddress, checkIndexer ...bool) error {
 	// request by blockID if provided, otherwise use txID

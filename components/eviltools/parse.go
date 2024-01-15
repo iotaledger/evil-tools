@@ -150,16 +150,16 @@ func parseCreateAccountParams(paramsAccountCreate *accountwallet.ParametersAccou
 		return nil, ierrors.New("implicit account cannot be created without Block Issuance Feature")
 	}
 
-	if !paramsAccountCreate.Implicit && !paramsAccountCreate.NoTransition {
+	if !paramsAccountCreate.Implicit && !paramsAccountCreate.Transition {
 		Component.LogWarn("Implicit flag set to false, account will be created non-implicitly by Faucet, no need for transition, flag will be ignored")
-		paramsAccountCreate.NoTransition = true
+		paramsAccountCreate.Transition = true
 	}
 
 	return &accountwallet.CreateAccountParams{
 		Alias:      paramsAccountCreate.Alias,
 		NoBIF:      paramsAccountCreate.NoBlockIssuerFeature,
 		Implicit:   paramsAccountCreate.Implicit,
-		Transition: paramsAccountCreate.NoTransition,
+		Transition: paramsAccountCreate.Transition,
 	}, nil
 }
 

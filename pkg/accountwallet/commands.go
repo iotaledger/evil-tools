@@ -10,7 +10,7 @@ import (
 // CreateAccount creates an implicit account and immediately transition it to a regular account.
 func (a *AccountWallet) CreateAccount(ctx context.Context, params *CreateAccountParams) (iotago.AccountID, error) {
 	if params.Implicit {
-		return a.createAccountImplicitly(ctx, params)
+		return a.createImplicitAccount(ctx, params)
 	}
 
 	return a.createAccountWithFaucet(ctx, params)

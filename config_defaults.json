@@ -47,7 +47,7 @@
         "alias": "",
         "noBlockIssuerFeature": false,
         "implicit": false,
-        "noTransition": false
+        "transition": false
       },
       "convert": {
         "alias": ""

@@ -5,7 +5,6 @@ import (
 	"crypto/ed25519"
 	"os"
 	"sync"
-	"time"
 
 	"go.uber.org/atomic"
 
@@ -19,7 +18,6 @@ import (
 	"github.com/iotaledger/hive.go/runtime/options"
 	"github.com/iotaledger/iota-crypto-demo/pkg/bip32path"
 	iotago "github.com/iotaledger/iota.go/v4"
-	"github.com/iotaledger/iota.go/v4/builder"
 	"github.com/iotaledger/iota.go/v4/tpkg"
 	"github.com/iotaledger/iota.go/v4/wallet"
 )
@@ -198,6 +196,15 @@ func (a *AccountWallet) registerAccount(alias string, accountID iotago.AccountID
 	return accountID
 }
 
+func (a *AccountWallet) deleteAccount(alias string) {
+	a.accountAliasesMutex.Lock()
+	defer a.accountAliasesMutex.Unlock()
+
+	delete(a.accountsAliases, alias)
+
+	a.LogDebugf("deleting account with alias %s", alias)
+}
+
 // checkAccountStatus checks the status of the account by requesting all possible endpoints.
 func (a *AccountWallet) checkAccountStatus(ctx context.Context, blkID iotago.BlockID, txID iotago.TransactionID, creationOutputID iotago.OutputID, accountAddress *iotago.AccountAddress, checkIndexer ...bool) error {
 	// request by blockID if provided, otherwise use txID
@@ -214,9 +221,14 @@ func (a *AccountWallet) checkAccountStatus(ctx context.Context, blkID iotago.Blo
 	if err := utils.AwaitBlockAndPayloadAcceptance(ctx, a.Logger, a.client, blkID); err != nil {
 		return ierrors.Wrapf(err, "failed to await block issuance for block %s", blkID.ToHex())
 	}
+	a.LogInfof("Block and Transaction accepted: blockID %s", blkID.ToHex())
 
 	// wait for the account to be committed
-	a.LogInfof("Created account with addr: %s, blk ID: %s, txID: %s and creation output: %s awaiting the commitment.", accountAddress.Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()), blkID.ToHex(), txID.ToHex(), creationOutputID.ToHex())
+	if accountAddress != nil {
+		a.LogInfof("Checking for commitment of account, blk ID: %s, txID: %s and creation output: %s\nBech addr: %s", blkID.ToHex(), txID.ToHex(), creationOutputID.ToHex(), accountAddress.Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()))
+	} else {
+		a.LogInfof("Checking for commitment of output, blk ID: %s, txID: %s and creation output: %s", blkID.ToHex(), txID.ToHex(), creationOutputID.ToHex())
+	}
 	err := utils.AwaitCommitment(ctx, a.Logger, a.client, slot)
 	if err != nil {
 		a.LogErrorf("Failed to await commitment for slot %d: %s", slot, err)
@@ -243,7 +255,11 @@ func (a *AccountWallet) checkAccountStatus(ctx context.Context, blkID iotago.Blo
 	}
 	a.LogDebugf("Node returned: outputID %s, output %s", creationOutputID.ToHex(), outputFromNode.Type())
 
-	a.LogInfof("Account created, Bech addr: %s, slot: %d", accountAddress.Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()), slot)
+	if accountAddress != nil {
+		a.LogInfof("Account present in commitment for slot %d\nBech addr: %s", slot, accountAddress.Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()))
+	} else {
+		a.LogInfof("Output present in commitment for slot %d", slot)
+	}
 
 	return nil
 }
@@ -308,60 +324,6 @@ func (a *AccountWallet) awaitAccountReadiness(ctx context.Context, accData *mode
 	}
 
 	return a.updateAccountStatus(accData.Alias, models.AccountReady)
-}
-
-func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error {
-	accData, err := a.GetAccount(alias)
-	if err != nil {
-		return err
-	}
-
-	keyManager, err := wallet.NewKeyManager(a.seed[:], BIP32PathForIndex(accData.Index))
-	if err != nil {
-		return err
-	}
-
-	issuingTime := time.Now()
-	issuingSlot := a.client.LatestAPI().TimeProvider().SlotFromTime(issuingTime)
-	apiForSlot := a.client.APIForSlot(issuingSlot)
-
-	// get output from node
-	// From TIP42: Indexers and node plugins shall map the account address of the output derived with Account ID to the regular address -> output mapping table, so that given an Account Address, its most recent unspent account output can be retrieved.
-	// TODO: use correct outputID
-	accountOutput := a.client.GetOutput(ctx, accData.OutputID)
-
-	txBuilder := builder.NewTransactionBuilder(apiForSlot)
-	txBuilder.AddInput(&builder.TxInput{
-		UnlockTarget: a.accountsAliases[alias].Account.Address(),
-		InputID:      accData.OutputID,
-		Input:        accountOutput,
-	})
-
-	addr, _, _ := a.getAddress(iotago.AddressEd25519)
-	output := builder.NewBasicOutputBuilder(addr, accountOutput.BaseTokenAmount()).MustBuild()
-	txBuilder.AddOutput(output)
-
-	tx, err := txBuilder.Build(keyManager.AddressSigner())
-	if err != nil {
-		return ierrors.Wrapf(err, "failed to build transaction for account alias destruction %s", alias)
-	}
-
-	congestionResp, issuerResp, version, err := a.RequestBlockBuiltData(ctx, a.client, a.GenesisAccount)
-	if err != nil {
-		return ierrors.Wrap(err, "failed to request block built data for the faucet account")
-	}
-
-	blockID, err := a.PostWithBlock(ctx, a.client, tx, a.GenesisAccount, congestionResp, issuerResp, version)
-	if err != nil {
-		return ierrors.Wrapf(err, "failed to post block with ID %s", blockID)
-	}
-
-	// remove account from wallet
-	delete(a.accountsAliases, alias)
-
-	a.LogInfof("Account %s has been destroyed", alias)
-
-	return nil
 }
 
 func BIP32PathForIndex(index uint32) string {

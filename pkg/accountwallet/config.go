@@ -101,9 +101,9 @@ func (d *ConvertAccountParams) Type() AccountOperation {
 }
 
 type DelegateAccountParams struct {
-	Amount uint64
-	To     string
-	From   string // if not set we use faucet
+	Amount    uint64
+	ToAddress string
+	FromAlias string
 }
 
 func (a *DelegateAccountParams) Type() AccountOperation {

@@ -130,6 +130,14 @@ func accountsSubcommand(ctx context.Context, wallet *accountwallet.AccountWallet
 		if err := wallet.AllotToAccount(params); err != nil {
 			return ierrors.Wrap(err, "failed to allot to account")
 		}
+
+	case accountwallet.OperationDelegateAccount:
+		//nolint:forcetypassert // we can safely assume that the type is correct
+		params := subCommand.(*accountwallet.DelegateAccountParams)
+
+		if err := wallet.DelegateToAccount(ctx, params); err != nil {
+			return ierrors.Wrap(err, "failed to delegate to account")
+		}
 	default:
 		return ierrors.New("unknown subcommand")
 	}

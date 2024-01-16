@@ -37,3 +37,7 @@ func (a *AccountWallet) ListAccount() error {
 func (a *AccountWallet) AllotToAccount(_ *AllotAccountParams) error {
 	return nil
 }
+
+func (a *AccountWallet) DelegateToAccount(ctx context.Context, params *DelegateAccountParams) error {
+	return a.delegateToAccount(ctx, params)
+}

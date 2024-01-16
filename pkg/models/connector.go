@@ -387,3 +387,7 @@ func (c *WebClient) GetBlockIssuance(ctx context.Context) (resp *api.IssuanceBlo
 func (c *WebClient) GetCongestion(ctx context.Context, accAddress *iotago.AccountAddress, optCommitmentID ...iotago.CommitmentID) (resp *api.CongestionResponse, err error) {
 	return c.client.Congestion(ctx, accAddress, optCommitmentID...)
 }
+
+func (c *WebClient) GetStaking(ctx context.Context, accountAddress *iotago.AccountAddress) (resp *api.ValidatorResponse, err error) {
+	return c.client.StakingAccount(ctx, accountAddress)
+}

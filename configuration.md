@@ -193,11 +193,11 @@ Example:
 
 ### <a id="eviltools_accounts_delegate"></a> Delegate
 
-| Name        | Description                                         | Type   | Default value |
-| ----------- | --------------------------------------------------- | ------ | ------------- |
-| fromAccount | The alias name of the account to delegate mana from | string | ""            |
-| toAccount   | The alias of the account to delegate mana to        | string | ""            |
-| amount      | The amount of mana to delegate                      | int    | 100           |
+| Name      | Description                                                   | Type   | Default value                                                     |
+| --------- | ------------------------------------------------------------- | ------ | ----------------------------------------------------------------- |
+| fromAlias | The alias of the account to delegate IOTA tokens from         | string | ""                                                                |
+| toAddress | The account address of the account to delegate IOTA tokens to | string | "rms1pzg8cqhfxqhq7pt37y8cs4v5u4kcc48lquy2k73ehsdhf5ukhya3y5rx2w6" |
+| amount    | The amount of mana to delegate                                | int    | 100                                                               |
 
 ### <a id="eviltools_accounts_update"></a> Update
 
@@ -260,8 +260,8 @@ Example:
           "endEpoch": 0
         },
         "delegate": {
-          "fromAccount": "",
-          "toAccount": "",
+          "fromAlias": "",
+          "toAddress": "rms1pzg8cqhfxqhq7pt37y8cs4v5u4kcc48lquy2k73ehsdhf5ukhya3y5rx2w6",
           "amount": 100
         },
         "update": {

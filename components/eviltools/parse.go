@@ -211,9 +211,9 @@ func parseDelegateAccountFlags(paramsAccountDelegate *accountwallet.ParametersAc
 	}
 
 	return &accountwallet.DelegateAccountParams{
-		From:   paramsAccountDelegate.FromAccount,
-		To:     paramsAccountDelegate.ToAccount,
-		Amount: uint64(paramsAccountDelegate.Amount),
+		FromAlias: paramsAccountDelegate.FromAlias,
+		ToAddress: paramsAccountDelegate.ToAddress,
+		Amount:    uint64(paramsAccountDelegate.Amount),
 	}, nil
 }
 

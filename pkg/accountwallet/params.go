@@ -31,9 +31,9 @@ type (
 	}
 
 	ParametersAccountsDelegate struct {
-		FromAccount string `default:"" usage:"The alias name of the account to delegate mana from"`
-		ToAccount   string `default:"" usage:"The alias of the account to delegate mana to"`
-		Amount      int64  `default:"100" usage:"The amount of mana to delegate"`
+		FromAlias string `default:"" usage:"The alias of the account to delegate IOTA tokens from"`
+		ToAddress string `default:"rms1pzg8cqhfxqhq7pt37y8cs4v5u4kcc48lquy2k73ehsdhf5ukhya3y5rx2w6" usage:"The account address of the account to delegate IOTA tokens to"`
+		Amount    int64  `default:"100" usage:"The amount of mana to delegate"`
 	}
 
 	ParametersAccountsUpdate struct {

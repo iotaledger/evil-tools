@@ -1,10 +1,10 @@
-package eviltools
+package accounts
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
+	"github.com/iotaledger/evil-tools/components/spammer"
 	"github.com/iotaledger/evil-tools/pkg/accountwallet"
 	"github.com/iotaledger/hive.go/ierrors"
 )
@@ -17,21 +17,8 @@ const (
 	AccountSubCommandDelegate = "delegate"
 	AccountSubCommandStake    = "stake"
 	AccountSubCommandUpdate   = "update"
-	AccountSubCommandList     = "list"
+	AccountSubCommandList     = "info"
 )
-
-func getScript() (string, error) {
-	if len(os.Args) <= 1 {
-		return ScriptSpammer, nil
-	}
-
-	switch os.Args[1] {
-	case ScriptSpammer, ScriptAccounts:
-		return os.Args[1], nil
-	default:
-		return "", ierrors.Errorf("invalid script name: %s", os.Args[1])
-	}
-}
 
 // getCommands gets the commands and ignores the parameters passed via command line.
 func getCommands(args []string) []string {
@@ -55,7 +42,7 @@ func getCommands(args []string) []string {
 	return commands
 }
 
-func parseAccountCommands(commands []string, paramsAccounts *accountwallet.ParametersAccounts) []accountwallet.AccountSubcommands {
+func parseAccountCommands(commands []string, paramsAccounts *ParametersAccounts) []accountwallet.AccountSubcommands {
 	parsedCmds := make([]accountwallet.AccountSubcommands, 0)
 
 	for _, cmd := range commands {
@@ -141,7 +128,7 @@ func accountUsage() {
 	_, _ = parseStakeAccountFlags(nil)
 }
 
-func parseCreateAccountParams(paramsAccountCreate *accountwallet.ParametersAccountsCreate) (*accountwallet.CreateAccountParams, error) {
+func parseCreateAccountParams(paramsAccountCreate *ParametersAccountsCreate) (*accountwallet.CreateAccountParams, error) {
 	if paramsAccountCreate == nil {
 		return nil, ierrors.New("paramsAccountCreate missing for create account")
 	}
@@ -151,7 +138,7 @@ func parseCreateAccountParams(paramsAccountCreate *accountwallet.ParametersAccou
 	}
 
 	if !paramsAccountCreate.Implicit && !paramsAccountCreate.Transition {
-		Component.LogWarn("Implicit flag set to false, account will be created non-implicitly by Faucet, no need for transition, flag will be ignored")
+		spammer.Component.LogWarn("Implicit flag set to false, account will be created non-implicitly by Faucet, no need for transition, flag will be ignored")
 		paramsAccountCreate.Transition = true
 	}
 
@@ -163,13 +150,13 @@ func parseCreateAccountParams(paramsAccountCreate *accountwallet.ParametersAccou
 	}, nil
 }
 
-func parseConvertAccountFlags(paramsAccountConvert *accountwallet.ParametersAccountsConvert) *accountwallet.ConvertAccountParams {
+func parseConvertAccountFlags(paramsAccountConvert *ParametersAccountsConvert) *accountwallet.ConvertAccountParams {
 	return &accountwallet.ConvertAccountParams{
 		AccountAlias: paramsAccountConvert.Alias,
 	}
 }
 
-func parseDestroyAccountFlags(paramsAccountDestroy *accountwallet.ParametersAccountsDestroy) (*accountwallet.DestroyAccountParams, error) {
+func parseDestroyAccountFlags(paramsAccountDestroy *ParametersAccountsDestroy) (*accountwallet.DestroyAccountParams, error) {
 	if paramsAccountDestroy == nil {
 		return nil, ierrors.New("paramsAccountDestroy missing for destroy account")
 	}
@@ -180,7 +167,7 @@ func parseDestroyAccountFlags(paramsAccountDestroy *accountwallet.ParametersAcco
 	}, nil
 }
 
-func parseAllotAccountFlags(paramsAccountAllot *accountwallet.ParametersAccountsAllot) (*accountwallet.AllotAccountParams, error) {
+func parseAllotAccountFlags(paramsAccountAllot *ParametersAccountsAllot) (*accountwallet.AllotAccountParams, error) {
 	if paramsAccountAllot == nil {
 		return nil, ierrors.New("paramsAccountAllot missing for allot account")
 	}
@@ -191,7 +178,7 @@ func parseAllotAccountFlags(paramsAccountAllot *accountwallet.ParametersAccounts
 	}, nil
 }
 
-func parseStakeAccountFlags(paramsAccountStake *accountwallet.ParametersAccountsStake) (*accountwallet.StakeAccountParams, error) {
+func parseStakeAccountFlags(paramsAccountStake *ParametersAccountsStake) (*accountwallet.StakeAccountParams, error) {
 	if paramsAccountStake == nil {
 		return nil, ierrors.New("paramsAccountStake missing for stake account")
 	}
@@ -205,7 +192,7 @@ func parseStakeAccountFlags(paramsAccountStake *accountwallet.ParametersAccounts
 	}, nil
 }
 
-func parseDelegateAccountFlags(paramsAccountDelegate *accountwallet.ParametersAccountsDelegate) (*accountwallet.DelegateAccountParams, error) {
+func parseDelegateAccountFlags(paramsAccountDelegate *ParametersAccountsDelegate) (*accountwallet.DelegateAccountParams, error) {
 	if paramsAccountDelegate == nil {
 		return nil, ierrors.New("paramsAccountDelegate missing for delegate account")
 	}
@@ -217,7 +204,7 @@ func parseDelegateAccountFlags(paramsAccountDelegate *accountwallet.ParametersAc
 	}, nil
 }
 
-func parseUpdateAccountFlags(paramsAccountUpdate *accountwallet.ParametersAccountsUpdate) (*accountwallet.UpdateAccountParams, error) {
+func parseUpdateAccountFlags(paramsAccountUpdate *ParametersAccountsUpdate) (*accountwallet.UpdateAccountParams, error) {
 	if paramsAccountUpdate == nil {
 		return nil, ierrors.New("paramsAccountUpdate missing for update account")
 	}

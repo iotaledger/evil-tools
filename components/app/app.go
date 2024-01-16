@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/iotaledger/evil-tools/components/accounts"
+	"github.com/iotaledger/evil-tools/components/info"
+	"github.com/iotaledger/evil-tools/components/spammer"
 	"github.com/iotaledger/hive.go/app"
 	"github.com/iotaledger/hive.go/app/components/profiling"
 	"github.com/iotaledger/hive.go/app/components/shutdown"
-
-	"github.com/iotaledger/evil-tools/components/eviltools"
+	"github.com/iotaledger/hive.go/ierrors"
 )
 
 var (
@@ -20,19 +22,31 @@ var (
 )
 
 func App() *app.App {
+	components := []*app.Component{shutdown.Component, profiling.Component}
+	script, err := getScript()
+	if err != nil {
+		panic(err)
+	}
+	switch script {
+	case spammer.ScriptName:
+		components = append(components, spammer.Component)
+		components = append(components, accounts.Component)
+	case accounts.ScriptName:
+		components = append(components, accounts.Component)
+	case info.ScriptName:
+		components = append(components, info.Component)
+	}
+
 	return app.New(Name, Version,
 		app.WithUsageText(fmt.Sprintf(`Usage of %s (%s %s):
 Provide the first argument for the selected mode:
 	'%s' - can be parametrized with additional flags to run one time spammer.
 	'%s' - tool for account creation and transition.
+	'%s' - listing details about stored accounts and node.
 
-Command line flags: %s`, os.Args[0], Name, Version, eviltools.ScriptSpammer, eviltools.ScriptAccounts, os.Args[0])),
+Command line flags: %s`, os.Args[0], Name, Version, spammer.ScriptName, accounts.ScriptName, os.Args[0])),
 		app.WithInitComponent(InitComponent),
-		app.WithComponents(
-			shutdown.Component,
-			profiling.Component,
-			eviltools.Component,
-		),
+		app.WithComponents(components...),
 	)
 }
 
@@ -48,5 +62,18 @@ func init() {
 			"help",
 			"version",
 		},
+	}
+}
+
+func getScript() (string, error) {
+	if len(os.Args) <= 1 {
+		return spammer.ScriptName, nil
+	}
+
+	switch os.Args[1] {
+	case spammer.ScriptName, accounts.ScriptName, info.ScriptName:
+		return os.Args[1], nil
+	default:
+		return "", ierrors.Errorf("invalid script name: %s", os.Args[1])
 	}
 }

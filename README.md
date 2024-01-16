@@ -31,29 +31,29 @@ Possible commands:
 Possible
 Spam with scenario `tx`
 ```bash
-./evil-tools spammer --eviltools.spammer.type tx --eviltools.spammer.rate 10 --eviltools.spammer.duration 100s
+./evil-tools spammer --spammer.type tx --spammer.rate 10 --spammer.duration 100s
 ```
 Infinite spam is enabled when no duration flag is provided.
 ```bash
-./evil-tools spammer --eviltools.spammer.type tx --eviltools.spammer.rate 10
+./evil-tools spammer --spammer.type tx --spammer.rate 10
 ```
 You can provide urls for clients:
 ```bash
-./evil-tools spammer --eviltools.spammer.urls "http://localhost:8050,http://localhost:8060" --eviltools.spammer.type tx --eviltools.spammer.rate 10
+./evil-tools spammer --spammer.urls "http://localhost:8050,http://localhost:8060" --spammer.type tx --spammer.rate 10
 ```
 Enable deep spam:
 ```bash
-./evil-tools spammer --eviltools.spammer.type tx --eviltools.spammer.rate 10 --eviltools.spammer.duration 100s --eviltools.spammer.deep
+./evil-tools spammer --spammer.type tx --spammer.rate 10 --spammer.duration 100s --spammer.deep
 ```
 
 ### Examples for the accounts
 Create implicit account with alias `A`:
 ```bash
-./evil-tools accounts create --eviltools.accounts.create.alias A --eviltools.accounts.create.implicit
+./evil-tools accounts create --accounts.create.alias A --accounts.create.implicit
 ```
 Create account with genesis account paying for creation transaction:
 ```bash
-./evil-tools accounts create --eviltools.accounts.create.alias A
+./evil-tools accounts create --accounts.create.alias A
 ```
 
 ### Scenario diagrams:

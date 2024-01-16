@@ -73,7 +73,7 @@ func (a *AccountWallet) delegateToAccount(ctx context.Context, params *DelegateA
 	poolStakeAfter := validatorResp.PoolStake
 	a.LogInfof("Pool stake for validator %s after delegating: %d", accountAddress, poolStakeAfter)
 
-	if poolStakeAfter-poolStakeBefore != iotago.BaseToken(params.Amount) {
+	if poolStakeAfter-poolStakeBefore != params.Amount {
 		return ierrors.Errorf("delegated amount %d was not correctly added to pool stake. Pool stake before: %d. Pool stake after %d.", params.Amount, poolStakeBefore, poolStakeAfter)
 	}
 

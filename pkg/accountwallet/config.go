@@ -3,6 +3,7 @@ package accountwallet
 import (
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/ds/types"
+	iotago "github.com/iotaledger/iota.go/v4"
 )
 
 // commands
@@ -101,7 +102,7 @@ func (d *ConvertAccountParams) Type() AccountOperation {
 }
 
 type DelegateAccountParams struct {
-	Amount    uint64
+	Amount    iotago.BaseToken
 	ToAddress string
 	FromAlias string
 }

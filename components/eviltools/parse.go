@@ -7,6 +7,7 @@ import (
 
 	"github.com/iotaledger/evil-tools/pkg/accountwallet"
 	"github.com/iotaledger/hive.go/ierrors"
+	iotago "github.com/iotaledger/iota.go/v4"
 )
 
 const (
@@ -213,7 +214,7 @@ func parseDelegateAccountFlags(paramsAccountDelegate *accountwallet.ParametersAc
 	return &accountwallet.DelegateAccountParams{
 		FromAlias: paramsAccountDelegate.FromAlias,
 		ToAddress: paramsAccountDelegate.ToAddress,
-		Amount:    uint64(paramsAccountDelegate.Amount),
+		Amount:    iotago.BaseToken(paramsAccountDelegate.Amount),
 	}, nil
 }
 

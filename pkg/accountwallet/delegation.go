@@ -96,6 +96,9 @@ func (a *AccountWallet) prepareToAccount(toAddress string) (*iotago.AccountAddre
 }
 
 func (a *AccountWallet) prepareFromAccount(ctx context.Context, fromAlias string) (*models.AccountData, *models.Output, error) {
+	if fromAlias == "" {
+		fromAlias = GenesisAccountAlias
+	}
 	// get the account from which we will delegate tokens
 	accData, err := a.GetAccount(fromAlias)
 	if err != nil {

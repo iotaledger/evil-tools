@@ -201,6 +201,12 @@ type Client interface {
 	RequestFaucetFunds(ctx context.Context, address iotago.Address) (err error)
 	// GetAccountFromIndexer returns the outputID, accountOutput and slotIndex of a given accountAddress.
 	GetAccountFromIndexer(ctx context.Context, accountAddress *iotago.AccountAddress) (*iotago.OutputID, *iotago.AccountOutput, iotago.SlotIndex, error)
+	// GetStaking returns the staking data of a given accountAddress.
+	GetStaking(ctx context.Context, accountAddress *iotago.AccountAddress) (resp *api.ValidatorResponse, err error)
+	// GetValidators returns the info of the top staked validators.
+	GetValidators(ctx context.Context) (resp *api.ValidatorsResponse, err error)
+	// GetRewards returns the rewards of a given outputID.
+	GetRewards(ctx context.Context, outputID iotago.OutputID) (resp *api.ManaRewardsResponse, err error)
 
 	iotago.APIProvider
 }
@@ -390,4 +396,12 @@ func (c *WebClient) GetCongestion(ctx context.Context, accAddress *iotago.Accoun
 
 func (c *WebClient) GetStaking(ctx context.Context, accountAddress *iotago.AccountAddress) (resp *api.ValidatorResponse, err error) {
 	return c.client.StakingAccount(ctx, accountAddress)
+}
+
+func (c *WebClient) GetValidators(ctx context.Context) (resp *api.ValidatorsResponse, err error) {
+	return c.client.Validators(ctx)
+}
+
+func (c *WebClient) GetRewards(ctx context.Context, outputID iotago.OutputID) (resp *api.ManaRewardsResponse, err error) {
+	return c.client.Rewards(ctx, outputID)
 }

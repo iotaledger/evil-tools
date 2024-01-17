@@ -17,6 +17,7 @@ const (
 	OperationAllotAccount
 	OperationDelegateAccount
 	OperationStakeAccount
+	OperationRewards
 	OperationListAccounts
 	OperationUpdateAccount
 
@@ -26,6 +27,7 @@ const (
 	CmdNameAllotAccount    = "allot"
 	CmdNameDelegateAccount = "delegate"
 	CmdNameStakeAccount    = "stake"
+	CmdNameRewards         = "rewards"
 	CmdNameListAccounts    = "list"
 	CmdNameUpdateAccount   = "update"
 )
@@ -121,6 +123,14 @@ type StakeAccountParams struct {
 
 func (a *StakeAccountParams) Type() AccountOperation {
 	return OperationStakeAccount
+}
+
+type RewardsAccountParams struct {
+	Alias string
+}
+
+func (a *RewardsAccountParams) Type() AccountOperation {
+	return OperationRewards
 }
 
 type UpdateAccountParams struct {

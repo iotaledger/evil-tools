@@ -6,10 +6,10 @@ import (
 
 	"github.com/iotaledger/evil-tools/components/accounts"
 	"github.com/iotaledger/evil-tools/components/info"
+	"github.com/iotaledger/evil-tools/components/shutdown"
 	"github.com/iotaledger/evil-tools/components/spammer"
 	"github.com/iotaledger/hive.go/app"
 	"github.com/iotaledger/hive.go/app/components/profiling"
-	"github.com/iotaledger/hive.go/app/components/shutdown"
 	"github.com/iotaledger/hive.go/ierrors"
 )
 

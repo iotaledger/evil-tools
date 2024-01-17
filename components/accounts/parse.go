@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/iotaledger/evil-tools/components/spammer"
 	"github.com/iotaledger/evil-tools/pkg/accountwallet"
 	"github.com/iotaledger/hive.go/ierrors"
 )
@@ -138,7 +137,7 @@ func parseCreateAccountParams(paramsAccountCreate *ParametersAccountsCreate) (*a
 	}
 
 	if !paramsAccountCreate.Implicit && !paramsAccountCreate.Transition {
-		spammer.Component.LogWarn("Implicit flag set to false, account will be created non-implicitly by Faucet, no need for transition, flag will be ignored")
+		Component.LogWarn("Implicit flag set to false, account will be created non-implicitly by Faucet, no need for transition, flag will be ignored")
 		paramsAccountCreate.Transition = true
 	}
 

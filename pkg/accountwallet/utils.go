@@ -21,7 +21,7 @@ func (a *AccountWallet) logMissingMana(finishedTxBuilder *builder.TransactionBui
 		return
 	}
 	a.LogDebug(utils.SprintAvailableManaResult(availableMana))
-	minRequiredAllottedMana, err := finishedTxBuilder.MinRequiredAllotedMana(a.client.APIForSlot(finishedTxBuilder.CreationSlot()).ProtocolParameters().WorkScoreParameters(), rmc, issuerAccountID)
+	minRequiredAllottedMana, err := finishedTxBuilder.MinRequiredAllotedMana(a.Client.APIForSlot(finishedTxBuilder.CreationSlot()).ProtocolParameters().WorkScoreParameters(), rmc, issuerAccountID)
 	if err != nil {
 		a.LogError("could not calculate min required allotted mana")
 

@@ -112,11 +112,6 @@ func accountsSubcommand(ctx context.Context, wallet *accountwallet.AccountWallet
 			return ierrors.Wrap(err, "failed to destroy account")
 		}
 
-	case accountwallet.OperationListAccounts:
-		if err := wallet.ListAccount(); err != nil {
-			return ierrors.Wrap(err, "failed to list accounts")
-		}
-
 	case accountwallet.OperationAllotAccount:
 		//nolint:forcetypassert // we can safely assume that the type is correct
 		accParams := subCommand.(*accountwallet.AllotAccountParams)

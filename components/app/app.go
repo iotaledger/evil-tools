@@ -34,6 +34,7 @@ func App() *app.App {
 	case accounts.ScriptName:
 		components = append(components, accounts.Component)
 	case info.ScriptName:
+		components = append(components, accounts.Component)
 		components = append(components, info.Component)
 	}
 

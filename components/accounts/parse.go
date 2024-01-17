@@ -8,17 +8,6 @@ import (
 	"github.com/iotaledger/hive.go/ierrors"
 )
 
-const (
-	AccountSubCommandCreate   = "create"
-	AccountSubCommandConvert  = "convert"
-	AccountSubCommandDestroy  = "destroy"
-	AccountSubCommandAllot    = "allot"
-	AccountSubCommandDelegate = "delegate"
-	AccountSubCommandStake    = "stake"
-	AccountSubCommandUpdate   = "update"
-	AccountSubCommandList     = "info"
-)
-
 // getCommands gets the commands and ignores the parameters passed via command line.
 func getCommands(args []string) []string {
 	if len(args) == 0 {
@@ -46,56 +35,51 @@ func parseAccountCommands(commands []string, paramsAccounts *ParametersAccounts)
 
 	for _, cmd := range commands {
 		switch cmd {
-		case AccountSubCommandCreate:
+		case accountwallet.OperationCreateAccount.String():
 			createAccountParams, err := parseCreateAccountParams(&paramsAccounts.Create)
 			if err != nil {
 				continue
 			}
 			parsedCmds = append(parsedCmds, createAccountParams)
 
-		case AccountSubCommandConvert:
+		case accountwallet.OperationConvertAccount.String():
 			convertAccountParams := parseConvertAccountFlags(&paramsAccounts.Convert)
 			parsedCmds = append(parsedCmds, convertAccountParams)
 
-		case AccountSubCommandDestroy:
+		case accountwallet.OperationDestroyAccount.String():
 			destroyAccountParams, err := parseDestroyAccountFlags(&paramsAccounts.Destroy)
 			if err != nil {
 				continue
 			}
 			parsedCmds = append(parsedCmds, destroyAccountParams)
 
-		case AccountSubCommandAllot:
+		case accountwallet.OperationAllotAccount.String():
 			allotAccountParams, err := parseAllotAccountFlags(&paramsAccounts.Allot)
 			if err != nil {
 				continue
 			}
 			parsedCmds = append(parsedCmds, allotAccountParams)
 
-		case AccountSubCommandDelegate:
+		case accountwallet.OperationDelegateAccount.String():
 			delegatingAccountParams, err := parseDelegateAccountFlags(&paramsAccounts.Delegate)
 			if err != nil {
 				continue
 			}
 			parsedCmds = append(parsedCmds, delegatingAccountParams)
 
-		case AccountSubCommandStake:
+		case accountwallet.OperationStakeAccount.String():
 			stakingAccountParams, err := parseStakeAccountFlags(&paramsAccounts.Stake)
 			if err != nil {
 				continue
 			}
 			parsedCmds = append(parsedCmds, stakingAccountParams)
 
-		case AccountSubCommandUpdate:
+		case accountwallet.OperationUpdateAccount.String():
 			updateAccountParams, err := parseUpdateAccountFlags(&paramsAccounts.Update)
 			if err != nil {
 				continue
 			}
 			parsedCmds = append(parsedCmds, updateAccountParams)
-
-		case AccountSubCommandList:
-			parsedCmds = append(parsedCmds, &accountwallet.NoAccountParams{
-				Operation: accountwallet.OperationListAccounts,
-			})
 
 		default:
 			accountUsage()
@@ -108,22 +92,22 @@ func parseAccountCommands(commands []string, paramsAccounts *ParametersAccounts)
 
 func accountUsage() {
 	fmt.Println("Usage for accounts [COMMAND] [FLAGS], multiple commands can be chained together.")
-	fmt.Printf("COMMAND: %s\n", accountwallet.CmdNameCreateAccount)
+	fmt.Printf("COMMAND: %s\n", accountwallet.OperationCreateAccount)
 	_, _ = parseCreateAccountParams(nil)
 
-	fmt.Printf("COMMAND: %s\n", accountwallet.CmdNameConvertAccount)
+	fmt.Printf("COMMAND: %s\n", accountwallet.OperationConvertAccount)
 	_ = parseConvertAccountFlags(nil)
 
-	fmt.Printf("COMMAND: %s\n", accountwallet.CmdNameDestroyAccount)
+	fmt.Printf("COMMAND: %s\n", accountwallet.OperationDestroyAccount)
 	_, _ = parseDestroyAccountFlags(nil)
 
-	fmt.Printf("COMMAND: %s\n", accountwallet.CmdNameAllotAccount)
+	fmt.Printf("COMMAND: %s\n", accountwallet.OperationAllotAccount)
 	_, _ = parseAllotAccountFlags(nil)
 
-	fmt.Printf("COMMAND: %s\n", accountwallet.CmdNameDelegateAccount)
+	fmt.Printf("COMMAND: %s\n", accountwallet.OperationDelegateAccount)
 	_, _ = parseDelegateAccountFlags(nil)
 
-	fmt.Printf("COMMAND: %s\n", accountwallet.CmdNameStakeAccount)
+	fmt.Printf("COMMAND: %s\n", accountwallet.OperationStakeAccount)
 	_, _ = parseStakeAccountFlags(nil)
 }
 

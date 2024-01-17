@@ -56,7 +56,7 @@ type AccountWallet struct {
 
 	latestUsedIndex atomic.Uint32
 
-	client             *models.WebClient
+	Client             *models.WebClient
 	API                iotago.API
 	RequestTokenAmount iotago.BaseToken
 	RequestManaAmount  iotago.Mana
@@ -77,13 +77,13 @@ func NewAccountWallet(logger log.Logger, opts ...options.Option[AccountWallet]) 
 		accountsAliases: make(map[string]*models.AccountData),
 		seed:            tpkg.RandEd25519Seed(),
 	}, opts, func(w *AccountWallet) {
-		w.client, initErr = models.NewWebClient(w.optsClientBindAddress, w.optsFaucetURL)
+		w.Client, initErr = models.NewWebClient(w.optsClientBindAddress, w.optsFaucetURL)
 		if initErr != nil {
 			accountWalletLogger.LogErrorf("failed to create web client: %s", initErr.Error())
 
 			return
 		}
-		w.API = w.client.LatestAPI()
+		w.API = w.Client.LatestAPI()
 
 		w.GenesisAccount = lo.PanicOnErr(wallet.AccountFromParams(w.optsGenesisAccountParams.FaucetAccountID, w.optsGenesisAccountParams.FaucetPrivateKey))
 
@@ -121,7 +121,7 @@ func (a *AccountWallet) toAccountStateFile() error {
 		accounts = append(accounts, models.AccountStateFromAccountData(acc))
 	}
 
-	stateBytes, err := a.client.LatestAPI().Encode(&StateData{
+	stateBytes, err := a.Client.LatestAPI().Encode(&StateData{
 		Seed:          base58.Encode(a.seed[:]),
 		LastUsedIndex: a.latestUsedIndex.Load(),
 		AccountsData:  accounts,
@@ -152,7 +152,7 @@ func (a *AccountWallet) fromAccountStateFile() error {
 	}
 
 	var data StateData
-	_, err = a.client.LatestAPI().Decode(walletStateBytes, &data)
+	_, err = a.Client.LatestAPI().Decode(walletStateBytes, &data)
 	if err != nil {
 		return ierrors.Wrap(err, "failed to decode from file")
 	}
@@ -210,7 +210,7 @@ func (a *AccountWallet) checkAccountStatus(ctx context.Context, blkID iotago.Blo
 	// request by blockID if provided, otherwise use txID
 	slot := blkID.Slot()
 	if blkID == iotago.EmptyBlockID {
-		blkMetadata, err := a.client.GetBlockStateFromTransaction(ctx, txID)
+		blkMetadata, err := a.Client.GetBlockStateFromTransaction(ctx, txID)
 		if err != nil {
 			return ierrors.Wrapf(err, "failed to get block state from transaction %s", txID.ToHex())
 		}
@@ -218,18 +218,18 @@ func (a *AccountWallet) checkAccountStatus(ctx context.Context, blkID iotago.Blo
 		slot = blkMetadata.BlockID.Slot()
 	}
 
-	if err := utils.AwaitBlockAndPayloadAcceptance(ctx, a.Logger, a.client, blkID); err != nil {
+	if err := utils.AwaitBlockAndPayloadAcceptance(ctx, a.Logger, a.Client, blkID); err != nil {
 		return ierrors.Wrapf(err, "failed to await block issuance for block %s", blkID.ToHex())
 	}
 	a.LogInfof("Block and Transaction accepted: blockID %s", blkID.ToHex())
 
 	// wait for the account to be committed
 	if accountAddress != nil {
-		a.LogInfof("Checking for commitment of account, blk ID: %s, txID: %s and creation output: %s\nBech addr: %s", blkID.ToHex(), txID.ToHex(), creationOutputID.ToHex(), accountAddress.Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()))
+		a.LogInfof("Checking for commitment of account, blk ID: %s, txID: %s and creation output: %s\nBech addr: %s", blkID.ToHex(), txID.ToHex(), creationOutputID.ToHex(), accountAddress.Bech32(a.Client.CommittedAPI().ProtocolParameters().Bech32HRP()))
 	} else {
 		a.LogInfof("Checking for commitment of output, blk ID: %s, txID: %s and creation output: %s", blkID.ToHex(), txID.ToHex(), creationOutputID.ToHex())
 	}
-	err := utils.AwaitCommitment(ctx, a.Logger, a.client, slot)
+	err := utils.AwaitCommitment(ctx, a.Logger, a.Client, slot)
 	if err != nil {
 		a.LogErrorf("Failed to await commitment for slot %d: %s", slot, err)
 
@@ -238,17 +238,17 @@ func (a *AccountWallet) checkAccountStatus(ctx context.Context, blkID iotago.Blo
 
 	// Check the indexer
 	if len(checkIndexer) > 0 && checkIndexer[0] {
-		outputID, account, _, err := a.client.GetAccountFromIndexer(ctx, accountAddress)
+		outputID, account, _, err := a.Client.GetAccountFromIndexer(ctx, accountAddress)
 		if err != nil {
 			a.LogDebugf("Failed to get account from indexer, even after slot %d is already committed", slot)
 			return ierrors.Wrapf(err, "failed to get account from indexer, even after slot %d is already committed", slot)
 		}
 
-		a.LogDebugf("Indexer returned: outputID %s, account %s, slot %d", outputID.String(), account.AccountID.ToAddress().Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()), slot)
+		a.LogDebugf("Indexer returned: outputID %s, account %s, slot %d", outputID.String(), account.AccountID.ToAddress().Bech32(a.Client.CommittedAPI().ProtocolParameters().Bech32HRP()), slot)
 	}
 
 	// check if the creation output exists
-	outputFromNode, err := a.client.Client().OutputByID(ctx, creationOutputID)
+	outputFromNode, err := a.Client.Client().OutputByID(ctx, creationOutputID)
 	if err != nil {
 		a.LogDebugf("Failed to get output from node, even after slot %d is already committed", slot)
 		return ierrors.Wrapf(err, "failed to get output from node, even after slot %d is already committed", slot)
@@ -256,7 +256,7 @@ func (a *AccountWallet) checkAccountStatus(ctx context.Context, blkID iotago.Blo
 	a.LogDebugf("Node returned: outputID %s, output %s", creationOutputID.ToHex(), outputFromNode.Type())
 
 	if accountAddress != nil {
-		a.LogInfof("Account present in commitment for slot %d\nBech addr: %s", slot, accountAddress.Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()))
+		a.LogInfof("Account present in commitment for slot %d\nBech addr: %s", slot, accountAddress.Bech32(a.Client.CommittedAPI().ProtocolParameters().Bech32HRP()))
 	} else {
 		a.LogInfof("Output present in commitment for slot %d", slot)
 	}
@@ -316,7 +316,7 @@ func (a *AccountWallet) GetAccount(alias string) (*models.AccountData, error) {
 func (a *AccountWallet) awaitAccountReadiness(ctx context.Context, accData *models.AccountData) bool {
 	creationSlot := accData.OutputID.CreationSlot()
 	a.LogInfof("Waiting for account %s to be committed within slot %d...", accData.Alias, creationSlot)
-	err := utils.AwaitCommitment(ctx, a.Logger, a.client, creationSlot)
+	err := utils.AwaitCommitment(ctx, a.Logger, a.Client, creationSlot)
 	if err != nil {
 		a.LogErrorf("failed to get commitment details while waiting %s: %s", accData.Alias, err)
 

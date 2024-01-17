@@ -201,6 +201,10 @@ type Client interface {
 	RequestFaucetFunds(ctx context.Context, address iotago.Address) (err error)
 	// GetAccountFromIndexer returns the outputID, accountOutput and slotIndex of a given accountAddress.
 	GetAccountFromIndexer(ctx context.Context, accountAddress *iotago.AccountAddress) (*iotago.OutputID, *iotago.AccountOutput, iotago.SlotIndex, error)
+	// GetCommittee returns the committee for a given epoch.
+	GetCommittee(ctx context.Context) (*api.CommitteeResponse, error)
+	// GetValidators returns the validators for the current epoch.
+	GetValidators(ctx context.Context) (*api.ValidatorsResponse, error)
 
 	iotago.APIProvider
 }
@@ -386,4 +390,12 @@ func (c *WebClient) GetBlockIssuance(ctx context.Context) (resp *api.IssuanceBlo
 
 func (c *WebClient) GetCongestion(ctx context.Context, accAddress *iotago.AccountAddress, optCommitmentID ...iotago.CommitmentID) (resp *api.CongestionResponse, err error) {
 	return c.client.Congestion(ctx, accAddress, optCommitmentID...)
+}
+
+func (c *WebClient) GetCommittee(ctx context.Context) (*api.CommitteeResponse, error) {
+	return c.client.Committee(ctx)
+}
+
+func (c *WebClient) GetValidators(ctx context.Context) (*api.ValidatorsResponse, error) {
+	return c.client.Validators(ctx)
 }

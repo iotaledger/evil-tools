@@ -7,51 +7,31 @@ import (
 
 // commands
 
-type AccountOperation int
+type AccountOperation string
 
 const (
-	OperationCreateAccount AccountOperation = iota
-	OperationConvertAccount
-	OperationDestroyAccount
-	OperationAllotAccount
-	OperationDelegateAccount
-	OperationStakeAccount
-	OperationListAccounts
-	OperationUpdateAccount
-
-	CmdNameCreateAccount   = "create"
-	CmdNameConvertAccount  = "convert"
-	CmdNameDestroyAccount  = "destroy"
-	CmdNameAllotAccount    = "allot"
-	CmdNameDelegateAccount = "delegate"
-	CmdNameStakeAccount    = "stake"
-	CmdNameListAccounts    = "list"
-	CmdNameUpdateAccount   = "update"
+	OperationCreateAccount   AccountOperation = "create"
+	OperationConvertAccount  AccountOperation = "convert"
+	OperationDestroyAccount  AccountOperation = "destroy"
+	OperationAllotAccount    AccountOperation = "allot"
+	OperationDelegateAccount AccountOperation = "delegate"
+	OperationStakeAccount    AccountOperation = "stake"
+	OperationUpdateAccount   AccountOperation = "update"
 )
 
 func (a AccountOperation) String() string {
-	return []string{
-		CmdNameCreateAccount,
-		CmdNameConvertAccount,
-		CmdNameDestroyAccount,
-		CmdNameAllotAccount,
-		CmdNameDelegateAccount,
-		CmdNameStakeAccount,
-		CmdNameListAccounts,
-		CmdNameUpdateAccount,
-	}[a]
+	return string(a)
 }
 
 func AvailableCommands(cmd string) bool {
 	availableCommands := map[string]types.Empty{
-		CmdNameCreateAccount:   types.Void,
-		CmdNameConvertAccount:  types.Void,
-		CmdNameDestroyAccount:  types.Void,
-		CmdNameAllotAccount:    types.Void,
-		CmdNameDelegateAccount: types.Void,
-		CmdNameStakeAccount:    types.Void,
-		CmdNameListAccounts:    types.Void,
-		CmdNameUpdateAccount:   types.Void,
+		OperationCreateAccount.String():   types.Void,
+		OperationConvertAccount.String():  types.Void,
+		OperationDestroyAccount.String():  types.Void,
+		OperationAllotAccount.String():    types.Void,
+		OperationDelegateAccount.String(): types.Void,
+		OperationStakeAccount.String():    types.Void,
+		OperationUpdateAccount.String():   types.Void,
 	}
 
 	_, ok := availableCommands[cmd]

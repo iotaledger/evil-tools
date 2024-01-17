@@ -40,6 +40,7 @@ func (a AccountOperation) String() string {
 		CmdNameAllotAccount,
 		CmdNameDelegateAccount,
 		CmdNameStakeAccount,
+		CmdNameRewards,
 		CmdNameListAccounts,
 		CmdNameUpdateAccount,
 	}[a]
@@ -53,6 +54,7 @@ func AvailableCommands(cmd string) bool {
 		CmdNameAllotAccount:    types.Void,
 		CmdNameDelegateAccount: types.Void,
 		CmdNameStakeAccount:    types.Void,
+		CmdNameRewards:         types.Void,
 		CmdNameListAccounts:    types.Void,
 		CmdNameUpdateAccount:   types.Void,
 	}
@@ -107,6 +109,7 @@ type DelegateAccountParams struct {
 	Amount    iotago.BaseToken
 	ToAddress string
 	FromAlias string
+	CheckPool bool
 }
 
 func (a *DelegateAccountParams) Type() AccountOperation {

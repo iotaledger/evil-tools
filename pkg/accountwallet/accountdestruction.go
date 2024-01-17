@@ -62,7 +62,7 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 
 			// check the status of the transaction
 			expiredAccountOutputID := iotago.OutputIDFromTransactionIDAndIndex(lo.PanicOnErr(signedTx.Transaction.ID()), 0)
-			err = a.checkAccountStatus(ctx, blockID, lo.PanicOnErr(signedTx.Transaction.ID()), expiredAccountOutputID, accData.Account.Address())
+			err = a.checkOutputStatus(ctx, blockID, lo.PanicOnErr(signedTx.Transaction.ID()), expiredAccountOutputID, accData.Account.Address())
 			if err != nil {
 				return ierrors.Wrap(err, "failure checking for commitment of account transition")
 			}
@@ -109,7 +109,7 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 
 		// check the status of the transaction
 		basicOutputID := iotago.OutputIDFromTransactionIDAndIndex(lo.PanicOnErr(signedTx.Transaction.ID()), 0)
-		err = a.checkAccountStatus(ctx, blockID, lo.PanicOnErr(signedTx.Transaction.ID()), basicOutputID, nil)
+		err = a.checkOutputStatus(ctx, blockID, lo.PanicOnErr(signedTx.Transaction.ID()), basicOutputID, nil)
 		if err != nil {
 			return ierrors.Wrap(err, "failure checking for commitment of account transition")
 		}

@@ -3,6 +3,7 @@ package accountwallet
 import (
 	"context"
 	"crypto/ed25519"
+	"fmt"
 	"os"
 	"sync"
 
@@ -74,9 +75,10 @@ func NewAccountWallet(logger log.Logger, opts ...options.Option[AccountWallet]) 
 	var initErr error
 
 	return options.Apply(&AccountWallet{
-		Logger:   accountWalletLogger,
-		accounts: make(map[string]*models.AccountData),
-		seed:     tpkg.RandEd25519Seed(),
+		Logger:      accountWalletLogger,
+		accounts:    make(map[string]*models.AccountData),
+		delegations: make(map[string][]*models.Output),
+		seed:        tpkg.RandEd25519Seed(),
 	}, opts, func(w *AccountWallet) {
 		w.client, initErr = models.NewWebClient(w.optsClientBindAddress, w.optsFaucetURL)
 		if initErr != nil {
@@ -210,7 +212,13 @@ func (a *AccountWallet) registerDelegation(alias string, output *models.Output) 
 	a.outputsMutex.Lock()
 	defer a.outputsMutex.Unlock()
 
-	a.delegations[alias] = append(a.delegations[alias], output)
+	if _, exists := a.delegations[alias]; !exists {
+		a.delegations[alias] = []*models.Output{output}
+	} else {
+		a.delegations[alias] = append(a.delegations[alias], output)
+	}
+
+	fmt.Println(a.delegations[alias])
 }
 
 func (a *AccountWallet) deleteDelegation(alias string) {
@@ -220,8 +228,8 @@ func (a *AccountWallet) deleteDelegation(alias string) {
 	delete(a.delegations, alias)
 }
 
-// checkAccountStatus checks the status of the account by requesting all possible endpoints.
-func (a *AccountWallet) checkAccountStatus(ctx context.Context, blkID iotago.BlockID, txID iotago.TransactionID, creationOutputID iotago.OutputID, accountAddress *iotago.AccountAddress, checkIndexer ...bool) error {
+// checkOutputStatus checks the status of an output by requesting all possible endpoints.
+func (a *AccountWallet) checkOutputStatus(ctx context.Context, blkID iotago.BlockID, txID iotago.TransactionID, creationOutputID iotago.OutputID, accountAddress *iotago.AccountAddress, checkIndexer ...bool) error {
 	// request by blockID if provided, otherwise use txID
 	slot := blkID.Slot()
 	if blkID == iotago.EmptyBlockID {
@@ -326,6 +334,18 @@ func (a *AccountWallet) GetAccount(alias string) (*models.AccountData, error) {
 	}
 
 	return accData, nil
+}
+
+func (a *AccountWallet) GetDelegations(alias string) ([]*models.Output, error) {
+	a.outputsMutex.RLock()
+	defer a.outputsMutex.RUnlock()
+
+	delegations, exists := a.delegations[alias]
+	if !exists {
+		return nil, ierrors.Errorf("delegations with alias %s do not exist", alias)
+	}
+
+	return delegations, nil
 }
 
 func (a *AccountWallet) awaitAccountReadiness(ctx context.Context, accData *models.AccountData) bool {

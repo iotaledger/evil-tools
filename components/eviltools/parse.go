@@ -17,6 +17,7 @@ const (
 	AccountSubCommandAllot    = "allot"
 	AccountSubCommandDelegate = "delegate"
 	AccountSubCommandStake    = "stake"
+	AccountSubCommandRewards  = "rewards"
 	AccountSubCommandUpdate   = "update"
 	AccountSubCommandList     = "list"
 )
@@ -100,6 +101,13 @@ func parseAccountCommands(commands []string, paramsAccounts *accountwallet.Param
 			}
 			parsedCmds = append(parsedCmds, stakingAccountParams)
 
+		case AccountSubCommandRewards:
+			rewardsParams, err := parseRewardsFlags(&paramsAccounts.Rewards)
+			if err != nil {
+				continue
+			}
+			parsedCmds = append(parsedCmds, rewardsParams)
+
 		case AccountSubCommandUpdate:
 			updateAccountParams, err := parseUpdateAccountFlags(&paramsAccounts.Update)
 			if err != nil {
@@ -140,6 +148,9 @@ func accountUsage() {
 
 	fmt.Printf("COMMAND: %s\n", accountwallet.CmdNameStakeAccount)
 	_, _ = parseStakeAccountFlags(nil)
+
+	fmt.Printf("COMMAND: %s\n", accountwallet.CmdNameRewards)
+	_, _ = parseRewardsFlags(nil)
 }
 
 func parseCreateAccountParams(paramsAccountCreate *accountwallet.ParametersAccountsCreate) (*accountwallet.CreateAccountParams, error) {
@@ -206,6 +217,16 @@ func parseStakeAccountFlags(paramsAccountStake *accountwallet.ParametersAccounts
 	}, nil
 }
 
+func parseRewardsFlags(paramsRewards *accountwallet.ParametersRewards) (*accountwallet.RewardsAccountParams, error) {
+	if paramsRewards == nil {
+		return nil, ierrors.New("paramsRewards missing for rewards account")
+	}
+
+	return &accountwallet.RewardsAccountParams{
+		Alias: paramsRewards.Alias,
+	}, nil
+}
+
 func parseDelegateAccountFlags(paramsAccountDelegate *accountwallet.ParametersAccountsDelegate) (*accountwallet.DelegateAccountParams, error) {
 	if paramsAccountDelegate == nil {
 		return nil, ierrors.New("paramsAccountDelegate missing for delegate account")
@@ -215,6 +236,7 @@ func parseDelegateAccountFlags(paramsAccountDelegate *accountwallet.ParametersAc
 		FromAlias: paramsAccountDelegate.FromAlias,
 		ToAddress: paramsAccountDelegate.ToAddress,
 		Amount:    iotago.BaseToken(paramsAccountDelegate.Amount),
+		CheckPool: paramsAccountDelegate.CheckPool,
 	}, nil
 }
 

@@ -402,6 +402,6 @@ func (c *WebClient) GetValidators(ctx context.Context) (resp *api.ValidatorsResp
 	return c.client.Validators(ctx)
 }
 
-func (c *WebClient) GetRewards(ctx context.Context, outputID iotago.OutputID) (resp *api.ManaRewardsResponse, err error) {
+func (c *WebClient) GetRewards(ctx context.Context, outputID iotago.OutputID) (*api.ManaRewardsResponse, error) {
 	return c.client.Rewards(ctx, outputID)
 }

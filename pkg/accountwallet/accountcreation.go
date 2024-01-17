@@ -35,7 +35,7 @@ func (a *AccountWallet) createImplicitAccount(ctx context.Context, params *Creat
 	a.LogDebugf("Created implicit account output, outputID: %s", implicitOutputID.ToHex())
 	a.LogInfof("Posted transaction: implicit account output from faucet\nBech addr: %s", accountAddress.Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()))
 
-	err = a.checkAccountStatus(ctx, iotago.EmptyBlockID, implicitAccountOutput.OutputID.TransactionID(), implicitOutputID, accountAddress)
+	err = a.checkOutputStatus(ctx, iotago.EmptyBlockID, implicitAccountOutput.OutputID.TransactionID(), implicitOutputID, accountAddress)
 	if err != nil {
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "failure in account creation")
 	}
@@ -90,7 +90,7 @@ func (a *AccountWallet) transitionImplicitAccount(ctx context.Context, implicitA
 	// get OutputID of account output
 	accOutputID := iotago.OutputIDFromTransactionIDAndIndex(lo.PanicOnErr(signedTx.Transaction.ID()), 0)
 	a.LogInfof("Posted transaction: transition implicit account to full account\nBech addr: %s", accountAddress.Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()))
-	err = a.checkAccountStatus(ctx, blkID, lo.PanicOnErr(signedTx.Transaction.ID()), accOutputID, accountAddress, true)
+	err = a.checkOutputStatus(ctx, blkID, lo.PanicOnErr(signedTx.Transaction.ID()), accOutputID, accountAddress, true)
 	if err != nil {
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "failure in account creation")
 	}
@@ -142,7 +142,7 @@ func (a *AccountWallet) createAccountWithFaucet(ctx context.Context, params *Cre
 	accountID := iotago.AccountIDFromOutputID(accountOutputID)
 	//nolint:forcetypeassert // we know that the address is of type *iotago.AccountAddress
 	accountAddress := accountID.ToAddress().(*iotago.AccountAddress)
-	err = a.checkAccountStatus(ctx, blkID, lo.PanicOnErr(signedTx.Transaction.ID()), accountOutputID, accountAddress, true)
+	err = a.checkOutputStatus(ctx, blkID, lo.PanicOnErr(signedTx.Transaction.ID()), accountOutputID, accountAddress, true)
 	if err != nil {
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "failure in account creation")
 	}

@@ -143,7 +143,7 @@ func accountsSubcommand(ctx context.Context, wallet *accountwallet.AccountWallet
 		params := subCommand.(*accountwallet.RewardsAccountParams)
 
 		if err := wallet.Rewards(ctx, params); err != nil {
-			return ierrors.Wrap(err, "failed to rewards account")
+			return ierrors.Wrap(err, "failed to get rewards")
 		}
 	default:
 		return ierrors.New("unknown subcommand")

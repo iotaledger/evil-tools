@@ -149,6 +149,7 @@ Example:
 | [destroy](#eviltools_accounts_destroy)   | Configuration for destroy                                    | object |                                                                                                                                    |
 | [allot](#eviltools_accounts_allot)       | Configuration for allot                                      | object |                                                                                                                                    |
 | [stake](#eviltools_accounts_stake)       | Configuration for stake                                      | object |                                                                                                                                    |
+| [rewards](#eviltools_accounts_rewards)   | Configuration for rewards                                    | object |                                                                                                                                    |
 | [delegate](#eviltools_accounts_delegate) | Configuration for delegate                                   | object |                                                                                                                                    |
 | [update](#eviltools_accounts_update)     | Configuration for update                                     | object |                                                                                                                                    |
 
@@ -191,13 +192,20 @@ Example:
 | startEpoch | The start epoch of the account to stake | int    | 0             |
 | endEpoch   | The end epoch of the account to stake   | int    | 0             |
 
+### <a id="eviltools_accounts_rewards"></a> Rewards
+
+| Name  | Description                                     | Type   | Default value |
+| ----- | ----------------------------------------------- | ------ | ------------- |
+| alias | The alias name of the wallet to get rewards for | string | ""            |
+
 ### <a id="eviltools_accounts_delegate"></a> Delegate
 
-| Name      | Description                                                   | Type   | Default value                                                     |
-| --------- | ------------------------------------------------------------- | ------ | ----------------------------------------------------------------- |
-| fromAlias | The alias of the account to delegate IOTA tokens from         | string | ""                                                                |
-| toAddress | The account address of the account to delegate IOTA tokens to | string | "rms1pzg8cqhfxqhq7pt37y8cs4v5u4kcc48lquy2k73ehsdhf5ukhya3y5rx2w6" |
-| amount    | The amount of mana to delegate                                | int    | 100                                                               |
+| Name      | Description                                                                      | Type    | Default value                                                     |
+| --------- | -------------------------------------------------------------------------------- | ------- | ----------------------------------------------------------------- |
+| fromAlias | The alias of the account to delegate IOTA tokens from                            | string  | ""                                                                |
+| toAddress | The account address of the account to delegate IOTA tokens to                    | string  | "rms1pzg8cqhfxqhq7pt37y8cs4v5u4kcc48lquy2k73ehsdhf5ukhya3y5rx2w6" |
+| amount    | The amount of mana to delegate                                                   | int     | 100                                                               |
+| checkPool | Check if the delegation is added to pool stake when the start epoch is committed | boolean | false                                                             |
 
 ### <a id="eviltools_accounts_update"></a> Update
 
@@ -259,10 +267,14 @@ Example:
           "startEpoch": 0,
           "endEpoch": 0
         },
+        "rewards": {
+          "alias": ""
+        },
         "delegate": {
           "fromAlias": "",
           "toAddress": "rms1pzg8cqhfxqhq7pt37y8cs4v5u4kcc48lquy2k73ehsdhf5ukhya3y5rx2w6",
-          "amount": 100
+          "amount": 100,
+          "checkPool": false
         },
         "update": {
           "alias": "",

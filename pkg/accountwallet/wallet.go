@@ -51,8 +51,9 @@ type AccountWallet struct {
 	GenesisAccount wallet.Account
 	seed           [32]byte
 
-	accountsAliases     map[string]*models.AccountData
-	accountAliasesMutex sync.RWMutex
+	accounts     map[string]*models.AccountData
+	delegations  map[string][]*models.Output
+	outputsMutex sync.RWMutex
 
 	latestUsedIndex atomic.Uint32
 
@@ -73,9 +74,9 @@ func NewAccountWallet(logger log.Logger, opts ...options.Option[AccountWallet]) 
 	var initErr error
 
 	return options.Apply(&AccountWallet{
-		Logger:          accountWalletLogger,
-		accountsAliases: make(map[string]*models.AccountData),
-		seed:            tpkg.RandEd25519Seed(),
+		Logger:   accountWalletLogger,
+		accounts: make(map[string]*models.AccountData),
+		seed:     tpkg.RandEd25519Seed(),
 	}, opts, func(w *AccountWallet) {
 		w.client, initErr = models.NewWebClient(w.optsClientBindAddress, w.optsFaucetURL)
 		if initErr != nil {
@@ -100,7 +101,7 @@ func NewAccountWallet(logger log.Logger, opts ...options.Option[AccountWallet]) 
 
 		// add genesis account
 		accountWalletLogger.LogDebugf("faucet initiated with %d tokens and %d mana", w.RequestTokenAmount, w.RequestManaAmount)
-		w.accountsAliases[GenesisAccountAlias] = &models.AccountData{
+		w.accounts[GenesisAccountAlias] = &models.AccountData{
 			Alias:    GenesisAccountAlias,
 			Status:   models.AccountReady,
 			OutputID: iotago.EmptyOutputID,
@@ -112,12 +113,12 @@ func NewAccountWallet(logger log.Logger, opts ...options.Option[AccountWallet]) 
 
 // toAccountStateFile write account states to file.
 func (a *AccountWallet) toAccountStateFile() error {
-	a.accountAliasesMutex.Lock()
-	defer a.accountAliasesMutex.Unlock()
+	a.outputsMutex.Lock()
+	defer a.outputsMutex.Unlock()
 
 	accounts := make([]*models.AccountState, 0)
 
-	for _, acc := range a.accountsAliases {
+	for _, acc := range a.accounts {
 		accounts = append(accounts, models.AccountStateFromAccountData(acc))
 	}
 
@@ -139,8 +140,8 @@ func (a *AccountWallet) toAccountStateFile() error {
 }
 
 func (a *AccountWallet) fromAccountStateFile() error {
-	a.accountAliasesMutex.Lock()
-	defer a.accountAliasesMutex.Unlock()
+	a.outputsMutex.Lock()
+	defer a.outputsMutex.Unlock()
 
 	walletStateBytes, err := os.ReadFile(a.optsAccountStatesFile)
 	if err != nil {
@@ -169,9 +170,9 @@ func (a *AccountWallet) fromAccountStateFile() error {
 
 	// account data
 	for _, acc := range data.AccountsData {
-		a.accountsAliases[acc.Alias] = acc.ToAccountData()
+		a.accounts[acc.Alias] = acc.ToAccountData()
 		if acc.Alias == GenesisAccountAlias {
-			a.accountsAliases[acc.Alias].Status = models.AccountReady
+			a.accounts[acc.Alias].Status = models.AccountReady
 		}
 	}
 
@@ -180,11 +181,11 @@ func (a *AccountWallet) fromAccountStateFile() error {
 
 //nolint:all,unused
 func (a *AccountWallet) registerAccount(alias string, accountID iotago.AccountID, outputID iotago.OutputID, index uint32, privateKey ed25519.PrivateKey) iotago.AccountID {
-	a.accountAliasesMutex.Lock()
-	defer a.accountAliasesMutex.Unlock()
+	a.outputsMutex.Lock()
+	defer a.outputsMutex.Unlock()
 
 	account := wallet.NewEd25519Account(accountID, privateKey)
-	a.accountsAliases[alias] = &models.AccountData{
+	a.accounts[alias] = &models.AccountData{
 		Alias:    alias,
 		Account:  account,
 		Status:   models.AccountPending,
@@ -197,12 +198,26 @@ func (a *AccountWallet) registerAccount(alias string, accountID iotago.AccountID
 }
 
 func (a *AccountWallet) deleteAccount(alias string) {
-	a.accountAliasesMutex.Lock()
-	defer a.accountAliasesMutex.Unlock()
+	a.outputsMutex.Lock()
+	defer a.outputsMutex.Unlock()
 
-	delete(a.accountsAliases, alias)
+	delete(a.accounts, alias)
 
 	a.LogDebugf("deleting account with alias %s", alias)
+}
+
+func (a *AccountWallet) registerDelegation(alias string, output *models.Output) {
+	a.outputsMutex.Lock()
+	defer a.outputsMutex.Unlock()
+
+	a.delegations[alias] = append(a.delegations[alias], output)
+}
+
+func (a *AccountWallet) deleteDelegation(alias string) {
+	a.outputsMutex.Lock()
+	defer a.outputsMutex.Unlock()
+
+	delete(a.delegations, alias)
 }
 
 // checkAccountStatus checks the status of the account by requesting all possible endpoints.
@@ -265,10 +280,10 @@ func (a *AccountWallet) checkAccountStatus(ctx context.Context, blkID iotago.Blo
 }
 
 func (a *AccountWallet) updateAccountStatus(alias string, status models.AccountStatus) (updated bool) {
-	a.accountAliasesMutex.Lock()
-	defer a.accountAliasesMutex.Unlock()
+	a.outputsMutex.Lock()
+	defer a.outputsMutex.Unlock()
 
-	accData, exists := a.accountsAliases[alias]
+	accData, exists := a.accounts[alias]
 	if !exists {
 		return false
 	}
@@ -278,7 +293,7 @@ func (a *AccountWallet) updateAccountStatus(alias string, status models.AccountS
 	}
 
 	accData.Status = status
-	a.accountsAliases[alias] = accData
+	a.accounts[alias] = accData
 
 	return true
 }
@@ -302,10 +317,10 @@ func (a *AccountWallet) GetReadyAccount(ctx context.Context, alias string) (*mod
 }
 
 func (a *AccountWallet) GetAccount(alias string) (*models.AccountData, error) {
-	a.accountAliasesMutex.RLock()
-	defer a.accountAliasesMutex.RUnlock()
+	a.outputsMutex.RLock()
+	defer a.outputsMutex.RUnlock()
 
-	accData, exists := a.accountsAliases[alias]
+	accData, exists := a.accounts[alias]
 	if !exists {
 		return nil, ierrors.Errorf("account with alias %s does not exist", alias)
 	}

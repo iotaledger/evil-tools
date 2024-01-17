@@ -123,7 +123,8 @@ func (e *EvilWallet) GetAccount(ctx context.Context, alias string) (wallet.Accou
 	return account.Account, nil
 }
 
-// CreateBlock creates a block with the freshly requested Congestion and Issuance data.
+// CreateBlock creates a block with the
+// update wallet with newly created output freshly requested Congestion and Issuance data.
 func (e *EvilWallet) CreateBlock(ctx context.Context, clt models.Client, payload iotago.Payload, issuer wallet.Account, strongParents ...iotago.BlockID) (*iotago.Block, error) {
 	congestionResp, issuerResp, version, err := e.accWallet.RequestBlockIssuanceData(ctx, clt, issuer)
 	if err != nil {

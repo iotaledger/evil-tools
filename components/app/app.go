@@ -29,8 +29,8 @@ func App() *app.App {
 	}
 	switch script {
 	case spammer.ScriptName:
-		components = append(components, spammer.Component)
 		components = append(components, accounts.Component)
+		components = append(components, spammer.Component)
 	case accounts.ScriptName:
 		components = append(components, accounts.Component)
 	case info.ScriptName:
@@ -44,7 +44,7 @@ Provide the first argument for the selected mode:
 	'%s' - tool for account creation and transition.
 	'%s' - listing details about stored accounts and node.
 
-Command line flags: %s`, os.Args[0], Name, Version, spammer.ScriptName, accounts.ScriptName, os.Args[0])),
+Command line flags: %s`, os.Args[0], Name, Version, spammer.ScriptName, accounts.ScriptName, info.ScriptName, os.Args[0])),
 		app.WithInitComponent(InitComponent),
 		app.WithComponents(components...),
 	)

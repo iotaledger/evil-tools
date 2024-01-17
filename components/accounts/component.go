@@ -4,6 +4,8 @@ import (
 	"context"
 	"os"
 
+	"go.uber.org/dig"
+
 	"github.com/iotaledger/evil-tools/pkg/accountwallet"
 	"github.com/iotaledger/hive.go/app"
 	"github.com/iotaledger/hive.go/ierrors"
@@ -15,20 +17,49 @@ const (
 
 func init() {
 	Component = &app.Component{
-		Name:   "Accounts",
-		Params: params,
-		Run:    run,
+		Name:     "Accounts",
+		Params:   params,
+		DepsFunc: func(cDeps dependencies) { deps = cDeps },
+		Run:      run,
+		Provide: func(c *dig.Container) error {
+			return c.Provide(provideWallet)
+		},
+		IsEnabled: func(_ *dig.Container) bool { return true },
 	}
 }
 
 var (
 	Component *app.Component
+	deps      dependencies
 )
+
+type dependencies struct {
+	dig.In
+
+	AccountWallet *accountwallet.AccountWallet
+}
 
 func run() error {
 	Component.LogInfo("Starting evil-tools accounts ... done")
+	// save wallet state on shutdown
+	defer func() {
+		err := accountwallet.SaveState(deps.AccountWallet)
+		if err != nil {
+			Component.LogErrorf("Error while saving wallet state: %v", err)
+		}
+	}()
 
-	var accWallet *accountwallet.AccountWallet
+	accountsSubcommandsFlags := parseAccountCommands(getCommands(os.Args[2:]), ParamsAccounts)
+	accountsSubcommands(
+		Component.Daemon().ContextStopped(),
+		deps.AccountWallet,
+		accountsSubcommandsFlags,
+	)
+
+	return nil
+}
+
+func provideWallet() *accountwallet.AccountWallet {
 	// load wallet
 	accWallet, err := accountwallet.Run(Component.Logger,
 		accountwallet.WithClientURL(ParamsAccounts.NodeURLs[0]),
@@ -40,37 +71,11 @@ func run() error {
 		}),
 	)
 	if err != nil {
-		Component.LogFatal(ierrors.Wrap(err, "failed to init account wallet").Error())
+		Component.LogPanic(err.Error())
 	}
 
-	// save wallet state on shutdown
-	defer func() {
-		err = accountwallet.SaveState(accWallet)
-		if err != nil {
-			Component.LogErrorf("Error while saving wallet state: %v", err)
-		}
-	}()
-
-	accountsSubcommandsFlags := parseAccountCommands(getCommands(os.Args[2:]), ParamsAccounts)
-	accountsSubcommands(
-		Component.Daemon().ContextStopped(),
-		accWallet,
-		accountsSubcommandsFlags,
-	)
-
-	return nil
+	return accWallet
 }
-
-// TODO provide account wallet
-//func provide(c *dig.Container) error {
-//	if err := c.Provide(func() *accountwallet.AccountWallet {
-//		return nil
-//	}); err != nil {
-//		Component.LogPanic(err.Error())
-//	}
-//
-//	return nil
-//}
 
 func accountsSubcommands(ctx context.Context, wallet *accountwallet.AccountWallet, subcommands []accountwallet.AccountSubcommands) {
 	for _, sub := range subcommands {
@@ -90,9 +95,9 @@ func accountsSubcommand(ctx context.Context, wallet *accountwallet.AccountWallet
 	switch subCommand.Type() {
 	case accountwallet.OperationCreateAccount:
 		//nolint:forcetypassert // we can safely assume that the type is correct
-		params := subCommand.(*accountwallet.CreateAccountParams)
+		accParams := subCommand.(*accountwallet.CreateAccountParams)
 
-		accountID, err := wallet.CreateAccount(ctx, params)
+		accountID, err := wallet.CreateAccount(ctx, accParams)
 		if err != nil {
 			return ierrors.Wrap(err, "failed to create account")
 		}
@@ -101,9 +106,9 @@ func accountsSubcommand(ctx context.Context, wallet *accountwallet.AccountWallet
 
 	case accountwallet.OperationDestroyAccount:
 		//nolint:forcetypassert // we can safely assume that the type is correct
-		params := subCommand.(*accountwallet.DestroyAccountParams)
+		accParams := subCommand.(*accountwallet.DestroyAccountParams)
 
-		if err := wallet.DestroyAccount(ctx, params); err != nil {
+		if err := wallet.DestroyAccount(ctx, accParams); err != nil {
 			return ierrors.Wrap(err, "failed to destroy account")
 		}
 
@@ -114,9 +119,9 @@ func accountsSubcommand(ctx context.Context, wallet *accountwallet.AccountWallet
 
 	case accountwallet.OperationAllotAccount:
 		//nolint:forcetypassert // we can safely assume that the type is correct
-		params := subCommand.(*accountwallet.AllotAccountParams)
+		accParams := subCommand.(*accountwallet.AllotAccountParams)
 
-		if err := wallet.AllotToAccount(params); err != nil {
+		if err := wallet.AllotToAccount(accParams); err != nil {
 			return ierrors.Wrap(err, "failed to allot to account")
 		}
 	default:

@@ -173,6 +173,9 @@ func (a *AccountWallet) createDelegationOutputs(inputAmount iotago.BaseToken, de
 			return nil, ierrors.Wrap(err, "failed to build remainder output")
 		}
 		remainderModelOutput, err := models.NewOutputWithEmptyID(api, ownerAddress, index, privateKey, remainderOutput)
+		if err != nil {
+			return nil, ierrors.Wrap(err, "failed to create model output for remainder output")
+		}
 		outputs = append(outputs, remainderModelOutput)
 		a.LogDebugf("Created remainder basic output with amount %d", remainder)
 	}

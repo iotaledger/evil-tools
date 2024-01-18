@@ -1,10 +1,6 @@
 package utils
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/lo"
 	iotago "github.com/iotaledger/iota.go/v4"
@@ -28,23 +24,6 @@ func SplitBalanceEqually[T iotago.BaseToken | iotago.Mana](splitNumber int, bala
 	outputBalances = append(outputBalances, lastBalance)
 
 	return outputBalances
-}
-
-func SprintTransaction(api iotago.API, tx *iotago.SignedTransaction) string {
-	jsonBytes, err := api.JSONEncode(tx)
-	if err != nil {
-		return ""
-	}
-	var out bytes.Buffer
-	//nolint:errcheck
-	json.Indent(&out, jsonBytes, "", "  ")
-
-	txDetails := ""
-	txDetails += fmt.Sprintf("\tSigned Transaction ID: %s, txID: %s, slotCreation: %d\n", lo.PanicOnErr(tx.ID()).ToHex(), lo.PanicOnErr(tx.Transaction.ID()).ToHex(), tx.Transaction.CreationSlot)
-
-	txDetails += out.String()
-
-	return txDetails
 }
 
 func SumOutputsBalance(outputs []*models.Output) iotago.BaseToken {
@@ -94,29 +73,6 @@ func PrepareDummyTransactionBuilder(api iotago.API, basicInputCount, basicOutput
 	}
 
 	return txBuilder
-}
-
-func SprintAccount(acc *iotago.AccountOutput) string {
-	accountStr := ""
-	accountStr += fmt.Sprintf("Account ID: %s\n", acc.AccountID.ToHex())
-	accountStr += fmt.Sprintf("Account token balance: %d\n", acc.Amount)
-	accountStr += fmt.Sprintf("Account stored mana: %d\n", acc.Mana)
-
-	blockIssuerFeature := acc.FeatureSet().BlockIssuer()
-	if blockIssuerFeature != nil {
-		accountStr += fmt.Sprintf("Block Issuer Feature, number of keys: %d\n", len(blockIssuerFeature.BlockIssuerKeys))
-	}
-	stakingFeature := acc.FeatureSet().Staking()
-	if stakingFeature != nil {
-		accountStr += "Staking Feature, number of keys:\n"
-		accountStr += fmt.Sprintf("Staked Amount: %d, Fixed Cost: %d, Start Epoch Start: %d, End Epoch: %d", stakingFeature.StakedAmount, stakingFeature.FixedCost, stakingFeature.StartEpoch, stakingFeature.EndEpoch)
-	}
-
-	return accountStr
-}
-
-func SprintAvailableManaResult(results *builder.AvailableManaResult) string {
-	return fmt.Sprintf("Available mana results:\nTotal: %d Unbound: %d\nPotential:%d Unbound: %d\nStored: %d Undound: %d", results.TotalMana, results.UnboundMana, results.PotentialMana, results.UnboundPotentialMana, results.StoredMana, results.UnboundStoredMana)
 }
 
 func MinIssuerAccountAmount(protocolParameters iotago.ProtocolParameters) iotago.BaseToken {

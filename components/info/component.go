@@ -2,7 +2,6 @@ package info
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"go.uber.org/dig"
@@ -53,16 +52,19 @@ func run() error {
 
 //nolint:all,forcetypassert
 func infoSubcommand(ctx context.Context, manager *info.Manager, subCommand Command) error {
-
 	switch subCommand {
 	case CommandCommittee:
-		if err := manager.RequestCommittee(ctx); err != nil {
+		if err := manager.CommitteeInfo(ctx); err != nil {
 			return ierrors.Wrapf(err, "error while requesting committee endpoint")
 		}
-	case CommandStakers:
-		fmt.Printf("CommandStakers\n")
+	case CommandValidators:
+		if err := manager.ValidatorsInfo(ctx); err != nil {
+			return ierrors.Wrapf(err, "error while requesting stakers endpoint")
+		}
 	case CommandAccounts:
-		fmt.Printf("CommandAccounts\n")
+		if err := manager.AccountsInfo(); err != nil {
+			return ierrors.Wrapf(err, "error while requesting accounts endpoint")
+		}
 	}
 
 	return nil

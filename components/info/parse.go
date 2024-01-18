@@ -13,16 +13,16 @@ func (a Command) String() string {
 }
 
 const (
-	CommandCommittee Command = "committee"
-	CommandStakers   Command = "stakers"
-	CommandAccounts  Command = "accounts"
+	CommandCommittee  Command = "committee"
+	CommandValidators Command = "validators"
+	CommandAccounts   Command = "accounts"
 )
 
 func availableCommands(cmd string) bool {
 	cmds := map[string]types.Empty{
-		CommandCommittee.String(): types.Void,
-		CommandStakers.String():   types.Void,
-		CommandAccounts.String():  types.Void,
+		CommandCommittee.String():  types.Void,
+		CommandValidators.String(): types.Void,
+		CommandAccounts.String():   types.Void,
 	}
 
 	_, ok := cmds[cmd]
@@ -60,8 +60,8 @@ func parseInfoCommands(commands []string) []Command {
 		case CommandCommittee.String():
 			parsedCmds = append(parsedCmds, CommandCommittee)
 
-		case CommandStakers.String():
-			parsedCmds = append(parsedCmds, CommandStakers)
+		case CommandValidators.String():
+			parsedCmds = append(parsedCmds, CommandValidators)
 
 		case CommandAccounts.String():
 			parsedCmds = append(parsedCmds, CommandAccounts)

@@ -24,11 +24,13 @@ func (a *AccountWallet) ListAccount() error {
 	a.accountAliasesMutex.RLock()
 	defer a.accountAliasesMutex.RUnlock()
 
-	fmt.Printf("%-10s \t%-33s\n\n", "Alias", "AccountID")
+	hrp := a.API.ProtocolParameters().Bech32HRP()
+
 	for _, accData := range a.accountsAliases {
-		fmt.Printf("%-10s \t", accData.Alias)
-		fmt.Printf("%-33s ", accData.Account.Address().AccountID().ToHex())
-		fmt.Printf("\n")
+		fmt.Printf("----------\n")
+		fmt.Printf("%-10s %-33s\n", "Alias", accData.Alias)
+		fmt.Printf("%-10s %-33s\n", "AccountID", accData.Account.Address().AccountID().ToHex())
+		fmt.Printf("%-10s %-33s\n", "Bech32", accData.Account.Address().Bech32(hrp))
 	}
 
 	return nil

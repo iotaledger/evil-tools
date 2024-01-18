@@ -397,5 +397,16 @@ func (c *WebClient) GetCommittee(ctx context.Context) (*api.CommitteeResponse, e
 }
 
 func (c *WebClient) GetValidators(ctx context.Context) (*api.ValidatorsResponse, error) {
+	// TODO add cursor query param to node client validators method
+	//validators := make([]*api.ValidatorResponse, 0)
+	//resp, err := c.client.Validators(ctx)
+	//if err != nil {
+	//	return validators, err
+	//}
+	//validators = append(validators, resp.Validators...)
+	//if resp.Cursor == "" {
+	//	// this is the lat page
+	//	return validators, nil
+	//}
 	return c.client.Validators(ctx)
 }

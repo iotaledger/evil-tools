@@ -3,6 +3,7 @@ package accountwallet
 import (
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/ds/types"
+	iotago "github.com/iotaledger/iota.go/v4"
 )
 
 // commands
@@ -16,6 +17,7 @@ const (
 	OperationAllotAccount    AccountOperation = "allot"
 	OperationDelegateAccount AccountOperation = "delegate"
 	OperationStakeAccount    AccountOperation = "stake"
+	OperationRewards         AccountOperation = "rewards"
 	OperationUpdateAccount   AccountOperation = "update"
 )
 
@@ -81,9 +83,9 @@ func (d *ConvertAccountParams) Type() AccountOperation {
 }
 
 type DelegateAccountParams struct {
-	Amount uint64
-	To     string
-	From   string // if not set we use faucet
+	Amount    iotago.BaseToken
+	ToAddress string
+	FromAlias string
 }
 
 func (a *DelegateAccountParams) Type() AccountOperation {
@@ -100,6 +102,14 @@ type StakeAccountParams struct {
 
 func (a *StakeAccountParams) Type() AccountOperation {
 	return OperationStakeAccount
+}
+
+type RewardsAccountParams struct {
+	Alias string
+}
+
+func (a *RewardsAccountParams) Type() AccountOperation {
+	return OperationRewards
 }
 
 type UpdateAccountParams struct {

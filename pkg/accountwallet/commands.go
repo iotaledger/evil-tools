@@ -21,12 +21,12 @@ func (a *AccountWallet) DestroyAccount(ctx context.Context, params *DestroyAccou
 }
 
 func (a *AccountWallet) ListAccount() error {
-	a.accountAliasesMutex.RLock()
-	defer a.accountAliasesMutex.RUnlock()
+	a.outputsMutex.RLock()
+	defer a.outputsMutex.RUnlock()
 
 	hrp := a.API.ProtocolParameters().Bech32HRP()
 
-	for _, accData := range a.accountsAliases {
+	for _, accData := range a.accounts {
 		fmt.Printf("----------\n")
 		fmt.Printf("%-10s %-33s\n", "Alias", accData.Alias)
 		fmt.Printf("%-10s %-33s\n", "AccountID", accData.Account.Address().AccountID().ToHex())
@@ -38,4 +38,12 @@ func (a *AccountWallet) ListAccount() error {
 
 func (a *AccountWallet) AllotToAccount(_ *AllotAccountParams) error {
 	return nil
+}
+
+func (a *AccountWallet) DelegateToAccount(ctx context.Context, params *DelegateAccountParams) error {
+	return a.delegateToAccount(ctx, params)
+}
+
+func (a *AccountWallet) Rewards(ctx context.Context, params *RewardsAccountParams) error {
+	return a.rewards(ctx, params)
 }

@@ -205,6 +205,10 @@ type Client interface {
 	GetCommittee(ctx context.Context) (*api.CommitteeResponse, error)
 	// GetValidators returns the validators for the current epoch.
 	GetValidators(ctx context.Context) (*api.ValidatorsResponse, error)
+	// GetStaking returns the staking data of a given accountAddress.
+	GetStaking(ctx context.Context, accountAddress *iotago.AccountAddress) (resp *api.ValidatorResponse, err error)
+	// GetRewards returns the rewards of a given outputID.
+	GetRewards(ctx context.Context, outputID iotago.OutputID) (resp *api.ManaRewardsResponse, err error)
 
 	iotago.APIProvider
 }
@@ -409,4 +413,12 @@ func (c *WebClient) GetValidators(ctx context.Context) (*api.ValidatorsResponse,
 	//	return validators, nil
 	//}
 	return c.client.Validators(ctx)
+}
+
+func (c *WebClient) GetStaking(ctx context.Context, accountAddress *iotago.AccountAddress) (resp *api.ValidatorResponse, err error) {
+	return c.client.StakingAccount(ctx, accountAddress)
+}
+
+func (c *WebClient) GetRewards(ctx context.Context, outputID iotago.OutputID) (resp *api.ManaRewardsResponse, err error) {
+	return c.client.Rewards(ctx, outputID)
 }

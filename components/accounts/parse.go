@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/evil-tools/pkg/accountwallet"
 	"github.com/iotaledger/hive.go/ierrors"
+	iotago "github.com/iotaledger/iota.go/v4"
 )
 
 // getCommands gets the commands and ignores the parameters passed via command line.
@@ -181,9 +182,9 @@ func parseDelegateAccountFlags(paramsAccountDelegate *ParametersAccountsDelegate
 	}
 
 	return &accountwallet.DelegateAccountParams{
-		From:   paramsAccountDelegate.FromAccount,
-		To:     paramsAccountDelegate.ToAccount,
-		Amount: uint64(paramsAccountDelegate.Amount),
+		FromAlias: paramsAccountDelegate.FromAlias,
+		ToAddress: paramsAccountDelegate.ToAddress,
+		Amount:    iotago.BaseToken(paramsAccountDelegate.Amount),
 	}, nil
 }
 

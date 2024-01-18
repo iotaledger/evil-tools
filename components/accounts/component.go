@@ -119,6 +119,23 @@ func accountsSubcommand(ctx context.Context, wallet *accountwallet.AccountWallet
 		if err := wallet.AllotToAccount(accParams); err != nil {
 			return ierrors.Wrap(err, "failed to allot to account")
 		}
+
+	case accountwallet.OperationDelegateAccount:
+		//nolint:forcetypassert // we can safely assume that the type is correct
+		params := subCommand.(*accountwallet.DelegateAccountParams)
+
+		if err := wallet.DelegateToAccount(ctx, params); err != nil {
+			return ierrors.Wrap(err, "failed to delegate to account")
+		}
+
+	case accountwallet.OperationRewards:
+		//nolint:forcetypassert // we can safely assume that the type is correct
+		params := subCommand.(*accountwallet.RewardsAccountParams)
+
+		if err := wallet.Rewards(ctx, params); err != nil {
+			return ierrors.Wrap(err, "failed to rewards account")
+		}
+
 	default:
 		return ierrors.New("unknown subcommand")
 	}

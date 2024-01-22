@@ -10,15 +10,15 @@ func (a *AccountWallets) rewards(ctx context.Context, params *RewardsAccountPara
 	// first, get the account output if this alias has one and check if it has validator rewards
 	accData, err := a.GetAccount(params.Alias)
 	if err != nil {
-		return ierrors.Wrap(err, "failed to get account")
-	}
-	validatorReward, err := a.client.GetRewards(ctx, accData.OutputID)
-	if err != nil {
-		a.LogInfof("Could not get rewards for account %s: %v", params.Alias, err)
+		a.LogInfof("Could not get account %s: %v", params.Alias, err)
 	} else {
-		a.LogInfof("Account %s has %d Mana rewards ready to be claimed", params.Alias, validatorReward.Rewards)
+		validatorReward, err := a.client.GetRewards(ctx, accData.OutputID)
+		if err != nil {
+			a.LogInfof("Could not get rewards for account %s: %v", params.Alias, err)
+		} else {
+			a.LogInfof("Account %s has %d Mana rewards ready to be claimed", params.Alias, validatorReward.Rewards)
+		}
 	}
-
 	// next get the rewards for any delegation under this alias
 	delegations, err := a.GetDelegations(params.Alias)
 	if err != nil {

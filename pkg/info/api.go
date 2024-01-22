@@ -29,7 +29,5 @@ func (m *Manager) ValidatorsInfo(ctx context.Context) error {
 }
 
 func (m *Manager) AccountsInfo() error {
-	m.accWallet.ListAccount()
-
-	return nil
+	return m.accWallet.ListAccount()
 }

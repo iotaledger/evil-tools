@@ -25,7 +25,7 @@ func SprintCommittee(resp *api.CommitteeResponse) string {
 }
 
 func SprintCommitteeMember(resp *api.CommitteeMemberResponse) string {
-	t := fmt.Sprintf("----> Committee Member:\n")
+	t := "----> Committee Member:\n"
 	t += fmt.Sprintf("Address Bech: %s\n", resp.AddressBech32)
 	t += fmt.Sprintf("Pool Stake: %d\n", resp.PoolStake)
 	t += fmt.Sprintf("Validator Stake: %d\n", resp.ValidatorStake)
@@ -38,7 +38,7 @@ func SprintValidators(resp *api.ValidatorsResponse) string {
 	if len(resp.Validators) == 0 {
 		return "There are no registered validators!"
 	}
-	t := fmt.Sprint("Validators: \n")
+	t := "Validators: \n"
 	for _, validator := range resp.Validators {
 		t += SprintValidator(validator)
 	}
@@ -53,7 +53,7 @@ func SprintValidator(resp *api.ValidatorResponse) string {
 	t += fmt.Sprintf("Pool Stake: %d\n", resp.PoolStake)
 	t += fmt.Sprintf("Validator Stake: %d\n", resp.ValidatorStake)
 	t += fmt.Sprintf("Fixed Cost: %d\n", resp.FixedCost)
-	t += fmt.Sprintf("Active: %d\n", resp.Active)
+	t += fmt.Sprintf("Active: %v\n", resp.Active)
 
 	return t
 }

@@ -237,7 +237,7 @@ func (s *Spammer) StopSpamming() {
 	s.State.logTicker.Stop()
 }
 
-func (s *Spammer) PrepareBlock(ctx context.Context, issuanceData *models.PayloadIssuanceData, issuerAlias string, clt models.Client, strongParents ...iotago.BlockID) *iotago.Block {
+func (s *Spammer) PrepareBlock(ctx context.Context, issuanceData *models.PayloadIssuanceData, clt models.Client, strongParents ...iotago.BlockID) *iotago.Block {
 	if issuanceData.Payload == nil {
 		s.logError(ErrPayloadIsNil)
 		s.ErrCounter.CountError(ErrPayloadIsNil)
@@ -262,7 +262,7 @@ func (s *Spammer) PrepareBlock(ctx context.Context, issuanceData *models.Payload
 	return block
 }
 
-func (s *Spammer) PrepareAndPostBlock(ctx context.Context, issuanceData *models.PayloadIssuanceData, issuerAlias string, clt models.Client) iotago.BlockID {
+func (s *Spammer) PrepareAndPostBlock(ctx context.Context, issuanceData *models.PayloadIssuanceData, clt models.Client) iotago.BlockID {
 	if issuanceData.Payload == nil && issuanceData.TransactionBuilder == nil {
 		s.logError(ErrPayloadIsNil)
 		s.ErrCounter.CountError(ErrPayloadIsNil)

@@ -17,7 +17,7 @@ const (
 	OperationAllotAccount    AccountOperation = "allot"
 	OperationDelegateAccount AccountOperation = "delegate"
 	OperationStakeAccount    AccountOperation = "stake"
-	OperationRewards         AccountOperation = "rewards"
+	OperationRewardsAccount         AccountOperation = "rewards"
 	OperationUpdateAccount   AccountOperation = "update"
 )
 
@@ -33,6 +33,7 @@ func AvailableCommands(cmd string) bool {
 		OperationAllotAccount.String():    types.Void,
 		OperationDelegateAccount.String(): types.Void,
 		OperationStakeAccount.String():    types.Void,
+		OperationRewardsAccount.String():    types.Void,
 		OperationUpdateAccount.String():   types.Void,
 	}
 
@@ -86,6 +87,7 @@ type DelegateAccountParams struct {
 	Amount    iotago.BaseToken
 	ToAddress string
 	FromAlias string
+	CheckPool bool
 }
 
 func (a *DelegateAccountParams) Type() AccountOperation {
@@ -133,7 +135,5 @@ func (a *NoAccountParams) Type() AccountOperation {
 }
 
 type StateData struct {
-	Seed          string                 `serix:",lenPrefix=uint8"`
-	LastUsedIndex uint32                 `serix:""`
-	AccountsData  []*models.AccountState `serix:"accounts,lenPrefix=uint8"`
+	Wallets []*models.WalletState `serix:"wallets,lenPrefix=uint8"`
 }

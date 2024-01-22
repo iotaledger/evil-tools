@@ -114,8 +114,8 @@ func (e *EvilWallet) RemoveClient(clientURL string) {
 	e.connector.RemoveClient(clientURL)
 }
 
-func (e *EvilWallet) GetAccount(ctx context.Context, alias string) (wallet.Account, error) {
-	account, err := e.accWallet.GetReadyAccount(ctx, alias)
+func (e *EvilWallet) GetAccount(ctx context.Context) (wallet.Account, error) {
+	account, err := e.accWallet.GetReadyAccount(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -281,8 +281,8 @@ func (e *EvilWallet) CreateTransaction(ctx context.Context, options ...Option) (
 }
 
 // addOutputsToOutputManager adds output to the OutputManager.
-func (e *EvilWallet) addOutputsToOutputManager(outputs []iotago.Output, outWallet, tmpWallet *Wallet, tempAddresses map[string]types.Empty) []*models.Output {
-	modelOutputs := make([]*models.Output, 0)
+func (e *EvilWallet) addOutputsToOutputManager(outputs []iotago.Output, outWallet, tmpWallet *Wallet, tempAddresses map[string]types.Empty) []*models.OutputData {
+	modelOutputs := make([]*models.OutputData, 0)
 	for _, out := range outputs {
 		if out.UnlockConditionSet().Address() == nil {
 			continue
@@ -291,7 +291,7 @@ func (e *EvilWallet) addOutputsToOutputManager(outputs []iotago.Output, outWalle
 		// register UnlockConditionAddress only (skip account outputs)
 		addr := out.UnlockConditionSet().Address().Address
 
-		var output *models.Output
+		var output *models.OutputData
 		// outputs in the middle of the scenario structure are created with tempWallet,
 		//only outputs that are not used in the scenario structure are added to the outWaller and can be reused.
 		if _, ok := tempAddresses[addr.String()]; ok {
@@ -332,7 +332,7 @@ func (e *EvilWallet) updateInputWallet(buildOptions *Options) error {
 }
 
 // registerOutputAliases adds models.Output references to their aliases to the AliasManager.
-func (e *EvilWallet) registerOutputAliases(outputs []*models.Output, idAliasMap map[models.TempOutputID]string) {
+func (e *EvilWallet) registerOutputAliases(outputs []*models.OutputData, idAliasMap map[models.TempOutputID]string) {
 	if len(idAliasMap) == 0 {
 		return
 	}
@@ -347,7 +347,7 @@ func (e *EvilWallet) registerOutputAliases(outputs []*models.Output, idAliasMap 
 	}
 }
 
-func (e *EvilWallet) prepareInputs(buildOptions *Options) (inputs []*models.Output, err error) {
+func (e *EvilWallet) prepareInputs(buildOptions *Options) (inputs []*models.OutputData, err error) {
 	// case 1, inputs provided
 	if buildOptions.areInputsProvidedWithoutAliases() {
 		inputs = append(inputs, buildOptions.inputs...)
@@ -381,7 +381,7 @@ func (e *EvilWallet) prepareOutputs(ctx context.Context, buildOptions *Options, 
 
 // matchInputsWithAliases gets input from the alias manager. if input was not assigned to an alias before,
 // it assigns a new Fresh faucet output.
-func (e *EvilWallet) matchInputsWithAliases(buildOptions *Options) (inputs []*models.Output, err error) {
+func (e *EvilWallet) matchInputsWithAliases(buildOptions *Options) (inputs []*models.OutputData, err error) {
 	// get inputs by alias
 	for inputAlias := range buildOptions.aliasInputs {
 		in, ok := e.aliasManager.GetInput(inputAlias)
@@ -462,7 +462,7 @@ func (e *EvilWallet) matchOutputsWithAliases(ctx context.Context, buildOptions *
 	return
 }
 
-func (e *EvilWallet) prepareRemainderOutput(inputs []*models.Output, outputs []iotago.Output) (alias string, remainderOutput iotago.Output, added bool) {
+func (e *EvilWallet) prepareRemainderOutput(inputs []*models.OutputData, outputs []iotago.Output) (alias string, remainderOutput iotago.Output, added bool) {
 	inputBalance := iotago.BaseToken(0)
 
 	var remainderAddress iotago.Address
@@ -536,7 +536,7 @@ func (e *EvilWallet) updateOutputBalances(ctx context.Context, buildOptions *Opt
 	return
 }
 
-func (e *EvilWallet) prepareTransactionBuild(inputs []*models.Output, outputs iotago.Outputs[iotago.Output], w *Wallet) (tx *builder.TransactionBuilder, keys []iotago.AddressKeys) {
+func (e *EvilWallet) prepareTransactionBuild(inputs []*models.OutputData, outputs iotago.Outputs[iotago.Output], w *Wallet) (tx *builder.TransactionBuilder, keys []iotago.AddressKeys) {
 	clt := e.Connector().GetClient()
 	currentTime := time.Now()
 	targetSlot := clt.LatestAPI().TimeProvider().SlotFromTime(currentTime)

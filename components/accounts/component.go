@@ -36,14 +36,14 @@ var (
 type dependencies struct {
 	dig.In
 
-	AccountWallet *accountwallet.AccountWallet
+	AccountWallets *accountwallet.AccountWallets
 }
 
 func run() error {
 	Component.LogInfo("Starting evil-tools accounts ... done")
 	// save wallet state on shutdown
 	defer func() {
-		err := accountwallet.SaveState(deps.AccountWallet)
+		err := accountwallet.SaveState(deps.AccountWallets)
 		if err != nil {
 			Component.LogErrorf("Error while saving wallet state: %v", err)
 		}
@@ -52,14 +52,14 @@ func run() error {
 	accountsSubcommandsFlags := parseAccountCommands(getCommands(os.Args[2:]), ParamsAccounts)
 	accountsSubcommands(
 		Component.Daemon().ContextStopped(),
-		deps.AccountWallet,
+		deps.AccountWallets,
 		accountsSubcommandsFlags,
 	)
 
 	return nil
 }
 
-func provideWallet() *accountwallet.AccountWallet {
+func provideWallet() *accountwallet.AccountWallets {
 	// load wallet
 	accWallet, err := accountwallet.Run(Component.Logger,
 		accountwallet.WithClientURL(ParamsAccounts.NodeURLs[0]),
@@ -77,9 +77,9 @@ func provideWallet() *accountwallet.AccountWallet {
 	return accWallet
 }
 
-func accountsSubcommands(ctx context.Context, wallet *accountwallet.AccountWallet, subcommands []accountwallet.AccountSubcommands) {
+func accountsSubcommands(ctx context.Context, wallets *accountwallet.AccountWallets, subcommands []accountwallet.AccountSubcommands) {
 	for _, sub := range subcommands {
-		err := accountsSubcommand(ctx, wallet, sub)
+		err := accountsSubcommand(ctx, wallets, sub)
 		if err != nil {
 			Component.LogFatal(ierrors.Wrap(err, "failed to run subcommand").Error())
 
@@ -89,7 +89,7 @@ func accountsSubcommands(ctx context.Context, wallet *accountwallet.AccountWalle
 }
 
 //nolint:all,forcetypassert
-func accountsSubcommand(ctx context.Context, wallet *accountwallet.AccountWallet, subCommand accountwallet.AccountSubcommands) error {
+func accountsSubcommand(ctx context.Context, wallets *accountwallet.AccountWallets, subCommand accountwallet.AccountSubcommands) error {
 	Component.LogInfof("Run subcommand: %s, with parameter set: %v", subCommand.Type().String(), subCommand)
 
 	switch subCommand.Type() {
@@ -97,7 +97,7 @@ func accountsSubcommand(ctx context.Context, wallet *accountwallet.AccountWallet
 		//nolint:forcetypassert // we can safely assume that the type is correct
 		accParams := subCommand.(*accountwallet.CreateAccountParams)
 
-		accountID, err := wallet.CreateAccount(ctx, accParams)
+		accountID, err := wallets.CreateAccount(ctx, accParams)
 		if err != nil {
 			return ierrors.Wrap(err, "failed to create account")
 		}
@@ -108,7 +108,7 @@ func accountsSubcommand(ctx context.Context, wallet *accountwallet.AccountWallet
 		//nolint:forcetypassert // we can safely assume that the type is correct
 		accParams := subCommand.(*accountwallet.DestroyAccountParams)
 
-		if err := wallet.DestroyAccount(ctx, accParams); err != nil {
+		if err := wallets.DestroyAccount(ctx, accParams); err != nil {
 			return ierrors.Wrap(err, "failed to destroy account")
 		}
 
@@ -117,6 +117,7 @@ func accountsSubcommand(ctx context.Context, wallet *accountwallet.AccountWallet
 		accParams := subCommand.(*accountwallet.AllotAccountParams)
 
 		if err := wallet.AllotToAccount(accParams); err != nil {
+		if err := wallets.AllotToAccount(params); err != nil {
 			return ierrors.Wrap(err, "failed to allot to account")
 		}
 
@@ -124,7 +125,7 @@ func accountsSubcommand(ctx context.Context, wallet *accountwallet.AccountWallet
 		//nolint:forcetypassert // we can safely assume that the type is correct
 		params := subCommand.(*accountwallet.DelegateAccountParams)
 
-		if err := wallet.DelegateToAccount(ctx, params); err != nil {
+		if err := wallets.DelegateToAccount(ctx, params); err != nil {
 			return ierrors.Wrap(err, "failed to delegate to account")
 		}
 
@@ -132,8 +133,8 @@ func accountsSubcommand(ctx context.Context, wallet *accountwallet.AccountWallet
 		//nolint:forcetypassert // we can safely assume that the type is correct
 		params := subCommand.(*accountwallet.RewardsAccountParams)
 
-		if err := wallet.Rewards(ctx, params); err != nil {
-			return ierrors.Wrap(err, "failed to rewards account")
+		if err := wallets.Rewards(ctx, params); err != nil {
+			return ierrors.Wrap(err, "failed to get rewards")
 		}
 
 	default:

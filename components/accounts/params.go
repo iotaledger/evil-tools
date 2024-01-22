@@ -34,10 +34,15 @@ type (
 		EndEpoch   int64  `default:"0" usage:"The end epoch of the account to stake"`
 	}
 
+	ParametersRewards struct {
+		Alias string `default:"" usage:"The alias name of the wallet to get rewards for"`
+	}
+
 	ParametersAccountsDelegate struct {
 		FromAlias string `default:"" usage:"The alias of the account to delegate IOTA tokens from"`
 		ToAddress string `default:"rms1pzg8cqhfxqhq7pt37y8cs4v5u4kcc48lquy2k73ehsdhf5ukhya3y5rx2w6" usage:"The account address of the account to delegate IOTA tokens to"`
 		Amount    int64  `default:"100" usage:"The amount of mana to delegate"`
+		CheckPool bool   `default:"false" usage:"Check if the delegation is added to pool stake when the start epoch is committed"`
 	}
 
 	ParametersAccountsUpdate struct {
@@ -66,6 +71,7 @@ type (
 		Destroy  ParametersAccountsDestroy
 		Allot    ParametersAccountsAllot
 		Stake    ParametersAccountsStake
+		Rewards  ParametersRewards
 		Delegate ParametersAccountsDelegate
 		Update   ParametersAccountsUpdate
 		Info     ParameterAccountsInfo

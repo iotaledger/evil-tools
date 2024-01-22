@@ -75,7 +75,14 @@ func parseAccountCommands(commands []string, paramsAccounts *ParametersAccounts)
 			}
 			parsedCmds = append(parsedCmds, stakingAccountParams)
 
-		case accountwallet.OperationUpdateAccount.String():
+		case AccountSubCommandRewards.String():
+			rewardsParams, err := parseRewardsFlags(&paramsAccounts.Rewards)
+			if err != nil {
+				continue
+			}
+			parsedCmds = append(parsedCmds, rewardsParams)
+
+		case AccountSubCommandUpdate.String():
 			updateAccountParams, err := parseUpdateAccountFlags(&paramsAccounts.Update)
 			if err != nil {
 				continue
@@ -110,6 +117,9 @@ func accountUsage() {
 
 	fmt.Printf("COMMAND: %s\n", accountwallet.OperationStakeAccount)
 	_, _ = parseStakeAccountFlags(nil)
+
+	fmt.Printf("COMMAND: %s\n", accountwallet.CmdNameRewards)
+	_, _ = parseRewardsFlags(nil)
 }
 
 func parseCreateAccountParams(paramsAccountCreate *ParametersAccountsCreate) (*accountwallet.CreateAccountParams, error) {
@@ -176,6 +186,16 @@ func parseStakeAccountFlags(paramsAccountStake *ParametersAccountsStake) (*accou
 	}, nil
 }
 
+func parseRewardsFlags(paramsRewards *accountwallet.ParametersRewards) (*accountwallet.RewardsAccountParams, error) {
+	if paramsRewards == nil {
+		return nil, ierrors.New("paramsRewards missing for rewards account")
+	}
+
+	return &accountwallet.RewardsAccountParams{
+		Alias: paramsRewards.Alias,
+	}, nil
+}
+
 func parseDelegateAccountFlags(paramsAccountDelegate *ParametersAccountsDelegate) (*accountwallet.DelegateAccountParams, error) {
 	if paramsAccountDelegate == nil {
 		return nil, ierrors.New("paramsAccountDelegate missing for delegate account")
@@ -185,6 +205,7 @@ func parseDelegateAccountFlags(paramsAccountDelegate *ParametersAccountsDelegate
 		FromAlias: paramsAccountDelegate.FromAlias,
 		ToAddress: paramsAccountDelegate.ToAddress,
 		Amount:    iotago.BaseToken(paramsAccountDelegate.Amount),
+		CheckPool: paramsAccountDelegate.CheckPool,
 	}, nil
 }
 

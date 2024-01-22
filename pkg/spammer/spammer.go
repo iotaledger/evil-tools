@@ -244,7 +244,7 @@ func (s *Spammer) PrepareBlock(ctx context.Context, issuanceData *models.Payload
 
 		return nil
 	}
-	issuerAccount, err := s.EvilWallet.GetAccount(ctx, issuerAlias)
+	issuerAccount, err := s.EvilWallet.GetAccount(ctx)
 	if err != nil {
 		s.logError(ierrors.Wrap(err, ErrFailGetAccount.Error()))
 		s.ErrCounter.CountError(ierrors.Wrap(err, ErrFailGetAccount.Error()))
@@ -269,7 +269,7 @@ func (s *Spammer) PrepareAndPostBlock(ctx context.Context, issuanceData *models.
 
 		return iotago.EmptyBlockID
 	}
-	issuerAccount, err := s.EvilWallet.GetAccount(ctx, issuerAlias)
+	issuerAccount, err := s.EvilWallet.GetAccount(ctx)
 	if err != nil {
 		s.logError(ierrors.Wrap(err, ErrFailGetAccount.Error()))
 		s.ErrCounter.CountError(ierrors.Wrap(err, ErrFailGetAccount.Error()))

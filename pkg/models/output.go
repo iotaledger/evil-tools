@@ -17,8 +17,8 @@ type Input struct {
 	Address  iotago.Address
 }
 
-// Output contains details of an output ID.
-type Output struct {
+// OutputData contains details of an output ID.
+type OutputData struct {
 	OutputID     iotago.OutputID
 	TempID       TempOutputID
 	Address      iotago.Address
@@ -28,13 +28,35 @@ type Output struct {
 	OutputStruct iotago.Output
 }
 
-func NewOutputWithEmptyID(api iotago.API, addr iotago.Address, index uint32, privateKey ed25519.PrivateKey, out iotago.Output) (*Output, error) {
+type OutputState struct {
+	PrivateKey ed25519.PrivateKey `serix:",lenPrefix=uint8"`
+	OutputID   iotago.OutputID    `serix:""`
+	Index      uint32             `serix:""`
+}
+
+func OutputStateFromOutputData(out *OutputData) *OutputState {
+	return &OutputState{
+		PrivateKey: out.PrivateKey,
+		OutputID:   out.OutputID,
+		Index:      out.AddressIndex,
+	}
+}
+
+func (o *OutputState) ToOutputData() *OutputData {
+	return &OutputData{
+		OutputID:     o.OutputID,
+		AddressIndex: o.Index,
+		PrivateKey:   o.PrivateKey,
+	}
+}
+
+func NewOutputDataWithEmptyID(api iotago.API, addr iotago.Address, index uint32, privateKey ed25519.PrivateKey, out iotago.Output) (*OutputData, error) {
 	outID, err := NewTempOutputID(api, out)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Output{
+	return &OutputData{
 		OutputID:     iotago.EmptyOutputID,
 		TempID:       outID,
 		Address:      addr,
@@ -44,13 +66,13 @@ func NewOutputWithEmptyID(api iotago.API, addr iotago.Address, index uint32, pri
 	}, nil
 }
 
-func NewOutputWithID(api iotago.API, outputID iotago.OutputID, addr iotago.Address, index uint32, privateKey ed25519.PrivateKey, out iotago.Output) (*Output, error) {
+func NewOutputDataWithID(api iotago.API, outputID iotago.OutputID, addr iotago.Address, index uint32, privateKey ed25519.PrivateKey, out iotago.Output) (*OutputData, error) {
 	tempID, err := NewTempOutputID(api, out)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Output{
+	return &OutputData{
 		OutputID:     outputID,
 		TempID:       tempID,
 		Address:      addr,
@@ -61,7 +83,7 @@ func NewOutputWithID(api iotago.API, outputID iotago.OutputID, addr iotago.Addre
 }
 
 // Outputs is a list of Output.
-type Outputs []*Output
+type Outputs []*OutputData
 
 type AccountStatus uint8
 
@@ -71,7 +93,6 @@ const (
 )
 
 type AccountData struct {
-	Alias    string
 	Status   AccountStatus
 	Account  wallet.Account
 	OutputID iotago.OutputID
@@ -79,30 +100,35 @@ type AccountData struct {
 }
 
 type AccountState struct {
-	Alias      string             `serix:",lenPrefix=uint8"`
 	AccountID  iotago.AccountID   `serix:""`
 	PrivateKey ed25519.PrivateKey `serix:",lenPrefix=uint8"`
 	OutputID   iotago.OutputID    `serix:""`
 	Index      uint32             `serix:""`
 }
 
-func AccountStateFromAccountData(acc *AccountData) *AccountState {
-	return &AccountState{
-		Alias:      acc.Alias,
+func AccountStateFromAccountData(acc *AccountData) []*AccountState {
+	return []*AccountState{{
 		AccountID:  acc.Account.ID(),
 		PrivateKey: acc.Account.PrivateKey(),
 		OutputID:   acc.OutputID,
 		Index:      acc.Index,
-	}
+	}}
 }
 
 func (a *AccountState) ToAccountData() *AccountData {
 	return &AccountData{
-		Alias:    a.Alias,
 		Account:  wallet.NewEd25519Account(a.AccountID, a.PrivateKey),
 		OutputID: a.OutputID,
 		Index:    a.Index,
 	}
+}
+
+type WalletState struct {
+	Alias         string          `serix:",lenPrefix=uint8"`
+	Seed          string          `serix:",lenPrefix=uint8"`
+	LastUsedIndex uint32          `serix:""`
+	AccountState  []*AccountState `serix:"account,lenPrefix=uint8"`
+	OutputStates  []*OutputState  `serix:"outputs,lenPrefix=uint8"`
 }
 
 // PayloadIssuanceData contains data for issuing a payload. Either ready payload or transaction build data along with issuer account required for signing.

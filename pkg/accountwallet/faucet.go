@@ -34,14 +34,14 @@ func (a *AccountWallet) RequestBlockIssuanceData(ctx context.Context, clt models
 	return congestionResp, issuerResp, version, nil
 }
 
-func (a *AccountWallet) getFaucetFundsOutput(ctx context.Context, addressType iotago.AddressType) (*models.Output, error) {
+func (a *AccountWallet) getFaucetFundsOutput(ctx context.Context, addressType iotago.AddressType) (*models.OutputData, error) {
 	receiverAddr, privateKey, usedIndex := a.getAddress(addressType)
 
 	outputID, output, err := a.RequestFaucetFunds(ctx, receiverAddr)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to request funds from Faucet")
 	}
-	createdOutput, err := models.NewOutputWithID(a.API, outputID, receiverAddr, usedIndex, privateKey, output)
+	createdOutput, err := models.NewOutputDataWithID(a.API, outputID, receiverAddr, usedIndex, privateKey, output)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to create output")
 	}

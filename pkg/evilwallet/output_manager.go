@@ -106,9 +106,9 @@ func (o *OutputManager) Track(ctx context.Context, outputIDs ...iotago.OutputID)
 
 // createOutputFromAddress creates output, retrieves outputID, and adds it to the wallet.
 // Provided address should be generated from provided wallet. Considers only first output found on address.
-func (o *OutputManager) createOutputFromAddress(w *Wallet, api iotago.API, addr *iotago.Ed25519Address, outputID iotago.OutputID, outputStruct iotago.Output) *models.Output {
+func (o *OutputManager) createOutputFromAddress(w *Wallet, api iotago.API, addr *iotago.Ed25519Address, outputID iotago.OutputID, outputStruct iotago.Output) *models.OutputData {
 	index := w.AddrIndexMap(addr.String())
-	out := lo.PanicOnErr(models.NewOutputWithID(api, outputID, addr, index, nil, outputStruct))
+	out := lo.PanicOnErr(models.NewOutputDataWithID(api, outputID, addr, index, nil, outputStruct))
 
 	w.AddUnspentOutput(out.TempID, out)
 	o.setTempIDWalletMap(out.TempID, w)
@@ -117,11 +117,11 @@ func (o *OutputManager) createOutputFromAddress(w *Wallet, api iotago.API, addr 
 }
 
 // AddOutput adds existing output from wallet w to the OutputManager.
-func (o *OutputManager) AddOutput(api iotago.API, w *Wallet, output iotago.Output) *models.Output {
+func (o *OutputManager) AddOutput(api iotago.API, w *Wallet, output iotago.Output) *models.OutputData {
 	addr := output.UnlockConditionSet().Address().Address
 	idx := w.AddrIndexMap(addr.String())
 
-	out := lo.PanicOnErr(models.NewOutputWithEmptyID(api, addr, idx, nil, output))
+	out := lo.PanicOnErr(models.NewOutputDataWithEmptyID(api, addr, idx, nil, output))
 
 	w.AddUnspentOutput(out.TempID, out)
 	o.setTempIDWalletMap(out.TempID, w)
@@ -131,7 +131,7 @@ func (o *OutputManager) AddOutput(api iotago.API, w *Wallet, output iotago.Outpu
 
 // GetOutput returns the Output for the given address.
 // Firstly checks if output can be retrieved by outputManager from wallet, if not does an API call.
-func (o *OutputManager) GetOutput(ctx context.Context, id models.TempOutputID, outputID iotago.OutputID) (output *models.Output) {
+func (o *OutputManager) GetOutput(ctx context.Context, id models.TempOutputID, outputID iotago.OutputID) (output *models.OutputData) {
 	output = o.getOutputFromWallet(id)
 
 	// get output info via web api
@@ -150,7 +150,7 @@ func (o *OutputManager) GetOutput(ctx context.Context, id models.TempOutputID, o
 			return nil
 		}
 
-		output = &models.Output{
+		output = &models.OutputData{
 			OutputID:     outputID,
 			Address:      basicOutput.UnlockConditionSet().Address().Address,
 			OutputStruct: basicOutput,
@@ -160,7 +160,7 @@ func (o *OutputManager) GetOutput(ctx context.Context, id models.TempOutputID, o
 	return output
 }
 
-func (o *OutputManager) getOutputFromWallet(id models.TempOutputID) (output *models.Output) {
+func (o *OutputManager) getOutputFromWallet(id models.TempOutputID) (output *models.OutputData) {
 	o.RLock()
 	defer o.RUnlock()
 

@@ -10,10 +10,12 @@ import (
 	"github.com/iotaledger/hive.go/lo"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/builder"
-	"github.com/iotaledger/iota.go/v4/wallet"
+	iotagowallet "github.com/iotaledger/iota.go/v4/wallet"
 )
 
-func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error {
+func (a *AccountWallets) destroyAccount(ctx context.Context, alias string) error {
+	wallet := a.GetOrCreateWallet(alias)
+
 	accData, err := a.GetAccount(alias)
 	if err != nil {
 		return err
@@ -29,7 +31,7 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 		return nil
 	}
 
-	keyManager, err := wallet.NewKeyManager(a.seed[:], BIP32PathForIndex(accData.Index))
+	keyManager, err := iotagowallet.NewKeyManager(wallet.seed[:], BIP32PathForIndex(accData.Index))
 	if err != nil {
 		return err
 	}
@@ -39,7 +41,7 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 		issuingSlot := a.client.LatestAPI().TimeProvider().SlotFromTime(issuingTime)
 		apiForSlot := a.client.APIForSlot(issuingSlot)
 		// get the latest block issuance data from the node
-		congestionResp, issuerResp, version, err := a.RequestBlockIssuanceData(ctx, a.client, a.GenesisAccount)
+		congestionResp, issuerResp, version, err := wallet.RequestBlockIssuanceData(ctx, a.client, a.GenesisAccount)
 		if err != nil {
 			return ierrors.Wrap(err, "failed to request block built data for the faucet account")
 		}
@@ -49,12 +51,12 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 		if accountOutput.FeatureSet().BlockIssuer().ExpirySlot > commitmentSlot {
 			pastBoundedSlot := commitmentSlot + apiForSlot.ProtocolParameters().MaxCommittableAge()
 			// change the expiry slot to expire as soon as possible
-			signedTx, err := a.changeExpirySlotTransaction(ctx, pastBoundedSlot, issuingSlot, accData, commitmentID, keyManager.AddressSigner())
+			signedTx, err := wallet.changeExpirySlotTransaction(ctx, pastBoundedSlot, issuingSlot, accData, commitmentID, keyManager.AddressSigner())
 			if err != nil {
 				return ierrors.Wrap(err, "failed to build transaction")
 			}
 			// issue the transaction in a block
-			blockID, err := a.PostWithBlock(ctx, a.client, signedTx, a.GenesisAccount, congestionResp, issuerResp, version)
+			blockID, err := wallet.PostWithBlock(ctx, a.client, signedTx, a.GenesisAccount, congestionResp, issuerResp, version)
 			if err != nil {
 				return ierrors.Wrapf(err, "failed to post block with ID %s", blockID)
 			}
@@ -62,7 +64,7 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 
 			// check the status of the transaction
 			expiredAccountOutputID := iotago.OutputIDFromTransactionIDAndIndex(lo.PanicOnErr(signedTx.Transaction.ID()), 0)
-			err = a.checkOutputStatus(ctx, blockID, lo.PanicOnErr(signedTx.Transaction.ID()), expiredAccountOutputID, accData.Account.Address())
+			err = wallet.checkOutputStatus(ctx, blockID, lo.PanicOnErr(signedTx.Transaction.ID()), expiredAccountOutputID, accData.Account.Address())
 			if err != nil {
 				return ierrors.Wrap(err, "failure checking for commitment of account transition")
 			}
@@ -89,19 +91,19 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 			return err
 		}
 		// get the latest block issuance data from the node
-		congestionResp, issuerResp, version, err := a.RequestBlockIssuanceData(ctx, a.client, a.GenesisAccount)
+		congestionResp, issuerResp, version, err := wallet.RequestBlockIssuanceData(ctx, a.client, a.GenesisAccount)
 		if err != nil {
 			return ierrors.Wrap(err, "failed to request block built data for the faucet account")
 		}
 		commitmentID := lo.Return1(issuerResp.LatestCommitment.ID())
 
 		// create a transaction destroying the account
-		signedTx, err := a.destroyAccountTransaction(ctx, issuingSlot, accData, commitmentID, keyManager.AddressSigner())
+		signedTx, err := wallet.destroyAccountTransaction(ctx, issuingSlot, accData, commitmentID, keyManager.AddressSigner())
 		if err != nil {
 			return ierrors.Wrap(err, "failed to build transaction")
 		}
 		// issue the transaction in a block
-		blockID, err := a.PostWithBlock(ctx, a.client, signedTx, a.GenesisAccount, congestionResp, issuerResp, version)
+		blockID, err := wallet.PostWithBlock(ctx, a.client, signedTx, a.GenesisAccount, congestionResp, issuerResp, version)
 		if err != nil {
 			return ierrors.Wrapf(err, "failed to post block with ID %s", blockID)
 		}
@@ -109,7 +111,7 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 
 		// check the status of the transaction
 		basicOutputID := iotago.OutputIDFromTransactionIDAndIndex(lo.PanicOnErr(signedTx.Transaction.ID()), 0)
-		err = a.checkOutputStatus(ctx, blockID, lo.PanicOnErr(signedTx.Transaction.ID()), basicOutputID, nil)
+		err = wallet.checkOutputStatus(ctx, blockID, lo.PanicOnErr(signedTx.Transaction.ID()), basicOutputID, nil)
 		if err != nil {
 			return ierrors.Wrap(err, "failure checking for commitment of account transition")
 		}

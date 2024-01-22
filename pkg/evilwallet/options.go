@@ -13,7 +13,7 @@ import (
 // Options is a struct that represents a collection of options that can be set when creating a block.
 type Options struct {
 	aliasInputs        map[string]types.Empty
-	inputs             []*models.Output
+	inputs             []*models.OutputData
 	aliasOutputs       map[string]iotago.Output
 	outputs            []iotago.Output
 	inputWallet        *Wallet
@@ -36,7 +36,7 @@ type OutputOption struct {
 func NewOptions(options ...Option) (option *Options, err error) {
 	option = &Options{
 		aliasInputs:        make(map[string]types.Empty),
-		inputs:             make([]*models.Output, 0),
+		inputs:             make([]*models.OutputData, 0),
 		aliasOutputs:       make(map[string]iotago.Output),
 		outputs:            make([]iotago.Output, 0),
 		specialOutputTypes: make(map[string]iotago.OutputType),
@@ -130,9 +130,9 @@ func WithInputs(inputs interface{}) Option {
 			for _, input := range in {
 				options.aliasInputs[input] = types.Void
 			}
-		case *models.Output:
+		case *models.OutputData:
 			options.inputs = append(options.inputs, in)
-		case []*models.Output:
+		case []*models.OutputData:
 			options.inputs = append(options.inputs, in...)
 		}
 	}

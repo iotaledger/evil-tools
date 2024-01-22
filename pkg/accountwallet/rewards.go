@@ -6,7 +6,7 @@ import (
 	"github.com/iotaledger/hive.go/ierrors"
 )
 
-func (a *AccountWallet) rewards(ctx context.Context, params *RewardsAccountParams) error {
+func (a *AccountWallets) rewards(ctx context.Context, params *RewardsAccountParams) error {
 	// first, get the account output if this alias has one and check if it has validator rewards
 	accData, err := a.GetAccount(params.Alias)
 	if err != nil {

@@ -8,7 +8,7 @@ import (
 )
 
 // CreateAccount creates an implicit account and immediately transition it to a regular account.
-func (a *AccountWallet) CreateAccount(ctx context.Context, params *CreateAccountParams) (iotago.AccountID, error) {
+func (a *AccountWallets) CreateAccount(ctx context.Context, params *CreateAccountParams) (iotago.AccountID, error) {
 	if params.Implicit {
 		return a.createImplicitAccount(ctx, params)
 	}
@@ -16,32 +16,34 @@ func (a *AccountWallet) CreateAccount(ctx context.Context, params *CreateAccount
 	return a.createAccountWithFaucet(ctx, params)
 }
 
-func (a *AccountWallet) DestroyAccount(ctx context.Context, params *DestroyAccountParams) error {
+func (a *AccountWallets) DestroyAccount(ctx context.Context, params *DestroyAccountParams) error {
 	return a.destroyAccount(ctx, params.AccountAlias)
 }
 
-func (a *AccountWallet) ListAccount() error {
-	a.outputsMutex.RLock()
-	defer a.outputsMutex.RUnlock()
+func (a *AccountWallets) ListAccount() error {
+	a.walletsMutex.RLock()
+	defer a.walletsMutex.RUnlock()
 
 	fmt.Printf("%-10s \t%-33s\n\n", "Alias", "AccountID")
-	for _, accData := range a.accounts {
-		fmt.Printf("%-10s \t", accData.Alias)
-		fmt.Printf("%-33s ", accData.Account.Address().AccountID().ToHex())
+	for alias, wallet := range a.wallets {
+		fmt.Printf("%-10s \t", alias)
+		if wallet.accountData != nil {
+			fmt.Printf("%-33s ", wallet.accountData.Account.Address().AccountID().ToHex())
+		}
 		fmt.Printf("\n")
 	}
 
 	return nil
 }
 
-func (a *AccountWallet) AllotToAccount(_ *AllotAccountParams) error {
+func (a *AccountWallets) AllotToAccount(_ *AllotAccountParams) error {
 	return nil
 }
 
-func (a *AccountWallet) DelegateToAccount(ctx context.Context, params *DelegateAccountParams) error {
+func (a *AccountWallets) DelegateToAccount(ctx context.Context, params *DelegateAccountParams) error {
 	return a.delegateToAccount(ctx, params)
 }
 
-func (a *AccountWallet) Rewards(ctx context.Context, params *RewardsAccountParams) error {
+func (a *AccountWallets) Rewards(ctx context.Context, params *RewardsAccountParams) error {
 	return a.rewards(ctx, params)
 }

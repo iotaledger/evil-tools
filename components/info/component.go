@@ -31,12 +31,12 @@ var (
 type dependencies struct {
 	dig.In
 
-	AccountWallet *accountwallet.AccountWallet
+	AccountWallets *accountwallet.AccountWallets
 }
 
 func run() error {
 	Component.LogInfo("Start info component ... done")
-	manager := info.NewManager(Component.Logger, deps.AccountWallet)
+	manager := info.NewManager(Component.Logger, deps.AccountWallets)
 
 	commands := parseInfoCommands(getCommands(os.Args[2:]))
 

@@ -74,7 +74,7 @@ type AccountWallets struct {
 	optsAccountStatesFile    string
 	optsGenesisAccountParams *GenesisAccountParams
 
-	client             *models.WebClient
+	Client             *models.WebClient
 	API                iotago.API
 	RequestTokenAmount iotago.BaseToken
 	RequestManaAmount  iotago.Mana
@@ -136,7 +136,7 @@ func (a *AccountWallets) newAccountWallet(alias string, accountData *models.Acco
 		outputs:     make([]*models.OutputData, 0),
 		seed:        tpkg.RandEd25519Seed(),
 		accountData: accountData,
-		client:      a.client,
+		Client:      a.Client,
 		API:         a.API,
 		Logger:      a.Logger,
 	}
@@ -222,7 +222,7 @@ func (a *AccountWallets) fromAccountStateFile(ctx context.Context) error {
 		wallet := &AccountWallet{
 			alias:          walletState.Alias,
 			GenesisAccount: a.GenesisAccount,
-			client:         a.client,
+			Client:         a.Client,
 			API:            a.API,
 			Logger:         a.Logger,
 		}
@@ -246,7 +246,7 @@ func (a *AccountWallets) fromAccountStateFile(ctx context.Context) error {
 }
 
 func (a *AccountWallets) OutputStateToOutputData(ctx context.Context, o *models.OutputState) *models.OutputData {
-	output := a.client.GetOutput(ctx, o.OutputID)
+	output := a.Client.GetOutput(ctx, o.OutputID)
 	return &models.OutputData{
 		OutputID:     o.OutputID,
 		Address:      output.UnlockConditionSet().Address().Address,

@@ -6,11 +6,11 @@ import (
 )
 
 type Manager struct {
-	accWallet *accountwallet.AccountWallet
+	accWallet *accountwallet.AccountWallets
 	logger    log.Logger
 }
 
-func NewManager(logger log.Logger, accWallet *accountwallet.AccountWallet) *Manager {
+func NewManager(logger log.Logger, accWallet *accountwallet.AccountWallets) *Manager {
 	return &Manager{
 		accWallet: accWallet,
 		logger:    logger,

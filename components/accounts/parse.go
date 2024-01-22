@@ -75,14 +75,14 @@ func parseAccountCommands(commands []string, paramsAccounts *ParametersAccounts)
 			}
 			parsedCmds = append(parsedCmds, stakingAccountParams)
 
-		case AccountSubCommandRewards.String():
+		case accountwallet.OperationRewardsAccount.String():
 			rewardsParams, err := parseRewardsFlags(&paramsAccounts.Rewards)
 			if err != nil {
 				continue
 			}
 			parsedCmds = append(parsedCmds, rewardsParams)
 
-		case AccountSubCommandUpdate.String():
+		case accountwallet.OperationUpdateAccount.String():
 			updateAccountParams, err := parseUpdateAccountFlags(&paramsAccounts.Update)
 			if err != nil {
 				continue
@@ -118,7 +118,7 @@ func accountUsage() {
 	fmt.Printf("COMMAND: %s\n", accountwallet.OperationStakeAccount)
 	_, _ = parseStakeAccountFlags(nil)
 
-	fmt.Printf("COMMAND: %s\n", accountwallet.CmdNameRewards)
+	fmt.Printf("COMMAND: %s\n", accountwallet.OperationRewardsAccount)
 	_, _ = parseRewardsFlags(nil)
 }
 
@@ -186,7 +186,7 @@ func parseStakeAccountFlags(paramsAccountStake *ParametersAccountsStake) (*accou
 	}, nil
 }
 
-func parseRewardsFlags(paramsRewards *accountwallet.ParametersRewards) (*accountwallet.RewardsAccountParams, error) {
+func parseRewardsFlags(paramsRewards *ParametersRewards) (*accountwallet.RewardsAccountParams, error) {
 	if paramsRewards == nil {
 		return nil, ierrors.New("paramsRewards missing for rewards account")
 	}

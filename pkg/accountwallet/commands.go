@@ -26,13 +26,15 @@ func (a *AccountWallets) ListAccount() error {
 
 	hrp := a.API.ProtocolParameters().Bech32HRP()
 
-	for _, accData := range a.accounts {
-		fmt.Printf("----------\n")
-		fmt.Printf("%-10s %-33s\n", "Alias", accData.Alias)
-		if wallet.accountData != nil {
-			fmt.Printf("%-10s %-33s\n", "AccountID", accData.Account.Address().AccountID().ToHex())
+	for alias, wallet := range a.wallets {
+		if wallet.accountData == nil {
+			continue
 		}
-		fmt.Printf("%-10s %-33s\n", "Bech32", accData.Account.Address().Bech32(hrp))
+
+		fmt.Printf("----------\n")
+		fmt.Printf("%-10s %-33s\n", "Alias", alias)
+		fmt.Printf("%-10s %-33s\n", "AccountID", wallet.accountData.Account.Address().AccountID().ToHex())
+		fmt.Printf("%-10s %-33s\n", "Bech32", wallet.accountData.Account.Address().Bech32(hrp))
 	}
 
 	return nil

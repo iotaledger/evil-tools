@@ -61,7 +61,7 @@ func run() error {
 
 func provideWallet() *accountwallet.AccountWallets {
 	// load wallet
-	accWallet, err := accountwallet.Run(Component.Logger,
+	accWallet, err := accountwallet.Run(Component.Daemon().ContextStopped(), Component.Logger,
 		accountwallet.WithClientURL(ParamsAccounts.NodeURLs[0]),
 		accountwallet.WithFaucetURL(ParamsAccounts.FaucetURL),
 		accountwallet.WithAccountStatesFile(ParamsAccounts.AccountStatesFile),
@@ -116,8 +116,7 @@ func accountsSubcommand(ctx context.Context, wallets *accountwallet.AccountWalle
 		//nolint:forcetypassert // we can safely assume that the type is correct
 		accParams := subCommand.(*accountwallet.AllotAccountParams)
 
-		if err := wallet.AllotToAccount(accParams); err != nil {
-		if err := wallets.AllotToAccount(params); err != nil {
+		if err := wallets.AllotToAccount(accParams); err != nil {
 			return ierrors.Wrap(err, "failed to allot to account")
 		}
 
@@ -129,7 +128,7 @@ func accountsSubcommand(ctx context.Context, wallets *accountwallet.AccountWalle
 			return ierrors.Wrap(err, "failed to delegate to account")
 		}
 
-	case accountwallet.OperationRewards:
+	case accountwallet.OperationRewardsAccount:
 		//nolint:forcetypassert // we can safely assume that the type is correct
 		params := subCommand.(*accountwallet.RewardsAccountParams)
 

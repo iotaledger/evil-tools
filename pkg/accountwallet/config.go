@@ -17,7 +17,7 @@ const (
 	OperationAllotAccount    AccountOperation = "allot"
 	OperationDelegateAccount AccountOperation = "delegate"
 	OperationStakeAccount    AccountOperation = "stake"
-	OperationRewardsAccount         AccountOperation = "rewards"
+	OperationRewardsAccount  AccountOperation = "rewards"
 	OperationUpdateAccount   AccountOperation = "update"
 )
 
@@ -33,7 +33,7 @@ func AvailableCommands(cmd string) bool {
 		OperationAllotAccount.String():    types.Void,
 		OperationDelegateAccount.String(): types.Void,
 		OperationStakeAccount.String():    types.Void,
-		OperationRewardsAccount.String():    types.Void,
+		OperationRewardsAccount.String():  types.Void,
 		OperationUpdateAccount.String():   types.Void,
 	}
 
@@ -111,7 +111,7 @@ type RewardsAccountParams struct {
 }
 
 func (a *RewardsAccountParams) Type() AccountOperation {
-	return OperationRewards
+	return OperationRewardsAccount
 }
 
 type UpdateAccountParams struct {

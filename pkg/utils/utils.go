@@ -26,7 +26,7 @@ func SplitBalanceEqually[T iotago.BaseToken | iotago.Mana](splitNumber int, bala
 	return outputBalances
 }
 
-func SumOutputsBalance(outputs []*models.Output) iotago.BaseToken {
+func SumOutputsBalance(outputs []*models.OutputData) iotago.BaseToken {
 	balance := iotago.BaseToken(0)
 	for _, out := range outputs {
 		balance += out.OutputStruct.BaseTokenAmount()

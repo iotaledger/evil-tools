@@ -12,7 +12,7 @@ func (a *AccountWallets) rewards(ctx context.Context, params *RewardsAccountPara
 	if err != nil {
 		a.LogInfof("Could not get account %s: %v", params.Alias, err)
 	} else {
-		validatorReward, err := a.client.GetRewards(ctx, accData.OutputID)
+		validatorReward, err := a.Client.GetRewards(ctx, accData.OutputID)
 		if err != nil {
 			a.LogInfof("Could not get rewards for account %s: %v", params.Alias, err)
 		} else {
@@ -25,7 +25,7 @@ func (a *AccountWallets) rewards(ctx context.Context, params *RewardsAccountPara
 		return ierrors.Wrap(err, "failed to get delegations")
 	}
 	for _, delegationOutput := range delegations {
-		delegationReward, err := a.client.GetRewards(ctx, delegationOutput.OutputID)
+		delegationReward, err := a.Client.GetRewards(ctx, delegationOutput.OutputID)
 		if err != nil {
 			return ierrors.Wrapf(err, "failed to get rewards for output with outputID %s", delegationOutput.OutputID)
 		}

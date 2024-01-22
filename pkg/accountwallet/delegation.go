@@ -22,7 +22,7 @@ func (a *AccountWallets) delegateToAccount(ctx context.Context, params *Delegate
 	// check the pool stake before delegating
 	var poolStakeBefore, poolStakeAfter iotago.BaseToken
 	if params.CheckPool {
-		validatorResp, err := a.client.GetStaking(ctx, accountAddress)
+		validatorResp, err := a.Client.GetStaking(ctx, accountAddress)
 		if err != nil {
 			return ierrors.Wrap(err, "failed to get staking data from node")
 		}
@@ -37,13 +37,13 @@ func (a *AccountWallets) delegateToAccount(ctx context.Context, params *Delegate
 	}
 
 	// get the latest block issuance data from the node
-	congestionResp, issuerResp, version, err := wallet.RequestBlockIssuanceData(ctx, a.client, a.GenesisAccount)
+	congestionResp, issuerResp, version, err := wallet.RequestBlockIssuanceData(ctx, a.Client, a.GenesisAccount)
 	if err != nil {
 		return ierrors.Wrap(err, "failed to request block built data for the faucet account")
 	}
 
 	commitmentID := lo.Return1(issuerResp.LatestCommitment.ID())
-	issuingSlot := a.client.LatestAPI().TimeProvider().SlotFromTime(time.Now())
+	issuingSlot := a.Client.LatestAPI().TimeProvider().SlotFromTime(time.Now())
 
 	signedTx, output, err := wallet.createDelegationTransaction(params, accountAddress, faucetOutputs, commitmentID, issuingSlot)
 	if err != nil {
@@ -51,13 +51,13 @@ func (a *AccountWallets) delegateToAccount(ctx context.Context, params *Delegate
 	}
 
 	// issue the transaction in a block
-	blockID, err := wallet.PostWithBlock(ctx, a.client, signedTx, a.GenesisAccount, congestionResp, issuerResp, version)
+	blockID, err := wallet.PostWithBlock(ctx, a.Client, signedTx, a.GenesisAccount, congestionResp, issuerResp, version)
 	if err != nil {
 		return ierrors.Wrapf(err, "failed to post block with ID %s", blockID)
 	}
 
 	a.LogInfof("Posted transaction: delegate %d tokens from %s to validator %s", params.Amount, params.FromAlias, params.ToAddress)
-	if err := utils.AwaitBlockAndPayloadAcceptance(ctx, a.Logger, a.client, blockID); err != nil {
+	if err := utils.AwaitBlockAndPayloadAcceptance(ctx, a.Logger, a.Client, blockID); err != nil {
 		return ierrors.Wrap(err, "failed to await block and payload acceptance")
 	}
 	// register the delegation output and its signing keys etc. in the wallet
@@ -78,14 +78,14 @@ func (a *AccountWallets) delegateToAccount(ctx context.Context, params *Delegate
 		// wait for the delegation to start when the start epoch has been committed
 		// nolint:forcetypeassert // we know that the output is of type *iotago.DelegationOutput
 		delegationOutput := output.OutputStruct.(*iotago.DelegationOutput)
-		delegationStartSlot := a.client.LatestAPI().TimeProvider().EpochStart(delegationOutput.StartEpoch)
+		delegationStartSlot := a.Client.LatestAPI().TimeProvider().EpochStart(delegationOutput.StartEpoch)
 		a.LogInfof("Waiting for slot %d to be committed, when delegation starts", delegationStartSlot)
-		if err := utils.AwaitCommitment(ctx, a.Logger, a.client, delegationStartSlot); err != nil {
+		if err := utils.AwaitCommitment(ctx, a.Logger, a.Client, delegationStartSlot); err != nil {
 			return ierrors.Wrap(err, "failed to await commitment of start epoch")
 		}
 
 		// check the pool stake after delegating
-		validatorResp, err := a.client.GetStaking(ctx, accountAddress)
+		validatorResp, err := a.Client.GetStaking(ctx, accountAddress)
 		if err != nil {
 			return ierrors.Wrap(err, "failed to get staking data from node")
 		}
@@ -146,7 +146,7 @@ func (a *AccountWallet) prepareInputs(ctx context.Context, params *DelegateAccou
 
 func (a *AccountWallet) createDelegationOutputs(inputAmount iotago.BaseToken, delegatedAmount iotago.BaseToken, issuingSlot iotago.SlotIndex, accountAddress *iotago.AccountAddress, commitmentID iotago.CommitmentID) ([]*models.OutputData, error) {
 	var outputs []*models.OutputData
-	api := a.client.APIForSlot(issuingSlot)
+	api := a.Client.APIForSlot(issuingSlot)
 	// get the address and private key for the delegator alias
 	ownerAddress, privateKey, index := a.getAddress(iotago.AddressEd25519)
 
@@ -191,7 +191,7 @@ func (a *AccountWallet) createDelegationOutputs(inputAmount iotago.BaseToken, de
 
 func (a *AccountWallet) createDelegationTransaction(params *DelegateAccountParams, toAccountAddress *iotago.AccountAddress, inputs []*models.OutputData, commitmentID iotago.CommitmentID, issuingSlot iotago.SlotIndex) (*iotago.SignedTransaction, *models.OutputData, error) {
 	// create a transaction with the delegation output
-	apiForSlot := a.client.APIForSlot(issuingSlot)
+	apiForSlot := a.Client.APIForSlot(issuingSlot)
 	var totalInputAmount iotago.BaseToken
 	txBuilder := builder.NewTransactionBuilder(apiForSlot)
 	for _, input := range inputs {

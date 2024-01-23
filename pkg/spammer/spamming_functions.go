@@ -23,7 +23,7 @@ func DataSpammingFunction(ctx context.Context, s *Spammer) error {
 		Payload: &iotago.TaggedData{
 			Tag: []byte("SPAM"),
 		},
-	}, s.IssuerAlias, clt)
+	}, clt)
 
 	s.State.batchPrepared.Add(1)
 	s.CheckIfAllSent()
@@ -64,7 +64,7 @@ func CustomConflictSpammingFunc(ctx context.Context, s *Spammer) error {
 				//nolint:gosec
 				time.Sleep(time.Duration(rand.Float64()*100) * time.Millisecond)
 
-				s.PrepareAndPostBlock(ctx, tx, s.IssuerAlias, clt)
+				s.PrepareAndPostBlock(ctx, tx, clt)
 			}(clients[i], issuanceData)
 		}
 		wg.Wait()
@@ -86,7 +86,7 @@ func AccountSpammingFunction(ctx context.Context, s *Spammer) error {
 
 		return err
 	}
-	s.PrepareAndPostBlock(ctx, issuanceData, s.IssuerAlias, clt)
+	s.PrepareAndPostBlock(ctx, issuanceData, clt)
 
 	s.State.batchPrepared.Add(1)
 	s.EvilWallet.ClearAliases(aliases)
@@ -148,7 +148,7 @@ func createBlowBallCenter(ctx context.Context, s *Spammer) (iotago.BlockID, erro
 		Payload: &iotago.TaggedData{
 			Tag: []byte("DS"),
 		},
-	}, s.IssuerAlias, clt)
+	}, clt)
 
 	err := utils.AwaitBlockAndPayloadAcceptance(ctx, s.Logger, clt, centerID)
 
@@ -176,5 +176,5 @@ func createSideBlock(ctx context.Context, parent iotago.BlockID, s *Spammer) *io
 		Payload: &iotago.TaggedData{
 			Tag: []byte("DS"),
 		},
-	}, s.IssuerAlias, clt, parent)
+	}, clt, parent)
 }

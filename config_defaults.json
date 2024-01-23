@@ -2,7 +2,7 @@
   "app": {
     "checkForUpdates": true,
     "shutdown": {
-      "stopGracePeriod": "5m",
+      "stopGracePeriod": "5s",
       "log": {
         "enabled": true,
         "filePath": "shutdown.log"
@@ -67,10 +67,14 @@
         "startEpoch": 0,
         "endEpoch": 0
       },
+      "rewards": {
+        "alias": ""
+      },
       "delegate": {
-        "fromAccount": "",
-        "toAccount": "",
-        "amount": 100
+        "fromAlias": "",
+        "toAddress": "rms1pzg8cqhfxqhq7pt37y8cs4v5u4kcc48lquy2k73ehsdhf5ukhya3y5rx2w6",
+        "amount": 100,
+        "checkPool": false
       },
       "update": {
         "alias": "",

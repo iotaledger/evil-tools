@@ -10,10 +10,12 @@ import (
 	"github.com/iotaledger/hive.go/lo"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/builder"
-	"github.com/iotaledger/iota.go/v4/wallet"
+	iotagowallet "github.com/iotaledger/iota.go/v4/wallet"
 )
 
-func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error {
+func (a *AccountWallets) destroyAccount(ctx context.Context, alias string) error {
+	wallet := a.GetOrCreateWallet(alias)
+
 	accData, err := a.GetAccount(alias)
 	if err != nil {
 		return err
@@ -21,7 +23,7 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 	// get output from node
 	// From TIP42: Indexers and node plugins shall map the account address of the output derived with Account ID to the regular address -> output mapping table, so that given an Account Address, its most recent unspent account output can be retrieved.
 	// TODO: use correct outputID
-	accountOutput := a.client.GetOutput(ctx, accData.OutputID)
+	accountOutput := a.Client.GetOutput(ctx, accData.OutputID)
 	switch accountOutput.Type() {
 	case iotago.OutputBasic:
 		a.LogInfof("Cannot destroy implicit account %s", alias)
@@ -29,17 +31,17 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 		return nil
 	}
 
-	keyManager, err := wallet.NewKeyManager(a.seed[:], BIP32PathForIndex(accData.Index))
+	keyManager, err := iotagowallet.NewKeyManager(wallet.seed[:], BIP32PathForIndex(accData.Index))
 	if err != nil {
 		return err
 	}
 	{
 		// first, transition the account so block issuer feature expires if it is not already.
 		issuingTime := time.Now()
-		issuingSlot := a.client.LatestAPI().TimeProvider().SlotFromTime(issuingTime)
-		apiForSlot := a.client.APIForSlot(issuingSlot)
+		issuingSlot := a.Client.LatestAPI().TimeProvider().SlotFromTime(issuingTime)
+		apiForSlot := a.Client.APIForSlot(issuingSlot)
 		// get the latest block issuance data from the node
-		congestionResp, issuerResp, version, err := a.RequestBlockIssuanceData(ctx, a.client, a.GenesisAccount)
+		congestionResp, issuerResp, version, err := wallet.RequestBlockIssuanceData(ctx, a.Client, a.GenesisAccount)
 		if err != nil {
 			return ierrors.Wrap(err, "failed to request block built data for the faucet account")
 		}
@@ -49,20 +51,20 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 		if accountOutput.FeatureSet().BlockIssuer().ExpirySlot > commitmentSlot {
 			pastBoundedSlot := commitmentSlot + apiForSlot.ProtocolParameters().MaxCommittableAge()
 			// change the expiry slot to expire as soon as possible
-			signedTx, err := a.changeExpirySlotTransaction(ctx, pastBoundedSlot, issuingSlot, accData, commitmentID, keyManager.AddressSigner())
+			signedTx, err := wallet.changeExpirySlotTransaction(ctx, pastBoundedSlot, issuingSlot, accData, commitmentID, keyManager.AddressSigner())
 			if err != nil {
 				return ierrors.Wrap(err, "failed to build transaction")
 			}
 			// issue the transaction in a block
-			blockID, err := a.PostWithBlock(ctx, a.client, signedTx, a.GenesisAccount, congestionResp, issuerResp, version)
+			blockID, err := wallet.PostWithBlock(ctx, a.Client, signedTx, a.GenesisAccount, congestionResp, issuerResp, version)
 			if err != nil {
 				return ierrors.Wrapf(err, "failed to post block with ID %s", blockID)
 			}
-			a.LogInfof("Posted transaction: transition account to expire in slot %d\nBech addr: %s", pastBoundedSlot, accData.Account.Address().Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()))
+			a.LogInfof("Posted transaction: transition account to expire in slot %d\nBech addr: %s", pastBoundedSlot, accData.Account.Address().Bech32(a.Client.CommittedAPI().ProtocolParameters().Bech32HRP()))
 
 			// check the status of the transaction
 			expiredAccountOutputID := iotago.OutputIDFromTransactionIDAndIndex(lo.PanicOnErr(signedTx.Transaction.ID()), 0)
-			err = a.checkAccountStatus(ctx, blockID, lo.PanicOnErr(signedTx.Transaction.ID()), expiredAccountOutputID, accData.Account.Address())
+			err = wallet.checkOutputStatus(ctx, blockID, lo.PanicOnErr(signedTx.Transaction.ID()), expiredAccountOutputID, accData.Account.Address())
 			if err != nil {
 				return ierrors.Wrap(err, "failure checking for commitment of account transition")
 			}
@@ -72,7 +74,7 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 
 			// wait until the expiry slot has been committed
 			a.LogInfof("Waiting for expiry slot %d to be committed, 1 slot after expiry slot", pastBoundedSlot+1)
-			if err := utils.AwaitCommitment(ctx, a.Logger, a.client, pastBoundedSlot+1); err != nil {
+			if err := utils.AwaitCommitment(ctx, a.Logger, a.Client, pastBoundedSlot+1); err != nil {
 				return ierrors.Wrap(err, "failed to await commitment of expiry slot")
 			}
 		}
@@ -81,7 +83,7 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 	{
 		// next, issue a transaction to destroy the account output
 		issuingTime := time.Now()
-		issuingSlot := a.client.LatestAPI().TimeProvider().SlotFromTime(issuingTime)
+		issuingSlot := a.Client.LatestAPI().TimeProvider().SlotFromTime(issuingTime)
 
 		// get the details of the expired account output
 		accData, err := a.GetAccount(alias)
@@ -89,27 +91,27 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 			return err
 		}
 		// get the latest block issuance data from the node
-		congestionResp, issuerResp, version, err := a.RequestBlockIssuanceData(ctx, a.client, a.GenesisAccount)
+		congestionResp, issuerResp, version, err := wallet.RequestBlockIssuanceData(ctx, a.Client, a.GenesisAccount)
 		if err != nil {
 			return ierrors.Wrap(err, "failed to request block built data for the faucet account")
 		}
 		commitmentID := lo.Return1(issuerResp.LatestCommitment.ID())
 
 		// create a transaction destroying the account
-		signedTx, err := a.destroyAccountTransaction(ctx, issuingSlot, accData, commitmentID, keyManager.AddressSigner())
+		signedTx, err := wallet.destroyAccountTransaction(ctx, issuingSlot, accData, commitmentID, keyManager.AddressSigner())
 		if err != nil {
 			return ierrors.Wrap(err, "failed to build transaction")
 		}
 		// issue the transaction in a block
-		blockID, err := a.PostWithBlock(ctx, a.client, signedTx, a.GenesisAccount, congestionResp, issuerResp, version)
+		blockID, err := wallet.PostWithBlock(ctx, a.Client, signedTx, a.GenesisAccount, congestionResp, issuerResp, version)
 		if err != nil {
 			return ierrors.Wrapf(err, "failed to post block with ID %s", blockID)
 		}
-		a.LogInfof("Posted transaction: destroy account\nBech addr: %s", accData.Account.Address().Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()))
+		a.LogInfof("Posted transaction: destroy account\nBech addr: %s", accData.Account.Address().Bech32(a.Client.CommittedAPI().ProtocolParameters().Bech32HRP()))
 
 		// check the status of the transaction
 		basicOutputID := iotago.OutputIDFromTransactionIDAndIndex(lo.PanicOnErr(signedTx.Transaction.ID()), 0)
-		err = a.checkAccountStatus(ctx, blockID, lo.PanicOnErr(signedTx.Transaction.ID()), basicOutputID, nil)
+		err = wallet.checkOutputStatus(ctx, blockID, lo.PanicOnErr(signedTx.Transaction.ID()), basicOutputID, nil)
 		if err != nil {
 			return ierrors.Wrap(err, "failure checking for commitment of account transition")
 		}
@@ -125,9 +127,9 @@ func (a *AccountWallet) destroyAccount(ctx context.Context, alias string) error 
 
 func (a *AccountWallet) changeExpirySlotTransaction(ctx context.Context, newExpirySlot iotago.SlotIndex, issuingSlot iotago.SlotIndex, accData *models.AccountData, commitmentID iotago.CommitmentID, addressSigner iotago.AddressSigner) (*iotago.SignedTransaction, error) {
 	// start building the transaction
-	apiForSlot := a.client.APIForSlot(issuingSlot)
+	apiForSlot := a.Client.APIForSlot(issuingSlot)
 	txBuilder := builder.NewTransactionBuilder(apiForSlot)
-	accountOutput := a.client.GetOutput(ctx, accData.OutputID)
+	accountOutput := a.Client.GetOutput(ctx, accData.OutputID)
 
 	// add the account output as input
 	txBuilder.AddInput(&builder.TxInput{
@@ -156,9 +158,9 @@ func (a *AccountWallet) changeExpirySlotTransaction(ctx context.Context, newExpi
 
 func (a *AccountWallet) destroyAccountTransaction(ctx context.Context, issuingSlot iotago.SlotIndex, accData *models.AccountData, commitmentID iotago.CommitmentID, addressSigner iotago.AddressSigner) (*iotago.SignedTransaction, error) {
 	// start building the transaction
-	apiForSlot := a.client.APIForSlot(issuingSlot)
+	apiForSlot := a.Client.APIForSlot(issuingSlot)
 	txBuilder := builder.NewTransactionBuilder(apiForSlot)
-	expiredAccountOutput := a.client.GetOutput(ctx, accData.OutputID)
+	expiredAccountOutput := a.Client.GetOutput(ctx, accData.OutputID)
 	txBuilder.AddInput(&builder.TxInput{
 		UnlockTarget: expiredAccountOutput.UnlockConditionSet().Address().Address,
 		InputID:      accData.OutputID,

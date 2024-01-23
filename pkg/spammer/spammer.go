@@ -237,14 +237,14 @@ func (s *Spammer) StopSpamming() {
 	s.State.logTicker.Stop()
 }
 
-func (s *Spammer) PrepareBlock(ctx context.Context, issuanceData *models.PayloadIssuanceData, issuerAlias string, clt models.Client, strongParents ...iotago.BlockID) *iotago.Block {
+func (s *Spammer) PrepareBlock(ctx context.Context, issuanceData *models.PayloadIssuanceData, clt models.Client, strongParents ...iotago.BlockID) *iotago.Block {
 	if issuanceData.Payload == nil {
 		s.logError(ErrPayloadIsNil)
 		s.ErrCounter.CountError(ErrPayloadIsNil)
 
 		return nil
 	}
-	issuerAccount, err := s.EvilWallet.GetAccount(ctx, issuerAlias)
+	issuerAccount, err := s.EvilWallet.GetAccount(ctx)
 	if err != nil {
 		s.logError(ierrors.Wrap(err, ErrFailGetAccount.Error()))
 		s.ErrCounter.CountError(ierrors.Wrap(err, ErrFailGetAccount.Error()))
@@ -262,14 +262,14 @@ func (s *Spammer) PrepareBlock(ctx context.Context, issuanceData *models.Payload
 	return block
 }
 
-func (s *Spammer) PrepareAndPostBlock(ctx context.Context, issuanceData *models.PayloadIssuanceData, issuerAlias string, clt models.Client) iotago.BlockID {
+func (s *Spammer) PrepareAndPostBlock(ctx context.Context, issuanceData *models.PayloadIssuanceData, clt models.Client) iotago.BlockID {
 	if issuanceData.Payload == nil && issuanceData.TransactionBuilder == nil {
 		s.logError(ErrPayloadIsNil)
 		s.ErrCounter.CountError(ErrPayloadIsNil)
 
 		return iotago.EmptyBlockID
 	}
-	issuerAccount, err := s.EvilWallet.GetAccount(ctx, issuerAlias)
+	issuerAccount, err := s.EvilWallet.GetAccount(ctx)
 	if err != nil {
 		s.logError(ierrors.Wrap(err, ErrFailGetAccount.Error()))
 		s.ErrCounter.CountError(ierrors.Wrap(err, ErrFailGetAccount.Error()))

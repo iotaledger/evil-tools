@@ -3,55 +3,38 @@ package accountwallet
 import (
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/ds/types"
+	iotago "github.com/iotaledger/iota.go/v4"
 )
 
 // commands
 
-type AccountOperation int
+type AccountOperation string
 
 const (
-	OperationCreateAccount AccountOperation = iota
-	OperationConvertAccount
-	OperationDestroyAccount
-	OperationAllotAccount
-	OperationDelegateAccount
-	OperationStakeAccount
-	OperationListAccounts
-	OperationUpdateAccount
-
-	CmdNameCreateAccount   = "create"
-	CmdNameConvertAccount  = "convert"
-	CmdNameDestroyAccount  = "destroy"
-	CmdNameAllotAccount    = "allot"
-	CmdNameDelegateAccount = "delegate"
-	CmdNameStakeAccount    = "stake"
-	CmdNameListAccounts    = "list"
-	CmdNameUpdateAccount   = "update"
+	OperationCreateAccount   AccountOperation = "create"
+	OperationConvertAccount  AccountOperation = "convert"
+	OperationDestroyAccount  AccountOperation = "destroy"
+	OperationAllotAccount    AccountOperation = "allot"
+	OperationDelegateAccount AccountOperation = "delegate"
+	OperationStakeAccount    AccountOperation = "stake"
+	OperationRewardsAccount  AccountOperation = "rewards"
+	OperationUpdateAccount   AccountOperation = "update"
 )
 
 func (a AccountOperation) String() string {
-	return []string{
-		CmdNameCreateAccount,
-		CmdNameConvertAccount,
-		CmdNameDestroyAccount,
-		CmdNameAllotAccount,
-		CmdNameDelegateAccount,
-		CmdNameStakeAccount,
-		CmdNameListAccounts,
-		CmdNameUpdateAccount,
-	}[a]
+	return string(a)
 }
 
 func AvailableCommands(cmd string) bool {
 	availableCommands := map[string]types.Empty{
-		CmdNameCreateAccount:   types.Void,
-		CmdNameConvertAccount:  types.Void,
-		CmdNameDestroyAccount:  types.Void,
-		CmdNameAllotAccount:    types.Void,
-		CmdNameDelegateAccount: types.Void,
-		CmdNameStakeAccount:    types.Void,
-		CmdNameListAccounts:    types.Void,
-		CmdNameUpdateAccount:   types.Void,
+		OperationCreateAccount.String():   types.Void,
+		OperationConvertAccount.String():  types.Void,
+		OperationDestroyAccount.String():  types.Void,
+		OperationAllotAccount.String():    types.Void,
+		OperationDelegateAccount.String(): types.Void,
+		OperationStakeAccount.String():    types.Void,
+		OperationRewardsAccount.String():  types.Void,
+		OperationUpdateAccount.String():   types.Void,
 	}
 
 	_, ok := availableCommands[cmd]
@@ -101,9 +84,10 @@ func (d *ConvertAccountParams) Type() AccountOperation {
 }
 
 type DelegateAccountParams struct {
-	Amount uint64
-	To     string
-	From   string // if not set we use faucet
+	Amount    iotago.BaseToken
+	ToAddress string
+	FromAlias string
+	CheckPool bool
 }
 
 func (a *DelegateAccountParams) Type() AccountOperation {
@@ -120,6 +104,14 @@ type StakeAccountParams struct {
 
 func (a *StakeAccountParams) Type() AccountOperation {
 	return OperationStakeAccount
+}
+
+type RewardsAccountParams struct {
+	Alias string
+}
+
+func (a *RewardsAccountParams) Type() AccountOperation {
+	return OperationRewardsAccount
 }
 
 type UpdateAccountParams struct {
@@ -143,7 +135,5 @@ func (a *NoAccountParams) Type() AccountOperation {
 }
 
 type StateData struct {
-	Seed          string                 `serix:",lenPrefix=uint8"`
-	LastUsedIndex uint32                 `serix:""`
-	AccountsData  []*models.AccountState `serix:"accounts,lenPrefix=uint8"`
+	Wallets []*models.WalletState `serix:"wallets,lenPrefix=uint8"`
 }

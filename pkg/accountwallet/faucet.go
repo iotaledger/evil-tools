@@ -34,14 +34,14 @@ func (a *AccountWallet) RequestBlockIssuanceData(ctx context.Context, clt models
 	return congestionResp, issuerResp, version, nil
 }
 
-func (a *AccountWallet) getFaucetFundsOutput(ctx context.Context, addressType iotago.AddressType) (*models.Output, error) {
+func (a *AccountWallet) getFaucetFundsOutput(ctx context.Context, addressType iotago.AddressType) (*models.OutputData, error) {
 	receiverAddr, privateKey, usedIndex := a.getAddress(addressType)
 
 	outputID, output, err := a.RequestFaucetFunds(ctx, receiverAddr)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to request funds from Faucet")
 	}
-	createdOutput, err := models.NewOutputWithID(a.API, outputID, receiverAddr, usedIndex, privateKey, output)
+	createdOutput, err := models.NewOutputDataWithID(a.API, outputID, receiverAddr, usedIndex, privateKey, output)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to create output")
 	}
@@ -50,12 +50,12 @@ func (a *AccountWallet) getFaucetFundsOutput(ctx context.Context, addressType io
 }
 
 func (a *AccountWallet) RequestFaucetFunds(ctx context.Context, receiveAddr iotago.Address) (iotago.OutputID, iotago.Output, error) {
-	err := a.client.RequestFaucetFunds(ctx, receiveAddr)
+	err := a.Client.RequestFaucetFunds(ctx, receiveAddr)
 	if err != nil {
 		return iotago.EmptyOutputID, nil, ierrors.Wrap(err, "failed to request funds from faucet")
 	}
 
-	outputID, outputStruct, err := utils.AwaitAddressUnspentOutputToBeAccepted(ctx, a.Logger, a.client, receiveAddr)
+	outputID, outputStruct, err := utils.AwaitAddressUnspentOutputToBeAccepted(ctx, a.Logger, a.Client, receiveAddr)
 	if err != nil {
 		return iotago.EmptyOutputID, nil, ierrors.Wrap(err, "failed to await faucet funds")
 	}
@@ -85,8 +85,8 @@ func (a *AccountWallet) PostWithBlock(ctx context.Context, clt models.Client, pa
 
 func (a *AccountWallet) CreateBlock(payload iotago.Payload, issuer wallet.Account, congestionResp *api.CongestionResponse, issuerResp *api.IssuanceBlockHeaderResponse, version iotago.Version, strongParents ...iotago.BlockID) (*iotago.Block, error) {
 	issuingTime := time.Now()
-	issuingSlot := a.client.LatestAPI().TimeProvider().SlotFromTime(issuingTime)
-	apiForSlot := a.client.APIForSlot(issuingSlot)
+	issuingSlot := a.Client.LatestAPI().TimeProvider().SlotFromTime(issuingTime)
+	apiForSlot := a.Client.APIForSlot(issuingSlot)
 	blockBuilder := builder.NewBasicBlockBuilder(apiForSlot)
 
 	commitmentID, err := issuerResp.LatestCommitment.ID()

@@ -21,7 +21,7 @@ import (
 type Wallet struct {
 	ID                walletID
 	walletType        WalletType
-	unspentOutputs    map[models.TempOutputID]*models.Output // maps addr to its unspentOutput
+	unspentOutputs    map[models.TempOutputID]*models.OutputData // maps addr to its unspentOutput
 	indexTempIDMap    map[uint32]models.TempOutputID
 	addrIndexMap      map[string]uint32
 	inputTransactions map[string]types.Empty
@@ -47,7 +47,7 @@ func NewWallet(wType ...WalletType) *Wallet {
 		walletType:        walletType,
 		ID:                -1,
 		seed:              tpkg.RandEd25519Seed(),
-		unspentOutputs:    make(map[models.TempOutputID]*models.Output),
+		unspentOutputs:    make(map[models.TempOutputID]*models.OutputData),
 		indexTempIDMap:    make(map[uint32]models.TempOutputID),
 		addrIndexMap:      make(map[string]uint32),
 		inputTransactions: make(map[string]types.Empty),
@@ -96,7 +96,7 @@ func (w *Wallet) AddressOnIndex(index uint32) *iotago.Ed25519Address {
 }
 
 // UnspentOutput returns the unspent output on the address.
-func (w *Wallet) UnspentOutput(id models.TempOutputID) *models.Output {
+func (w *Wallet) UnspentOutput(id models.TempOutputID) *models.OutputData {
 	w.RLock()
 	defer w.RUnlock()
 
@@ -104,10 +104,10 @@ func (w *Wallet) UnspentOutput(id models.TempOutputID) *models.Output {
 }
 
 // UnspentOutputs returns all unspent outputs on the wallet.
-func (w *Wallet) UnspentOutputs() (outputs map[models.TempOutputID]*models.Output) {
+func (w *Wallet) UnspentOutputs() (outputs map[models.TempOutputID]*models.OutputData) {
 	w.RLock()
 	defer w.RUnlock()
-	outputs = make(map[models.TempOutputID]*models.Output)
+	outputs = make(map[models.TempOutputID]*models.OutputData)
 	for addr, outs := range w.unspentOutputs {
 		outputs[addr] = outs
 	}
@@ -132,7 +132,7 @@ func (w *Wallet) AddrIndexMap(address string) uint32 {
 }
 
 // AddUnspentOutput adds an unspentOutput of a given wallet.
-func (w *Wallet) AddUnspentOutput(id models.TempOutputID, output *models.Output) {
+func (w *Wallet) AddUnspentOutput(id models.TempOutputID, output *models.OutputData) {
 	w.Lock()
 	defer w.Unlock()
 
@@ -205,7 +205,7 @@ func (w *Wallet) GetReuseAddress() models.TempOutputID {
 }
 
 // GetUnspentOutput returns an unspent output on the oldest address ordered by index.
-func (w *Wallet) GetUnspentOutput() *models.Output {
+func (w *Wallet) GetUnspentOutput() *models.OutputData {
 	switch w.walletType {
 	case Reuse:
 		addr := w.GetReuseAddress()

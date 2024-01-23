@@ -38,7 +38,7 @@ require (
 	github.com/iotaledger/hive.go/serializer/v2 v2.0.0-rc.1.0.20231219095137-dd4674b3226e // indirect
 	github.com/iotaledger/hive.go/stringify v0.0.0-20231219135817-5e9eb90d6129 // indirect
 	github.com/iotaledger/iota-crypto-demo v0.0.0-20231208171603-786bb32fdb00 // indirect
-	github.com/iotaledger/iota.go/v4 v4.0.0-20231221155706-c9fe55bd3b7c // indirect
+	github.com/iotaledger/iota.go/v4 v4.0.0-20240116140157-9e8010cb282d // indirect
 	github.com/knadh/koanf v1.5.0 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect

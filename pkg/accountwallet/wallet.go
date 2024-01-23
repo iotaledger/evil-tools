@@ -22,14 +22,14 @@ import (
 	"github.com/iotaledger/iota.go/v4/wallet"
 )
 
-func Run(logger log.Logger, opts ...options.Option[AccountWallet]) (*AccountWallet, error) {
-	w, err := NewAccountWallet(logger, opts...)
+func Run(ctx context.Context, logger log.Logger, opts ...options.Option[AccountWallets]) (*AccountWallets, error) {
+	w, err := NewAccountWallets(ctx, logger, opts...)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to create wallet")
 	}
 
 	// load wallet
-	err = w.fromAccountStateFile()
+	err = w.fromAccountStateFile(ctx)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to load wallet from file")
 	}
@@ -37,7 +37,7 @@ func Run(logger log.Logger, opts ...options.Option[AccountWallet]) (*AccountWall
 	return w, nil
 }
 
-func SaveState(w *AccountWallet) error {
+func SaveState(w *AccountWallets) error {
 	return w.toAccountStateFile()
 }
 
@@ -47,48 +47,67 @@ type GenesisAccountParams struct {
 }
 
 type AccountWallet struct {
-	log.Logger
-	GenesisAccount wallet.Account
-	seed           [32]byte
+	seed [32]byte
 
-	accountsAliases     map[string]*models.AccountData
-	accountAliasesMutex sync.RWMutex
+	alias       string
+	accountData *models.AccountData
+	outputs     []*models.OutputData
 
 	latestUsedIndex atomic.Uint32
 
-	client             *models.WebClient
-	API                iotago.API
-	RequestTokenAmount iotago.BaseToken
-	RequestManaAmount  iotago.Mana
+	GenesisAccount wallet.Account // can be used by any wallet as an external block issuer
+	Client         *models.WebClient
+	API            iotago.API
+	log.Logger
+}
+
+type AccountWallets struct {
+	wallets      map[string]*AccountWallet
+	walletsMutex sync.RWMutex
+
+	log.Logger
+
+	GenesisAccount wallet.Account
 
 	optsClientBindAddress    string
 	optsFaucetURL            string
 	optsAccountStatesFile    string
 	optsGenesisAccountParams *GenesisAccountParams
+
+	Client             *models.WebClient
+	API                iotago.API
+	RequestTokenAmount iotago.BaseToken
+	RequestManaAmount  iotago.Mana
 }
 
-func NewAccountWallet(logger log.Logger, opts ...options.Option[AccountWallet]) (*AccountWallet, error) {
+func NewAccountWallets(_ context.Context, logger log.Logger, opts ...options.Option[AccountWallets]) (*AccountWallets, error) {
 	accountWalletLogger := logger.NewChildLogger("AccountWallet")
 
 	var initErr error
 
-	return options.Apply(&AccountWallet{
-		Logger:          accountWalletLogger,
-		accountsAliases: make(map[string]*models.AccountData),
-		seed:            tpkg.RandEd25519Seed(),
-	}, opts, func(w *AccountWallet) {
-		w.client, initErr = models.NewWebClient(w.optsClientBindAddress, w.optsFaucetURL)
+	return options.Apply(&AccountWallets{
+		wallets: make(map[string]*AccountWallet),
+		Logger:  accountWalletLogger,
+	}, opts, func(w *AccountWallets) {
+		w.Client, initErr = models.NewWebClient(w.optsClientBindAddress, w.optsFaucetURL)
 		if initErr != nil {
 			accountWalletLogger.LogErrorf("failed to create web client: %s", initErr.Error())
 
 			return
 		}
-		w.API = w.client.LatestAPI()
+		w.API = w.Client.LatestAPI()
 
-		w.GenesisAccount = lo.PanicOnErr(wallet.AccountFromParams(w.optsGenesisAccountParams.FaucetAccountID, w.optsGenesisAccountParams.FaucetPrivateKey))
+		genesisAccountData := &models.AccountData{
+			Account:  lo.PanicOnErr(wallet.AccountFromParams(w.optsGenesisAccountParams.FaucetAccountID, w.optsGenesisAccountParams.FaucetPrivateKey)),
+			Status:   models.AccountReady,
+			OutputID: iotago.EmptyOutputID,
+			Index:    0,
+		}
+		w.GenesisAccount = genesisAccountData.Account
+		genesisWallet := w.NewAccountWallet(GenesisAccountAlias, genesisAccountData)
 
 		// determine the faucet request amounts
-		_, output, err := w.RequestFaucetFunds(context.Background(), tpkg.RandEd25519Address())
+		_, output, err := genesisWallet.RequestFaucetFunds(context.Background(), tpkg.RandEd25519Address())
 		if err != nil {
 			initErr = err
 			accountWalletLogger.LogErrorf("failed to request faucet funds: %s, faucet not initiated", err.Error())
@@ -98,33 +117,75 @@ func NewAccountWallet(logger log.Logger, opts ...options.Option[AccountWallet]) 
 		w.RequestTokenAmount = output.BaseTokenAmount()
 		w.RequestManaAmount = output.StoredMana()
 
-		// add genesis account
 		accountWalletLogger.LogDebugf("faucet initiated with %d tokens and %d mana", w.RequestTokenAmount, w.RequestManaAmount)
-		w.accountsAliases[GenesisAccountAlias] = &models.AccountData{
-			Alias:    GenesisAccountAlias,
-			Status:   models.AccountReady,
-			OutputID: iotago.EmptyOutputID,
-			Index:    0,
-			Account:  w.GenesisAccount,
-		}
+
 	}), initErr
+
+}
+
+func (a *AccountWallets) NewAccountWallet(alias string, accountData *models.AccountData) *AccountWallet {
+	a.walletsMutex.Lock()
+	defer a.walletsMutex.Unlock()
+
+	return a.newAccountWallet(alias, accountData)
+}
+
+func (a *AccountWallets) newAccountWallet(alias string, accountData *models.AccountData) *AccountWallet {
+	accountWallet := &AccountWallet{
+		alias:       alias,
+		outputs:     make([]*models.OutputData, 0),
+		seed:        tpkg.RandEd25519Seed(),
+		accountData: accountData,
+		Client:      a.Client,
+		API:         a.API,
+		Logger:      a.Logger,
+	}
+
+	a.wallets[alias] = accountWallet
+
+	return accountWallet
+}
+
+func (a *AccountWallets) GetOrCreateWallet(alias string) *AccountWallet {
+	a.walletsMutex.Lock()
+	defer a.walletsMutex.Unlock()
+
+	wallet, exists := a.wallets[alias]
+	if !exists {
+		return a.newAccountWallet(alias, nil)
+	}
+
+	return wallet
+}
+
+func (a *AccountWallet) AccountData() *models.AccountData {
+	return a.accountData
 }
 
 // toAccountStateFile write account states to file.
-func (a *AccountWallet) toAccountStateFile() error {
-	a.accountAliasesMutex.Lock()
-	defer a.accountAliasesMutex.Unlock()
+func (a *AccountWallets) toAccountStateFile() error {
+	a.walletsMutex.Lock()
+	defer a.walletsMutex.Unlock()
 
-	accounts := make([]*models.AccountState, 0)
+	walletStates := make([]*models.WalletState, 0)
 
-	for _, acc := range a.accountsAliases {
-		accounts = append(accounts, models.AccountStateFromAccountData(acc))
+	for _, wallet := range a.wallets {
+		walletState := &models.WalletState{
+			Alias:         wallet.alias,
+			Seed:          base58.Encode(wallet.seed[:]),
+			LastUsedIndex: wallet.latestUsedIndex.Load(),
+		}
+		if wallet.accountData != nil {
+			walletState.AccountState = models.AccountStateFromAccountData(wallet.accountData)
+		}
+		for _, output := range wallet.outputs {
+			walletState.OutputStates = append(walletState.OutputStates, models.OutputStateFromOutputData(output))
+		}
+
+		walletStates = append(walletStates, walletState)
 	}
-
-	stateBytes, err := a.client.LatestAPI().Encode(&StateData{
-		Seed:          base58.Encode(a.seed[:]),
-		LastUsedIndex: a.latestUsedIndex.Load(),
-		AccountsData:  accounts,
+	stateBytes, err := a.Client.LatestAPI().Encode(&StateData{
+		Wallets: walletStates,
 	})
 	if err != nil {
 		return ierrors.Wrap(err, "failed to encode state")
@@ -138,9 +199,9 @@ func (a *AccountWallet) toAccountStateFile() error {
 	return nil
 }
 
-func (a *AccountWallet) fromAccountStateFile() error {
-	a.accountAliasesMutex.Lock()
-	defer a.accountAliasesMutex.Unlock()
+func (a *AccountWallets) fromAccountStateFile(ctx context.Context) error {
+	a.walletsMutex.Lock()
+	defer a.walletsMutex.Unlock()
 
 	walletStateBytes, err := os.ReadFile(a.optsAccountStatesFile)
 	if err != nil {
@@ -152,65 +213,103 @@ func (a *AccountWallet) fromAccountStateFile() error {
 	}
 
 	var data StateData
-	_, err = a.client.LatestAPI().Decode(walletStateBytes, &data)
+	_, err = a.Client.LatestAPI().Decode(walletStateBytes, &data)
 	if err != nil {
 		return ierrors.Wrap(err, "failed to decode from file")
 	}
-
-	// copy seeds
-	decodedSeeds, err := base58.Decode(data.Seed)
-	if err != nil {
-		return ierrors.Wrap(err, "failed to decode seed")
-	}
-	copy(a.seed[:], decodedSeeds)
-
-	// set latest used index
-	a.latestUsedIndex.Store(data.LastUsedIndex)
-
-	// account data
-	for _, acc := range data.AccountsData {
-		a.accountsAliases[acc.Alias] = acc.ToAccountData()
-		if acc.Alias == GenesisAccountAlias {
-			a.accountsAliases[acc.Alias].Status = models.AccountReady
+	for _, walletState := range data.Wallets {
+		a.LogDebugf("Loading walletState: %+v\n", walletState)
+		wallet := &AccountWallet{
+			alias:          walletState.Alias,
+			GenesisAccount: a.GenesisAccount,
+			Client:         a.Client,
+			API:            a.API,
+			Logger:         a.Logger,
 		}
+		// copy seed
+		decodedSeeds, err := base58.Decode(walletState.Seed)
+		if err != nil {
+			return ierrors.Wrap(err, "failed to decode seed")
+		}
+		copy(wallet.seed[:], decodedSeeds)
+		// copy account
+		if len(walletState.AccountState) != 0 {
+			wallet.accountData = walletState.AccountState[0].ToAccountData()
+		}
+		for _, outputState := range walletState.OutputStates {
+			wallet.outputs = append(wallet.outputs, a.OutputStateToOutputData(ctx, outputState))
+		}
+		a.wallets[walletState.Alias] = wallet
 	}
 
 	return nil
 }
 
+func (a *AccountWallets) OutputStateToOutputData(ctx context.Context, o *models.OutputState) *models.OutputData {
+	output := a.Client.GetOutput(ctx, o.OutputID)
+	return &models.OutputData{
+		OutputID:     o.OutputID,
+		Address:      output.UnlockConditionSet().Address().Address,
+		AddressIndex: o.Index,
+		PrivateKey:   o.PrivateKey,
+		OutputStruct: output,
+	}
+}
+
 //nolint:all,unused
-func (a *AccountWallet) registerAccount(alias string, accountID iotago.AccountID, outputID iotago.OutputID, index uint32, privateKey ed25519.PrivateKey) iotago.AccountID {
-	a.accountAliasesMutex.Lock()
-	defer a.accountAliasesMutex.Unlock()
+func (a *AccountWallets) registerAccount(alias string, accountID iotago.AccountID, outputID iotago.OutputID, index uint32, privateKey ed25519.PrivateKey) iotago.AccountID {
+	a.walletsMutex.Lock()
+	defer a.walletsMutex.Unlock()
 
 	account := wallet.NewEd25519Account(accountID, privateKey)
-	a.accountsAliases[alias] = &models.AccountData{
-		Alias:    alias,
+	accountData := &models.AccountData{
 		Account:  account,
 		Status:   models.AccountPending,
 		OutputID: outputID,
 		Index:    index,
 	}
-	a.LogDebugf("registering account %s with alias %s\noutputID: %s addr: %s\n", accountID.String(), alias, outputID.ToHex(), account.Address().String())
+	wallet, exists := a.wallets[alias]
+	if exists {
+		wallet.accountData = accountData
+		a.LogDebugf("overwriting account %s with alias %s\noutputID: %s addr: %s\n", accountID.String(), alias, outputID.ToHex(), account.Address().String())
+		return accountID
+	}
+
+	a.wallets[alias] = a.newAccountWallet(alias, accountData)
 
 	return accountID
+
 }
 
-func (a *AccountWallet) deleteAccount(alias string) {
-	a.accountAliasesMutex.Lock()
-	defer a.accountAliasesMutex.Unlock()
+func (a *AccountWallets) deleteAccount(alias string) {
+	a.walletsMutex.Lock()
+	defer a.walletsMutex.Unlock()
 
-	delete(a.accountsAliases, alias)
+	wallet, exists := a.wallets[alias]
+	if !exists {
+		return
+	}
+	wallet.accountData = nil
 
 	a.LogDebugf("deleting account with alias %s", alias)
 }
 
-// checkAccountStatus checks the status of the account by requesting all possible endpoints.
-func (a *AccountWallet) checkAccountStatus(ctx context.Context, blkID iotago.BlockID, txID iotago.TransactionID, creationOutputID iotago.OutputID, accountAddress *iotago.AccountAddress, checkIndexer ...bool) error {
+func (a *AccountWallets) registerOutput(alias string, output *models.OutputData) {
+	a.walletsMutex.Lock()
+	defer a.walletsMutex.Unlock()
+
+	if _, exists := a.wallets[alias]; !exists {
+		a.wallets[alias] = a.newAccountWallet(alias, nil)
+	}
+	a.wallets[alias].outputs = append(a.wallets[alias].outputs, output)
+}
+
+// checkOutputStatus checks the status of an output by requesting all possible endpoints.
+func (a *AccountWallet) checkOutputStatus(ctx context.Context, blkID iotago.BlockID, txID iotago.TransactionID, creationOutputID iotago.OutputID, accountAddress *iotago.AccountAddress, checkIndexer ...bool) error {
 	// request by blockID if provided, otherwise use txID
 	slot := blkID.Slot()
 	if blkID == iotago.EmptyBlockID {
-		blkMetadata, err := a.client.GetBlockStateFromTransaction(ctx, txID)
+		blkMetadata, err := a.Client.GetBlockStateFromTransaction(ctx, txID)
 		if err != nil {
 			return ierrors.Wrapf(err, "failed to get block state from transaction %s", txID.ToHex())
 		}
@@ -218,18 +317,18 @@ func (a *AccountWallet) checkAccountStatus(ctx context.Context, blkID iotago.Blo
 		slot = blkMetadata.BlockID.Slot()
 	}
 
-	if err := utils.AwaitBlockAndPayloadAcceptance(ctx, a.Logger, a.client, blkID); err != nil {
+	if err := utils.AwaitBlockAndPayloadAcceptance(ctx, a.Logger, a.Client, blkID); err != nil {
 		return ierrors.Wrapf(err, "failed to await block issuance for block %s", blkID.ToHex())
 	}
 	a.LogInfof("Block and Transaction accepted: blockID %s", blkID.ToHex())
 
 	// wait for the account to be committed
 	if accountAddress != nil {
-		a.LogInfof("Checking for commitment of account, blk ID: %s, txID: %s and creation output: %s\nBech addr: %s", blkID.ToHex(), txID.ToHex(), creationOutputID.ToHex(), accountAddress.Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()))
+		a.LogInfof("Checking for commitment of account, blk ID: %s, txID: %s and creation output: %s\nBech addr: %s", blkID.ToHex(), txID.ToHex(), creationOutputID.ToHex(), accountAddress.Bech32(a.Client.CommittedAPI().ProtocolParameters().Bech32HRP()))
 	} else {
 		a.LogInfof("Checking for commitment of output, blk ID: %s, txID: %s and creation output: %s", blkID.ToHex(), txID.ToHex(), creationOutputID.ToHex())
 	}
-	err := utils.AwaitCommitment(ctx, a.Logger, a.client, slot)
+	err := utils.AwaitCommitment(ctx, a.Logger, a.Client, slot)
 	if err != nil {
 		a.LogErrorf("Failed to await commitment for slot %d: %s", slot, err)
 
@@ -238,17 +337,17 @@ func (a *AccountWallet) checkAccountStatus(ctx context.Context, blkID iotago.Blo
 
 	// Check the indexer
 	if len(checkIndexer) > 0 && checkIndexer[0] {
-		outputID, account, _, err := a.client.GetAccountFromIndexer(ctx, accountAddress)
+		outputID, account, _, err := a.Client.GetAccountFromIndexer(ctx, accountAddress)
 		if err != nil {
 			a.LogDebugf("Failed to get account from indexer, even after slot %d is already committed", slot)
 			return ierrors.Wrapf(err, "failed to get account from indexer, even after slot %d is already committed", slot)
 		}
 
-		a.LogDebugf("Indexer returned: outputID %s, account %s, slot %d", outputID.String(), account.AccountID.ToAddress().Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()), slot)
+		a.LogDebugf("Indexer returned: outputID %s, account %s, slot %d", outputID.String(), account.AccountID.ToAddress().Bech32(a.Client.CommittedAPI().ProtocolParameters().Bech32HRP()), slot)
 	}
 
 	// check if the creation output exists
-	outputFromNode, err := a.client.Client().OutputByID(ctx, creationOutputID)
+	outputFromNode, err := a.Client.Client().OutputByID(ctx, creationOutputID)
 	if err != nil {
 		a.LogDebugf("Failed to get output from node, even after slot %d is already committed", slot)
 		return ierrors.Wrapf(err, "failed to get output from node, even after slot %d is already committed", slot)
@@ -256,7 +355,7 @@ func (a *AccountWallet) checkAccountStatus(ctx context.Context, blkID iotago.Blo
 	a.LogDebugf("Node returned: outputID %s, output %s", creationOutputID.ToHex(), outputFromNode.Type())
 
 	if accountAddress != nil {
-		a.LogInfof("Account present in commitment for slot %d\nBech addr: %s", slot, accountAddress.Bech32(a.client.CommittedAPI().ProtocolParameters().Bech32HRP()))
+		a.LogInfof("Account present in commitment for slot %d\nBech addr: %s", slot, accountAddress.Bech32(a.Client.CommittedAPI().ProtocolParameters().Bech32HRP()))
 	} else {
 		a.LogInfof("Output present in commitment for slot %d", slot)
 	}
@@ -264,66 +363,81 @@ func (a *AccountWallet) checkAccountStatus(ctx context.Context, blkID iotago.Blo
 	return nil
 }
 
-func (a *AccountWallet) updateAccountStatus(alias string, status models.AccountStatus) (updated bool) {
-	a.accountAliasesMutex.Lock()
-	defer a.accountAliasesMutex.Unlock()
-
-	accData, exists := a.accountsAliases[alias]
-	if !exists {
+func (a *AccountWallet) updateAccountStatus(status models.AccountStatus) (updated bool) {
+	if a.accountData == nil {
 		return false
 	}
 
-	if accData.Status == status {
+	if a.accountData.Status == status {
 		return false
 	}
 
-	accData.Status = status
-	a.accountsAliases[alias] = accData
+	a.accountData.Status = status
 
 	return true
 }
 
-func (a *AccountWallet) GetReadyAccount(ctx context.Context, alias string) (*models.AccountData, error) {
-	accData, err := a.GetAccount(alias)
-	if err != nil {
-		return nil, ierrors.Wrapf(err, "account with alias %s does not exist", alias)
+func (a *AccountWallet) GetReadyAccount(ctx context.Context) (*models.AccountData, error) {
+
+	if a.accountData.Status == models.AccountReady {
+		return a.accountData, nil
 	}
 
-	if accData.Status == models.AccountReady {
-		return accData, nil
-	}
-
-	ready := a.awaitAccountReadiness(ctx, accData)
+	ready := a.awaitAccountReadiness(ctx, a.accountData)
 	if !ready {
-		return nil, ierrors.Errorf("account with alias %s is not ready", alias)
+		return nil, ierrors.Errorf("account with accountID %s is not ready", a.accountData.Account.ID())
 	}
 
-	return accData, nil
+	return a.accountData, nil
 }
 
-func (a *AccountWallet) GetAccount(alias string) (*models.AccountData, error) {
-	a.accountAliasesMutex.RLock()
-	defer a.accountAliasesMutex.RUnlock()
+func (a *AccountWallets) GetAccount(alias string) (*models.AccountData, error) {
+	a.walletsMutex.RLock()
+	defer a.walletsMutex.RUnlock()
 
-	accData, exists := a.accountsAliases[alias]
+	wallet, exists := a.wallets[alias]
 	if !exists {
+		return nil, ierrors.Errorf("wallet with alias %s does not exist", alias)
+	}
+	if wallet.accountData == nil {
 		return nil, ierrors.Errorf("account with alias %s does not exist", alias)
 	}
 
-	return accData, nil
+	return wallet.accountData, nil
+}
+
+func (a *AccountWallets) GetDelegations(alias string) ([]*models.OutputData, error) {
+	a.walletsMutex.RLock()
+	defer a.walletsMutex.RUnlock()
+
+	wallet, exists := a.wallets[alias]
+	if !exists {
+		return nil, ierrors.Errorf("wallet with alias %s does not exist", alias)
+	}
+	if len(wallet.outputs) == 0 {
+		return nil, ierrors.Errorf("delegations with alias %s do not exist", alias)
+	}
+	delegations := make([]*models.OutputData, 0)
+	for _, output := range wallet.outputs {
+		if output.OutputStruct.Type() == iotago.OutputDelegation {
+			delegations = append(delegations, output)
+		}
+	}
+
+	return delegations, nil
 }
 
 func (a *AccountWallet) awaitAccountReadiness(ctx context.Context, accData *models.AccountData) bool {
 	creationSlot := accData.OutputID.CreationSlot()
-	a.LogInfof("Waiting for account %s to be committed within slot %d...", accData.Alias, creationSlot)
-	err := utils.AwaitCommitment(ctx, a.Logger, a.client, creationSlot)
+	a.LogInfof("Waiting for account to be committed within slot %d...", creationSlot)
+	err := utils.AwaitCommitment(ctx, a.Logger, a.Client, creationSlot)
 	if err != nil {
-		a.LogErrorf("failed to get commitment details while waiting %s: %s", accData.Alias, err)
+		a.LogErrorf("failed to get commitment details while waiting: %s", err)
 
 		return false
 	}
 
-	return a.updateAccountStatus(accData.Alias, models.AccountReady)
+	return a.updateAccountStatus(models.AccountReady)
 }
 
 func BIP32PathForIndex(index uint32) string {

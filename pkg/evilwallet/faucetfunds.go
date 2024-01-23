@@ -4,7 +4,6 @@ import (
 	"context"
 	"sync"
 
-	"github.com/iotaledger/evil-tools/pkg/accountwallet"
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/evil-tools/pkg/utils"
 	"github.com/iotaledger/hive.go/core/safemath"
@@ -123,7 +122,7 @@ func (e *EvilWallet) requestAndSplitFaucetFunds(ctx context.Context, initWallet,
 	return splitTransactionsID, nil
 }
 
-func (e *EvilWallet) requestFaucetFunds(ctx context.Context, wallet *Wallet) (output *models.Output, err error) {
+func (e *EvilWallet) requestFaucetFunds(ctx context.Context, wallet *Wallet) (output *models.OutputData, err error) {
 	receiveAddr := wallet.AddressOnIndex(0)
 	clt := e.connector.GetClient()
 
@@ -143,15 +142,15 @@ func (e *EvilWallet) requestFaucetFunds(ctx context.Context, wallet *Wallet) (ou
 	return output, nil
 }
 
-func (e *EvilWallet) splitOutput(ctx context.Context, splitOutput *models.Output, inputWallet, outputWallet *Wallet) (iotago.TransactionID, error) {
+func (e *EvilWallet) splitOutput(ctx context.Context, splitOutput *models.OutputData, inputWallet, outputWallet *Wallet) (iotago.TransactionID, error) {
 	outputs, err := e.createSplitOutputs(splitOutput, outputWallet)
 	if err != nil {
 		return iotago.EmptyTransactionID, ierrors.Wrapf(err, "failed to create splitted outputs")
 	}
 
-	genesisAccount, err := e.accWallet.GetAccount(accountwallet.GenesisAccountAlias)
-	if err != nil {
-		return iotago.EmptyTransactionID, err
+	genesisAccount := e.accWallet.AccountData()
+	if genesisAccount == nil {
+		return iotago.EmptyTransactionID, ierrors.New("failed to split output, genesis account is nil")
 	}
 
 	issuanceData, err := e.CreateTransaction(ctx,
@@ -217,7 +216,7 @@ func (e *EvilWallet) splitOutputs(ctx context.Context, inputWallet, outputWallet
 	return txIDs, nil
 }
 
-func (e *EvilWallet) createSplitOutputs(input *models.Output, receiveWallet *Wallet) ([]*OutputOption, error) {
+func (e *EvilWallet) createSplitOutputs(input *models.OutputData, receiveWallet *Wallet) ([]*OutputOption, error) {
 	totalAmount := input.OutputStruct.BaseTokenAmount()
 	splitNumber := FaucetRequestSplitNumber
 	minDeposit := e.minOutputStorageDeposit

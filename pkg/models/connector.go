@@ -201,6 +201,14 @@ type Client interface {
 	RequestFaucetFunds(ctx context.Context, address iotago.Address) (err error)
 	// GetAccountFromIndexer returns the outputID, accountOutput and slotIndex of a given accountAddress.
 	GetAccountFromIndexer(ctx context.Context, accountAddress *iotago.AccountAddress) (*iotago.OutputID, *iotago.AccountOutput, iotago.SlotIndex, error)
+	// GetCommittee returns the committee for a given epoch.
+	GetCommittee(ctx context.Context) (*api.CommitteeResponse, error)
+	// GetValidators returns the validators for the current epoch.
+	GetValidators(ctx context.Context) (*api.ValidatorsResponse, error)
+	// GetStaking returns the staking data of a given accountAddress.
+	GetStaking(ctx context.Context, accountAddress *iotago.AccountAddress) (resp *api.ValidatorResponse, err error)
+	// GetRewards returns the rewards of a given outputID.
+	GetRewards(ctx context.Context, outputID iotago.OutputID) (resp *api.ManaRewardsResponse, err error)
 
 	iotago.APIProvider
 }
@@ -386,4 +394,31 @@ func (c *WebClient) GetBlockIssuance(ctx context.Context) (resp *api.IssuanceBlo
 
 func (c *WebClient) GetCongestion(ctx context.Context, accAddress *iotago.AccountAddress, optCommitmentID ...iotago.CommitmentID) (resp *api.CongestionResponse, err error) {
 	return c.client.Congestion(ctx, accAddress, optCommitmentID...)
+}
+
+func (c *WebClient) GetCommittee(ctx context.Context) (*api.CommitteeResponse, error) {
+	return c.client.Committee(ctx)
+}
+
+func (c *WebClient) GetValidators(ctx context.Context) (*api.ValidatorsResponse, error) {
+	// TODO add cursor query param to node client validators method
+	//validators := make([]*api.ValidatorResponse, 0)
+	//resp, err := c.client.Validators(ctx)
+	//if err != nil {
+	//	return validators, err
+	//}
+	//validators = append(validators, resp.Validators...)
+	//if resp.Cursor == "" {
+	//	// this is the lat page
+	//	return validators, nil
+	//}
+	return c.client.Validators(ctx)
+}
+
+func (c *WebClient) GetStaking(ctx context.Context, accountAddress *iotago.AccountAddress) (resp *api.ValidatorResponse, err error) {
+	return c.client.StakingAccount(ctx, accountAddress)
+}
+
+func (c *WebClient) GetRewards(ctx context.Context, outputID iotago.OutputID) (*api.ManaRewardsResponse, error) {
+	return c.client.Rewards(ctx, outputID)
 }

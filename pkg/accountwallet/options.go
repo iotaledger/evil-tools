@@ -5,26 +5,26 @@ import (
 )
 
 // WithClientURL sets the client bind address.
-func WithClientURL(url string) options.Option[AccountWallet] {
-	return func(w *AccountWallet) {
-		w.optsClientBindAddress = url
+func WithClientURL(url string) options.Option[AccountWallets] {
+	return func(a *AccountWallets) {
+		a.optsClientBindAddress = url
 	}
 }
 
-func WithFaucetURL(url string) options.Option[AccountWallet] {
-	return func(w *AccountWallet) {
-		w.optsFaucetURL = url
+func WithFaucetURL(url string) options.Option[AccountWallets] {
+	return func(a *AccountWallets) {
+		a.optsFaucetURL = url
 	}
 }
 
-func WithAccountStatesFile(fileName string) options.Option[AccountWallet] {
-	return func(w *AccountWallet) {
-		w.optsAccountStatesFile = fileName
+func WithAccountStatesFile(fileName string) options.Option[AccountWallets] {
+	return func(a *AccountWallets) {
+		a.optsAccountStatesFile = fileName
 	}
 }
 
-func WithFaucetAccountParams(params *GenesisAccountParams) options.Option[AccountWallet] {
-	return func(w *AccountWallet) {
-		w.optsGenesisAccountParams = params
+func WithFaucetAccountParams(params *GenesisAccountParams) options.Option[AccountWallets] {
+	return func(a *AccountWallets) {
+		a.optsGenesisAccountParams = params
 	}
 }

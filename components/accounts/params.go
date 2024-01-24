@@ -1,6 +1,7 @@
 package accounts
 
 import (
+	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/app"
 )
 
@@ -59,13 +60,6 @@ type (
 	}
 
 	ParametersAccounts struct {
-		NodeURLs  []string `default:"http://localhost:8050" usage:"API URLs for clients used in test separated with commas"`
-		FaucetURL string   `default:"http://localhost:8088" usage:"Faucet URL used in test"`
-
-		AccountStatesFile     string `default:"wallet.dat" usage:"File to store account states in"`
-		BlockIssuerPrivateKey string `default:"db39d2fde6301d313b108dc9db1ee724d0f405f6fde966bd776365bc5f4a5fb31e4b21eb51dcddf65c20db1065e1f1514658b23a3ddbf48d30c0efc926a9a648" usage:"Block issuer private key (in hex) to use for genesis account"`
-		AccountID             string `default:"0x6aee704f25558e8aa7630fed0121da53074188abc423b3c5810f80be4936eb6e" usage:"Account ID to use for genesis account"`
-
 		Create   ParametersAccountsCreate
 		Convert  ParametersAccountsConvert
 		Destroy  ParametersAccountsDestroy
@@ -79,10 +73,12 @@ type (
 )
 
 var ParamsAccounts = &ParametersAccounts{}
+var ParamsTool = &models.ParametersTool{}
 
 var params = &app.ComponentParams{
 	Params: map[string]any{
 		"accounts": ParamsAccounts,
+		"tool":     ParamsTool,
 	},
 	Masked: []string{
 		"profiling",

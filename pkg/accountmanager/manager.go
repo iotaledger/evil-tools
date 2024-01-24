@@ -12,6 +12,7 @@ import (
 	"github.com/iotaledger/hive.go/log"
 	"github.com/iotaledger/hive.go/runtime/options"
 	iotago "github.com/iotaledger/iota.go/v4"
+	"github.com/iotaledger/iota.go/v4/tpkg"
 	"github.com/iotaledger/iota.go/v4/wallet"
 )
 
@@ -22,19 +23,20 @@ type GenesisAccountParams struct {
 	FaucetAccountID  string
 }
 
-func Run(ctx context.Context, logger log.Logger, opts ...options.Option[Manager]) (*Manager, error) {
-	m, err := NewManager(logger, opts...)
+func RunManager(logger log.Logger, opts ...options.Option[Manager]) (*Manager, error) {
+	m, err := newManager(logger, opts...)
 	if err != nil {
-		return nil, ierrors.Wrap(err, "failed to create wallet")
+		return nil, err
 	}
 
 	loadedFromFile, err := m.LoadStateFromFile()
 	if err != nil {
-		return nil, ierrors.Wrap(err, "failed to load wallet from file")
+		return nil, ierrors.Wrap(err, "failed to load wallet from file, please delete the file and try again")
 	}
+
 	if !loadedFromFile {
 		m.LogInfo("No wallet state file found, creating new wallet")
-		err = m.SetupFromParams()
+		err = m.setupRequestsAmounts()
 		if err != nil {
 			return nil, err
 		}
@@ -53,6 +55,7 @@ type Manager struct {
 	optsFaucetURL            string
 	optsAccountStatesFile    string
 	optsGenesisAccountParams *GenesisAccountParams
+	optsSilence              bool
 
 	Client *models.WebClient
 	API    iotago.API
@@ -60,26 +63,38 @@ type Manager struct {
 	log.Logger
 }
 
-func NewManager(logger log.Logger, opts ...options.Option[Manager]) (*Manager, error) {
+func newManager(logger log.Logger, opts ...options.Option[Manager]) (*Manager, error) {
 	managerLogger := logger.NewChildLogger("AccountWallet")
+	var innerErr error
 
 	return options.Apply(&Manager{
 		accounts: make(map[string]*models.AccountData),
 		wallets:  make(map[string]*AccountWallet),
 		Logger:   managerLogger,
-	}, opts), nil
+	}, opts, func(m *Manager) {
+		err := m.setupClient()
+		if err != nil {
+			innerErr = err
+		}
+
+		m.setupGenesisAccount()
+	}), innerErr
 }
 
-func (m *Manager) SetupFromParams() error {
+func (m *Manager) setupClient() error {
 	var err error
 	m.Client, err = models.NewWebClient(m.optsClientBindAddress, m.optsFaucetURL)
 	if err != nil {
 		m.LogErrorf("failed to create web client: %s", err.Error())
 
-		return nil
+		return ierrors.Wrap(err, "failed to create web client")
 	}
 	m.API = m.Client.LatestAPI()
 
+	return nil
+}
+
+func (m *Manager) setupGenesisAccount() {
 	genesisAccountData := &models.AccountData{
 		Account:  lo.PanicOnErr(wallet.AccountFromParams(m.optsGenesisAccountParams.FaucetAccountID, m.optsGenesisAccountParams.FaucetPrivateKey)),
 		Status:   models.AccountReady,
@@ -87,18 +102,24 @@ func (m *Manager) SetupFromParams() error {
 		Index:    0,
 	}
 	m.AddAccount(GenesisAccountAlias, genesisAccountData)
+}
 
-	// TODO determine the faucet request amounts
-	//_, output, err := m.RequestFaucetFunds(context.Background(), m.Client, tpkg.RandEd25519Address())
-	//if err != nil {
-	//	m.LogErrorf("failed to request faucet funds: %s, faucet not initiated", err.Error())
-	//
-	//	return err
-	//}
-	//m.RequestTokenAmount = output.BaseTokenAmount()
-	//m.RequestManaAmount = output.StoredMana()
-	//
-	//accountWalletLogger.LogDebugf("faucet initiated with %d tokens and %d mana", w.RequestTokenAmount, w.RequestManaAmount)
+func (m *Manager) setupRequestsAmounts() error {
+	if m.optsSilence {
+		// skip the request
+		return nil
+	}
+
+	_, output, err := m.RequestFaucetFunds(context.Background(), m.Client, tpkg.RandEd25519Address())
+	if err != nil {
+		m.LogErrorf("failed to request faucet funds: %s, faucet not initiated", err.Error())
+
+		return err
+	}
+	m.RequestTokenAmount = output.BaseTokenAmount()
+	m.RequestManaAmount = output.StoredMana()
+
+	m.LogDebugf("faucet initiated with %d tokens and %d mana", m.RequestTokenAmount, m.RequestManaAmount)
 
 	return nil
 }
@@ -159,7 +180,7 @@ func (m *Manager) GetWallet(alias string) (*AccountWallet, error) {
 }
 
 func (m *Manager) GenesisAccount() wallet.Account {
-	return lo.Return1(m.accounts[GenesisAccountAlias]).Account
+	return lo.Return1(m.GetAccount(GenesisAccountAlias)).Account
 }
 
 func (m *Manager) GetDelegations(alias string) ([]*models.OutputData, error) {
@@ -280,5 +301,11 @@ func WithAccountStatesFile(fileName string) options.Option[Manager] {
 func WithFaucetAccountParams(params *GenesisAccountParams) options.Option[Manager] {
 	return func(a *Manager) {
 		a.optsGenesisAccountParams = params
+	}
+}
+
+func WithSilence() options.Option[Manager] {
+	return func(a *Manager) {
+		a.optsSilence = true
 	}
 }

@@ -13,6 +13,7 @@ import (
 )
 
 func (m *Manager) delegateToAccount(ctx context.Context, params *DelegateAccountParams) error {
+	m.LogInfo("Delegating to account...")
 	wallet := m.getOrCreateWallet(params.FromAlias)
 	accountAddress, err := m.prepareToAccount(params.ToAddress)
 	if err != nil {
@@ -27,7 +28,7 @@ func (m *Manager) delegateToAccount(ctx context.Context, params *DelegateAccount
 			return ierrors.Wrap(err, "failed to get staking data from node")
 		}
 
-		poolStakeBefore := validatorResp.PoolStake
+		poolStakeBefore = validatorResp.PoolStake
 		m.LogInfof("Pool stake for validator %s before delegating: %d", accountAddress, poolStakeBefore)
 	}
 

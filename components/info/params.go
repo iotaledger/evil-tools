@@ -1,20 +1,23 @@
 package info
 
 import (
+	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/app"
 )
 
 type ParametersInfo struct {
-	NodeURLs []string `default:"http://localhost:8050" usage:"API URLs for clients used in test separated with commas"`
 }
 
 var ParamsInfo = &ParametersInfo{}
+var ParamsTool = &models.ParametersTool{}
 
 var params = &app.ComponentParams{
 	Params: map[string]any{
 		"info": ParamsInfo,
+		"tool": ParamsTool,
 	},
 	Masked: []string{
+		"info",
 		"app",
 		"profiling",
 		"logger",

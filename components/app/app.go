@@ -29,12 +29,10 @@ func App() *app.App {
 	}
 	switch script {
 	case spammer.ScriptName:
-		components = append(components, accounts.Component)
 		components = append(components, spammer.Component)
 	case accounts.ScriptName:
 		components = append(components, accounts.Component)
 	case info.ScriptName:
-		components = append(components, accounts.Component)
 		components = append(components, info.Component)
 	}
 
@@ -58,6 +56,7 @@ func init() {
 		Component: &app.Component{
 			Name: "App",
 		},
+		Init: initialize,
 		NonHiddenFlags: []string{
 			"config",
 			"help",
@@ -77,4 +76,15 @@ func getScript() (string, error) {
 	default:
 		return "", ierrors.Errorf("invalid script name: %s", os.Args[1])
 	}
+}
+
+func initialize(_ *app.App) error {
+	if info.ScriptName == os.Args[1] {
+		err := info.Run()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

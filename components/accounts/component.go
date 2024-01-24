@@ -2,9 +2,8 @@ package accounts
 
 import (
 	"context"
+	"fmt"
 	"os"
-
-	"go.uber.org/dig"
 
 	"github.com/iotaledger/evil-tools/pkg/accountmanager"
 	"github.com/iotaledger/hive.go/app"
@@ -17,68 +16,54 @@ const (
 
 func init() {
 	Component = &app.Component{
-		Name:     "Accounts",
-		Params:   params,
-		DepsFunc: func(cDeps dependencies) { deps = cDeps },
-		Run:      run,
-		Provide: func(c *dig.Container) error {
-			return c.Provide(provideWallet)
-		},
+		Name:   "Accounts",
+		Params: params,
+		Run:    run,
 	}
 }
 
 var (
 	Component *app.Component
-	deps      dependencies
 )
-
-type dependencies struct {
-	dig.In
-
-	AccountWallets *accountmanager.Manager
-}
 
 func run() error {
 	Component.LogInfo("Starting evil-tools accounts ... done")
-	// save wallet state on shutdown
-	defer func() {
-		err := deps.AccountWallets.SaveStateToFile()
-		if err != nil {
-			Component.LogErrorf("Error while saving wallet state: %v", err)
-		}
-	}()
 
-	accountsSubcommandsFlags := parseAccountCommands(getCommands(os.Args[2:]), ParamsAccounts)
-	accountsSubcommands(
-		Component.Daemon().ContextStopped(),
-		deps.AccountWallets,
-		accountsSubcommandsFlags,
-	)
-
-	return nil
-}
-
-func provideWallet() *accountmanager.Manager {
-	// load wallet
-	accWallet, err := accountmanager.Run(Component.Daemon().ContextStopped(), Component.Logger,
-		accountmanager.WithClientURL(ParamsAccounts.NodeURLs[0]),
-		accountmanager.WithFaucetURL(ParamsAccounts.FaucetURL),
-		accountmanager.WithAccountStatesFile(ParamsAccounts.AccountStatesFile),
+	accManager, err := accountmanager.RunManager(Component.Logger,
+		accountmanager.WithClientURL(ParamsTool.NodeURLs[0]),
+		accountmanager.WithFaucetURL(ParamsTool.FaucetURL),
+		accountmanager.WithAccountStatesFile(ParamsTool.AccountStatesFile),
 		accountmanager.WithFaucetAccountParams(&accountmanager.GenesisAccountParams{
-			FaucetPrivateKey: ParamsAccounts.BlockIssuerPrivateKey,
-			FaucetAccountID:  ParamsAccounts.AccountID,
+			FaucetPrivateKey: ParamsTool.BlockIssuerPrivateKey,
+			FaucetAccountID:  ParamsTool.AccountID,
 		}),
 	)
 	if err != nil {
 		Component.LogPanic(err.Error())
 	}
 
-	return accWallet
+	accountsSubcommandsFlags := parseAccountCommands(getCommands(os.Args[2:]), ParamsAccounts)
+	accountsSubcommands(
+		Component.Daemon().ContextStopped(),
+		accManager,
+		accountsSubcommandsFlags,
+	)
+
+	return nil
 }
 
-func accountsSubcommands(ctx context.Context, wallets *accountmanager.Manager, subcommands []accountmanager.AccountSubcommands) {
+func accountsSubcommands(ctx context.Context, accManager *accountmanager.Manager, subcommands []accountmanager.AccountSubcommands) {
+	// save wallet state on shutdown
+	defer func() {
+		fmt.Println("Saving wallet state...")
+		err := accManager.SaveStateToFile()
+		if err != nil {
+			Component.LogErrorf("Error while saving wallet state: %v", err)
+		}
+	}()
+
 	for _, sub := range subcommands {
-		err := accountsSubcommand(ctx, wallets, sub)
+		err := accountsSubcommand(ctx, accManager, sub)
 		if err != nil {
 			Component.LogFatal(ierrors.Wrap(err, "failed to run subcommand").Error())
 
@@ -121,17 +106,17 @@ func accountsSubcommand(ctx context.Context, wallets *accountmanager.Manager, su
 
 	case accountmanager.OperationDelegateAccount:
 		//nolint:forcetypassert // we can safely assume that the type is correct
-		params := subCommand.(*accountmanager.DelegateAccountParams)
+		accParams := subCommand.(*accountmanager.DelegateAccountParams)
 
-		if err := wallets.DelegateToAccount(ctx, params); err != nil {
+		if err := wallets.DelegateToAccount(ctx, accParams); err != nil {
 			return ierrors.Wrap(err, "failed to delegate to account")
 		}
 
 	case accountmanager.OperationRewardsAccount:
 		//nolint:forcetypassert // we can safely assume that the type is correct
-		params := subCommand.(*accountmanager.RewardsAccountParams)
+		accParams := subCommand.(*accountmanager.RewardsAccountParams)
 
-		if err := wallets.Rewards(ctx, params); err != nil {
+		if err := wallets.Rewards(ctx, accParams); err != nil {
 			return ierrors.Wrap(err, "failed to get rewards")
 		}
 

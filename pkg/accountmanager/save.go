@@ -26,9 +26,6 @@ func (m *Manager) toAccountState() *AccountsState {
 }
 
 func (m *Manager) fromAccountState(state *AccountsState) {
-	m.Lock()
-	defer m.Unlock()
-
 	accountData := make(map[string]*models.AccountData)
 	for alias, accState := range state.accountState {
 		accountData[alias] = accState.ToAccountData()
@@ -71,12 +68,15 @@ func (m *Manager) LoadStateFromFile() (loaded bool, err error) {
 		return false, nil
 	}
 
-	var state AccountsState
-	_, err = m.Client.LatestAPI().Decode(walletStateBytes, &state)
+	state := &AccountsState{
+		accountState: make(map[string]AccountState),
+		wallets:      make(map[string]*AccountWallet),
+	}
+	_, err = m.Client.LatestAPI().Decode(walletStateBytes, state)
 	if err != nil {
 		return false, ierrors.Wrap(err, "failed to decode from file")
 	}
-	m.fromAccountState(&state)
+	m.fromAccountState(state)
 
 	return true, nil
 }

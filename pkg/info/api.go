@@ -33,7 +33,7 @@ func (m *Manager) AccountsInfo() error {
 	return m.accWallets.ListAccount()
 }
 
-func (m *Manager) DelegatorsInfo(ctx context.Context) error {
+func (m *Manager) DelegatorsInfo() error {
 	delegationOutToAliasMap := m.accWallets.Delegators()
 	t := "### Delegators: \n"
 	for outID, alias := range delegationOutToAliasMap {

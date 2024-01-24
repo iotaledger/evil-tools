@@ -6,33 +6,50 @@ import (
 
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/ierrors"
+	"github.com/iotaledger/hive.go/lo"
 	iotago "github.com/iotaledger/iota.go/v4"
 	"github.com/iotaledger/iota.go/v4/wallet"
 )
 
 func (m *Manager) toAccountState() *AccountsState {
 	state := &AccountsState{
-		accountState:       make(map[string]AccountState),
-		wallets:            m.wallets,
+		AccountState:       make([]*AccountState, len(m.accounts)),
+		Wallets:            make([]*Wallet, len(m.wallets)),
+		Delegation:         make([]*Delegation, 0),
 		RequestTokenAmount: m.RequestTokenAmount,
 		RequestManaAmount:  m.RequestManaAmount,
 	}
 
-	for alias, accountData := range m.accounts {
-		state.accountState[alias] = AccountStateFromAccountData(accountData)
+	for i, accountData := range lo.Values(m.accounts) {
+		state.AccountState[i] = AccountStateFromAccountData(accountData)
+	}
+
+	for i, w := range lo.Values(m.wallets) {
+		state.Wallets[i] = w
+	}
+
+	for _, delegations := range lo.Values(m.delegations) {
+		state.Delegation = append(state.Delegation, delegations...)
 	}
 
 	return state
 }
 
 func (m *Manager) fromAccountState(state *AccountsState) {
-	accountData := make(map[string]*models.AccountData)
-	for alias, accState := range state.accountState {
-		accountData[alias] = accState.ToAccountData()
+	for _, accState := range state.AccountState {
+		m.accounts[accState.Alias] = accState.ToAccountData()
+	}
+	for _, w := range state.Wallets {
+		m.wallets[w.alias] = w
 	}
 
-	m.accounts = accountData
-	m.wallets = state.wallets
+	for _, d := range state.Delegation {
+		if _, ok := m.delegations[d.Alias]; !ok {
+			m.delegations[d.Alias] = make([]*Delegation, 0)
+		}
+		m.delegations[d.Alias] = append(m.delegations[d.Alias], d)
+	}
+
 	m.RequestTokenAmount = state.RequestTokenAmount
 	m.RequestManaAmount = state.RequestManaAmount
 }
@@ -52,6 +69,8 @@ func (m *Manager) SaveStateToFile() error {
 		return ierrors.Wrap(err, "failed to write account states to file")
 	}
 
+	m.LogInfof("Wallet saved successfully to %s file...", m.optsAccountStatesFile)
+
 	return nil
 }
 
@@ -69,8 +88,9 @@ func (m *Manager) LoadStateFromFile() (loaded bool, err error) {
 	}
 
 	state := &AccountsState{
-		accountState: make(map[string]AccountState),
-		wallets:      make(map[string]*AccountWallet),
+		AccountState: make([]*AccountState, 0),
+		Wallets:      make([]*Wallet, 0),
+		Delegation:   make([]*Delegation, 0),
 	}
 	_, err = m.Client.LatestAPI().Decode(walletStateBytes, state)
 	if err != nil {
@@ -82,17 +102,27 @@ func (m *Manager) LoadStateFromFile() (loaded bool, err error) {
 }
 
 type AccountsState struct {
-	accountState       map[string]AccountState   `serix:"accountState,lenPrefix=uint8"`
-	wallets            map[string]*AccountWallet `serix:"wallets,lenPrefix=uint8"`
-	RequestTokenAmount iotago.BaseToken          `serix:"RequestTokenAmount"`
-	RequestManaAmount  iotago.Mana               `serix:"RequestManaAmount"`
+	AccountState       []*AccountState  `serix:"accounts,lenPrefix=uint8"`
+	Wallets            []*Wallet        `serix:"wallets,lenPrefix=uint8,inlined"`
+	Delegation         []*Delegation    `serix:"delegations,lenPrefix=uint8"`
+	RequestTokenAmount iotago.BaseToken `serix:"RequestTokenAmount"`
+	RequestManaAmount  iotago.Mana      `serix:"RequestManaAmount"`
 }
 
 type AccountState struct {
-	AccountID  iotago.AccountID   `serix:""`
+	Alias      string             `serix:"Alias,lenPrefix=uint8"`
+	AccountID  iotago.AccountID   `serix:"AccountID"`
 	PrivateKey ed25519.PrivateKey `serix:",lenPrefix=uint8"`
-	OutputID   iotago.OutputID    `serix:""`
-	Index      uint32             `serix:""`
+	OutputID   iotago.OutputID    `serix:"OutputID"`
+	Index      uint32             `serix:"Index"`
+}
+
+type Delegation struct {
+	Alias                  string           `serix:"Alias,lenPrefix=uint8"`
+	OutputID               iotago.OutputID  `serix:"OutputID"`
+	AddressIndex           uint32           `serix:"AddressIndex"`
+	Amount                 iotago.BaseToken `serix:"Amount"`
+	DelegatedToBechAddress string           `serix:"DelegatedToBechAddress,lenPrefix=uint8"`
 }
 
 func (a *AccountState) ToAccountData() *models.AccountData {
@@ -103,8 +133,8 @@ func (a *AccountState) ToAccountData() *models.AccountData {
 	}
 }
 
-func AccountStateFromAccountData(acc *models.AccountData) AccountState {
-	return AccountState{
+func AccountStateFromAccountData(acc *models.AccountData) *AccountState {
+	return &AccountState{
 		AccountID:  acc.Account.ID(),
 		PrivateKey: acc.Account.PrivateKey(),
 		OutputID:   acc.OutputID,

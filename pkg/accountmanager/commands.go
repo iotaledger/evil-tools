@@ -50,9 +50,9 @@ func (m *Manager) Rewards(ctx context.Context, params *RewardsAccountParams) err
 
 func (m *Manager) Delegators() map[iotago.OutputID]string {
 	delegatedOutputs := make(map[iotago.OutputID]string)
-	for alias, wallet := range m.wallets {
-		for _, out := range wallet.delegationOutputs {
-			delegatedOutputs[out.OutputID] = alias
+	for alias, delegations := range m.delegations {
+		for _, delegation := range delegations {
+			delegatedOutputs[delegation.OutputID] = alias
 		}
 	}
 

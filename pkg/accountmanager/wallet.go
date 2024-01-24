@@ -14,22 +14,20 @@ import (
 	"github.com/iotaledger/iota.go/v4/wallet"
 )
 
-type AccountWallet struct {
-	alias             string               `serix:"alias"`
-	seed              [32]byte             `serix:"seed"`
-	delegationOutputs []*models.OutputData `serix:"delegationOutputs,lenPrefix=uint8"`
-	latestUsedIndex   atomic.Uint32        `serix:"latestUsedIndex"`
+type Wallet struct {
+	alias           string        `serix:"alias,lenPrefix=uint8"`
+	seed            [32]byte      `serix:"seed"`
+	latestUsedIndex atomic.Uint32 `serix:"latestUsedIndex"`
 }
 
-func newAccountWallet(alias string) *AccountWallet {
-	return &AccountWallet{
-		alias:             alias,
-		delegationOutputs: make([]*models.OutputData, 0),
-		seed:              tpkg.RandEd25519Seed(),
+func newAccountWallet(alias string) *Wallet {
+	return &Wallet{
+		alias: alias,
+		seed:  tpkg.RandEd25519Seed(),
 	}
 }
 
-func (m *Manager) newAccountWallet(alias string) *AccountWallet {
+func (m *Manager) newAccountWallet(alias string) *Wallet {
 	accountWallet := newAccountWallet(alias)
 
 	m.wallets[alias] = accountWallet
@@ -37,7 +35,7 @@ func (m *Manager) newAccountWallet(alias string) *AccountWallet {
 	return accountWallet
 }
 
-func (m *Manager) getOrCreateWallet(alias string) *AccountWallet {
+func (m *Manager) getOrCreateWallet(alias string) *Wallet {
 	m.Lock()
 	defer m.Unlock()
 
@@ -49,7 +47,7 @@ func (m *Manager) getOrCreateWallet(alias string) *AccountWallet {
 	return w
 }
 
-func (a *AccountWallet) GetAddrSignerForIndexes(outputs ...*models.OutputData) (iotago.AddressSigner, error) {
+func (a *Wallet) GetAddrSignerForIndexes(outputs ...*models.OutputData) (iotago.AddressSigner, error) {
 	var addrKeys []iotago.AddressKeys
 	for _, out := range outputs {
 		switch out.Address.Type() {
@@ -71,7 +69,7 @@ func (a *AccountWallet) GetAddrSignerForIndexes(outputs ...*models.OutputData) (
 	return iotago.NewInMemoryAddressSigner(addrKeys...), nil
 }
 
-func (a *AccountWallet) getAccountPublicKeys(pubKey crypto.PublicKey) (iotago.BlockIssuerKeys, error) {
+func (a *Wallet) getAccountPublicKeys(pubKey crypto.PublicKey) (iotago.BlockIssuerKeys, error) {
 	ed25519PubKey, isEd25519 := pubKey.(ed25519.PublicKey)
 	if !isEd25519 {
 		return nil, ierrors.New("Failed to create account: only Ed25519 keys are supported")
@@ -83,7 +81,7 @@ func (a *AccountWallet) getAccountPublicKeys(pubKey crypto.PublicKey) (iotago.Bl
 
 }
 
-func (a *AccountWallet) getAddress(addressType iotago.AddressType) (iotago.DirectUnlockableAddress, ed25519.PrivateKey, uint32) {
+func (a *Wallet) getAddress(addressType iotago.AddressType) (iotago.DirectUnlockableAddress, ed25519.PrivateKey, uint32) {
 	newIndex := a.latestUsedIndex.Inc()
 	keyManager := lo.PanicOnErr(wallet.NewKeyManager(a.seed[:], BIP32PathForIndex(newIndex)))
 	privateKey, _ := keyManager.KeyPair()

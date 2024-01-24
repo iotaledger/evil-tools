@@ -40,7 +40,7 @@ type (
 	}
 
 	ParametersAccountsDelegate struct {
-		FromAlias string `default:"" usage:"The alias of the account to delegate IOTA tokens from"`
+		FromAlias string `default:"default" usage:"The alias of the delegator, does not need to have an account"`
 		ToAddress string `default:"rms1pzg8cqhfxqhq7pt37y8cs4v5u4kcc48lquy2k73ehsdhf5ukhya3y5rx2w6" usage:"The account address of the account to delegate IOTA tokens to"`
 		Amount    int64  `default:"100" usage:"The amount of mana to delegate"`
 		CheckPool bool   `default:"false" usage:"Check if the delegation is added to pool stake when the start epoch is committed"`

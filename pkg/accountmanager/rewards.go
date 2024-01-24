@@ -24,12 +24,12 @@ func (m *Manager) rewards(ctx context.Context, params *RewardsAccountParams) err
 	if err != nil {
 		return ierrors.Wrap(err, "failed to get delegations")
 	}
-	for _, delegationOutput := range delegations {
-		delegationReward, err := m.Client.GetRewards(ctx, delegationOutput.OutputID)
+	for _, delegation := range delegations {
+		delegationReward, err := m.Client.GetRewards(ctx, delegation.OutputID)
 		if err != nil {
-			return ierrors.Wrapf(err, "failed to get rewards for output with outputID %s", delegationOutput.OutputID)
+			return ierrors.Wrapf(err, "failed to get rewards for output with outputID %s", delegation.OutputID)
 		}
-		m.LogInfof("Delegation with outputID %s has %d Mana rewards ready to be claimed", delegationOutput.OutputID, delegationReward.Rewards)
+		m.LogInfof("Delegation with outputID %s has %d Mana rewards ready to be claimed", delegation.OutputID, delegationReward.Rewards)
 	}
 
 	return nil

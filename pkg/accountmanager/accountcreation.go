@@ -155,7 +155,7 @@ func (m *Manager) createAccountWithFaucet(ctx context.Context, params *CreateAcc
 	return accountID, nil
 }
 
-func (m *Manager) createAccountCreationTransaction(clt models.Client, wallet *AccountWallet, inputs []*models.OutputData, accountOutput *iotago.AccountOutput, congestionResp *api.CongestionResponse, issuerResp *api.IssuanceBlockHeaderResponse) (*iotago.SignedTransaction, error) {
+func (m *Manager) createAccountCreationTransaction(clt models.Client, wallet *Wallet, inputs []*models.OutputData, accountOutput *iotago.AccountOutput, congestionResp *api.CongestionResponse, issuerResp *api.IssuanceBlockHeaderResponse) (*iotago.SignedTransaction, error) {
 	currentTime := time.Now()
 	currentSlot := clt.LatestAPI().TimeProvider().SlotFromTime(currentTime)
 	apiForSlot := clt.APIForSlot(currentSlot)

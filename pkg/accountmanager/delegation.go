@@ -62,7 +62,7 @@ func (m *Manager) delegateToAccount(ctx context.Context, params *DelegateAccount
 		return ierrors.Wrap(err, "failed to await block and payload acceptance")
 	}
 	// register the delegation output and its signing keys etc. in the wallet
-	m.registerOutput(params.FromAlias, output)
+	m.registerDelegationOutput(params.FromAlias, output)
 
 	if delegations, err := m.GetDelegations(params.FromAlias); err != nil {
 		m.LogInfof("No delegations for alias %s", params.FromAlias)
@@ -70,8 +70,7 @@ func (m *Manager) delegateToAccount(ctx context.Context, params *DelegateAccount
 		m.LogInfof("Delegations for alias %s:\n", params.FromAlias)
 		for i, delegation := range delegations {
 			// nolint:forcetypeassert // we know that the output is of type *iotago.DelegationOutput
-			delegationOutput := delegation.OutputStruct.(*iotago.DelegationOutput)
-			m.LogInfof("Delegation %d: %d tokens delegated to validator %s", i, delegationOutput.DelegatedAmount, delegationOutput.ValidatorAddress.Bech32(m.API.ProtocolParameters().Bech32HRP()))
+			m.LogInfof("Delegation %d: %d tokens delegated to validator %s", i, delegation.Amount, delegation.DelegatedToBechAddress)
 		}
 	}
 
@@ -117,7 +116,7 @@ func (m *Manager) prepareToAccount(toAddress string) (*iotago.AccountAddress, er
 	return accountAddress, nil
 }
 
-func (m *Manager) prepareInputs(ctx context.Context, clt models.Client, wallet *AccountWallet, params *DelegateAccountParams) ([]*models.OutputData, error) {
+func (m *Manager) prepareInputs(ctx context.Context, clt models.Client, wallet *Wallet, params *DelegateAccountParams) ([]*models.OutputData, error) {
 	if params.FromAlias == "" {
 		params.FromAlias = GenesisAccountAlias
 	}
@@ -145,7 +144,7 @@ func (m *Manager) prepareInputs(ctx context.Context, clt models.Client, wallet *
 	return nil, ierrors.New("failed to get enough faucet funds for delegation output")
 }
 
-func (m *Manager) createDelegationOutputs(wallet *AccountWallet, inputAmount iotago.BaseToken, delegatedAmount iotago.BaseToken, issuingSlot iotago.SlotIndex, accountAddress *iotago.AccountAddress, commitmentID iotago.CommitmentID) ([]*models.OutputData, error) {
+func (m *Manager) createDelegationOutputs(wallet *Wallet, inputAmount iotago.BaseToken, delegatedAmount iotago.BaseToken, issuingSlot iotago.SlotIndex, accountAddress *iotago.AccountAddress, commitmentID iotago.CommitmentID) ([]*models.OutputData, error) {
 	var outputs []*models.OutputData
 	api := m.Client.APIForSlot(issuingSlot)
 	// get the address and private key for the delegator alias
@@ -190,7 +189,7 @@ func (m *Manager) createDelegationOutputs(wallet *AccountWallet, inputAmount iot
 	return outputs, nil
 }
 
-func (m *Manager) createDelegationTransaction(wallet *AccountWallet, params *DelegateAccountParams, toAccountAddress *iotago.AccountAddress, inputs []*models.OutputData, commitmentID iotago.CommitmentID, issuingSlot iotago.SlotIndex) (*iotago.SignedTransaction, *models.OutputData, error) {
+func (m *Manager) createDelegationTransaction(wallet *Wallet, params *DelegateAccountParams, toAccountAddress *iotago.AccountAddress, inputs []*models.OutputData, commitmentID iotago.CommitmentID, issuingSlot iotago.SlotIndex) (*iotago.SignedTransaction, *models.OutputData, error) {
 	// create a transaction with the delegation output
 	apiForSlot := m.Client.APIForSlot(issuingSlot)
 	var totalInputAmount iotago.BaseToken

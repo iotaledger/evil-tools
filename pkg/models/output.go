@@ -28,28 +28,6 @@ type OutputData struct {
 	OutputStruct iotago.Output
 }
 
-type OutputState struct {
-	PrivateKey ed25519.PrivateKey `serix:",lenPrefix=uint8"`
-	OutputID   iotago.OutputID    `serix:""`
-	Index      uint32             `serix:""`
-}
-
-func OutputStateFromOutputData(out *OutputData) *OutputState {
-	return &OutputState{
-		PrivateKey: out.PrivateKey,
-		OutputID:   out.OutputID,
-		Index:      out.AddressIndex,
-	}
-}
-
-func (o *OutputState) ToOutputData() *OutputData {
-	return &OutputData{
-		OutputID:     o.OutputID,
-		AddressIndex: o.Index,
-		PrivateKey:   o.PrivateKey,
-	}
-}
-
 func NewOutputDataWithEmptyID(api iotago.API, addr iotago.Address, index uint32, privateKey ed25519.PrivateKey, out iotago.Output) (*OutputData, error) {
 	outID, err := NewTempOutputID(api, out)
 	if err != nil {

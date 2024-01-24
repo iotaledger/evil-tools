@@ -11,6 +11,8 @@ go build
 ./evil-tools accounts delegate --accounts.delegate.fromAlias A
 
 ./evil-tools accounts delegate --accounts.delegate.fromAlias X
+./evil-tools accounts delegate --accounts.delegate.fromAlias X
+./evil-tools accounts delegate --accounts.delegate.fromAlias X
 
 ./evil-tools accounts info accounts
 

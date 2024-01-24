@@ -46,10 +46,12 @@ func RunManager(logger log.Logger, opts ...options.Option[Manager]) (*Manager, e
 }
 
 type Manager struct {
-	accounts           map[string]*models.AccountData // not serializable with serix
-	wallets            map[string]*AccountWallet      `serix:"wallets,lenPrefix=uint8"`
-	RequestTokenAmount iotago.BaseToken               `serix:"RequestTokenAmount"`
-	RequestManaAmount  iotago.Mana                    `serix:"RequestManaAmount"`
+	accounts    map[string]*models.AccountData // not serializable with serix
+	wallets     map[string]*Wallet
+	delegations map[string][]*Delegation
+
+	RequestTokenAmount iotago.BaseToken
+	RequestManaAmount  iotago.Mana
 
 	optsClientBindAddress    string
 	optsFaucetURL            string
@@ -64,13 +66,14 @@ type Manager struct {
 }
 
 func newManager(logger log.Logger, opts ...options.Option[Manager]) (*Manager, error) {
-	managerLogger := logger.NewChildLogger("AccountWallet")
+	managerLogger := logger.NewChildLogger("accounts")
 	var innerErr error
 
 	return options.Apply(&Manager{
-		accounts: make(map[string]*models.AccountData),
-		wallets:  make(map[string]*AccountWallet),
-		Logger:   managerLogger,
+		accounts:    make(map[string]*models.AccountData),
+		wallets:     make(map[string]*Wallet),
+		delegations: make(map[string][]*Delegation),
+		Logger:      managerLogger,
 	}, opts, func(m *Manager) {
 		err := m.setupClient()
 		if err != nil {
@@ -160,14 +163,14 @@ func (m *Manager) GetReadyAccount(ctx context.Context, clt models.Client, alias 
 	return accountData, nil
 }
 
-func (m *Manager) AddWallet(alias string, wallet *AccountWallet) {
+func (m *Manager) AddWallet(alias string, wallet *Wallet) {
 	m.Lock()
 	defer m.Unlock()
 
 	m.wallets[alias] = wallet
 }
 
-func (m *Manager) GetWallet(alias string) (*AccountWallet, error) {
+func (m *Manager) GetWallet(alias string) (*Wallet, error) {
 	m.RLock()
 	defer m.RUnlock()
 
@@ -183,22 +186,13 @@ func (m *Manager) GenesisAccount() wallet.Account {
 	return lo.Return1(m.GetAccount(GenesisAccountAlias)).Account
 }
 
-func (m *Manager) GetDelegations(alias string) ([]*models.OutputData, error) {
+func (m *Manager) GetDelegations(alias string) ([]*Delegation, error) {
 	m.RLock()
 	defer m.RUnlock()
 
-	w, exists := m.wallets[alias]
-	if !exists {
-		return nil, ierrors.Errorf("wallet with alias %s does not exist", alias)
-	}
-	if len(w.delegationOutputs) == 0 {
-		return nil, ierrors.Errorf("delegations with alias %s do not exist", alias)
-	}
-	delegations := make([]*models.OutputData, 0)
-	for _, output := range w.delegationOutputs {
-		if output.OutputStruct.Type() == iotago.OutputDelegation {
-			delegations = append(delegations, output)
-		}
+	delegations, exist := m.delegations[alias]
+	if !exist {
+		return nil, ierrors.Errorf("delegations with alias %s does not exist", alias)
 	}
 
 	return delegations, nil
@@ -238,14 +232,26 @@ func (m *Manager) deleteAccount(alias string) {
 	m.LogDebugf("deleting account with alias %s", alias)
 }
 
-func (m *Manager) registerOutput(alias string, output *models.OutputData) {
+func (m *Manager) registerDelegationOutput(alias string, output *models.OutputData) {
 	m.Lock()
 	defer m.Unlock()
 
 	if _, exists := m.wallets[alias]; !exists {
-		m.wallets[alias] = m.newAccountWallet(alias)
+		panic("wallet should already exist!")
 	}
-	m.wallets[alias].delegationOutputs = append(m.wallets[alias].delegationOutputs, output)
+
+	_, ok := m.delegations[alias]
+	if !ok {
+		m.delegations[alias] = make([]*Delegation, 0)
+	}
+
+	m.delegations[alias] = append(m.delegations[alias], &Delegation{
+		Alias:                  alias,
+		OutputID:               output.OutputID,
+		AddressIndex:           output.AddressIndex,
+		Amount:                 output.OutputStruct.BaseTokenAmount(),
+		DelegatedToBechAddress: output.Address.Bech32(m.Client.CommittedAPI().ProtocolParameters().Bech32HRP()),
+	})
 }
 
 func (m *Manager) awaitAccountReadiness(ctx context.Context, clt models.Client, alias string, accData *models.AccountData) bool {

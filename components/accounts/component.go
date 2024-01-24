@@ -2,7 +2,6 @@ package accounts
 
 import (
 	"context"
-	"fmt"
 	"os"
 
 	"github.com/iotaledger/evil-tools/pkg/accountmanager"
@@ -55,7 +54,6 @@ func run() error {
 func accountsSubcommands(ctx context.Context, accManager *accountmanager.Manager, subcommands []accountmanager.AccountSubcommands) {
 	// save wallet state on shutdown
 	defer func() {
-		fmt.Println("Saving wallet state...")
 		err := accManager.SaveStateToFile()
 		if err != nil {
 			Component.LogErrorf("Error while saving wallet state: %v", err)

@@ -30,7 +30,7 @@ func (m *Manager) RequestBlockIssuanceData(ctx context.Context, clt models.Clien
 	return congestionResp, issuerResp, version, nil
 }
 
-func (m *Manager) getFaucetFundsOutput(ctx context.Context, clt models.Client, wallet *AccountWallet, addressType iotago.AddressType) (*models.OutputData, error) {
+func (m *Manager) getFaucetFundsOutput(ctx context.Context, clt models.Client, wallet *Wallet, addressType iotago.AddressType) (*models.OutputData, error) {
 	receiverAddr, privateKey, usedIndex := wallet.getAddress(addressType)
 
 	outputID, output, err := m.RequestFaucetFunds(ctx, clt, receiverAddr)

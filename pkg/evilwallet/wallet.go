@@ -5,7 +5,7 @@ import (
 
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/evil-tools/pkg/accountwallet"
+	"github.com/iotaledger/evil-tools/pkg/accountmanager"
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/lo"
@@ -75,7 +75,7 @@ func (w *Wallet) Address() *iotago.Ed25519Address {
 
 	index := w.nextAddrIdxToUse.Load()
 	w.nextAddrIdxToUse.Inc()
-	keyManager := lo.PanicOnErr(wallet.NewKeyManager(w.seed[:], accountwallet.BIP32PathForIndex(index)))
+	keyManager := lo.PanicOnErr(wallet.NewKeyManager(w.seed[:], accountmanager.BIP32PathForIndex(index)))
 	//nolint:forcetypeassert
 	addr := keyManager.Address(iotago.AddressEd25519).(*iotago.Ed25519Address)
 	w.addrIndexMap[addr.String()] = index
@@ -88,7 +88,7 @@ func (w *Wallet) AddressOnIndex(index uint32) *iotago.Ed25519Address {
 	w.Lock()
 	defer w.Unlock()
 
-	keyManager := lo.PanicOnErr(wallet.NewKeyManager(w.seed[:], accountwallet.BIP32PathForIndex(index)))
+	keyManager := lo.PanicOnErr(wallet.NewKeyManager(w.seed[:], accountmanager.BIP32PathForIndex(index)))
 	//nolint:forcetypeassert
 	addr := keyManager.Address(iotago.AddressEd25519).(*iotago.Ed25519Address)
 
@@ -227,7 +227,7 @@ func (w *Wallet) KeyPair(index uint32) (ed25519.PrivateKey, ed25519.PublicKey) {
 	w.RLock()
 	defer w.RUnlock()
 
-	keyManger := lo.PanicOnErr(wallet.NewKeyManager(w.seed[:], accountwallet.BIP32PathForIndex(index)))
+	keyManger := lo.PanicOnErr(wallet.NewKeyManager(w.seed[:], accountmanager.BIP32PathForIndex(index)))
 
 	return keyManger.KeyPair()
 }

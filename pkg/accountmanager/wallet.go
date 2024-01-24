@@ -1,33 +1,52 @@
-package accountwallet
+package accountmanager
 
 import (
 	"crypto"
 	"crypto/ed25519"
 
+	"go.uber.org/atomic"
+
 	"github.com/iotaledger/evil-tools/pkg/models"
-	"github.com/iotaledger/evil-tools/pkg/utils"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
 	iotago "github.com/iotaledger/iota.go/v4"
-	"github.com/iotaledger/iota.go/v4/builder"
+	"github.com/iotaledger/iota.go/v4/tpkg"
 	"github.com/iotaledger/iota.go/v4/wallet"
 )
 
-func (a *AccountWallet) logMissingMana(finishedTxBuilder *builder.TransactionBuilder, rmc iotago.Mana, issuerAccountID iotago.AccountID) {
-	availableMana, err := finishedTxBuilder.CalculateAvailableMana(finishedTxBuilder.CreationSlot())
-	if err != nil {
-		a.LogError("could not calculate available mana")
+type AccountWallet struct {
+	alias             string               `serix:"alias"`
+	seed              [32]byte             `serix:"seed"`
+	delegationOutputs []*models.OutputData `serix:"delegationOutputs,lenPrefix=uint8"`
+	latestUsedIndex   atomic.Uint32        `serix:"latestUsedIndex"`
+}
 
-		return
+func newAccountWallet(alias string) *AccountWallet {
+	return &AccountWallet{
+		alias:             alias,
+		delegationOutputs: make([]*models.OutputData, 0),
+		seed:              tpkg.RandEd25519Seed(),
 	}
-	a.LogDebug(utils.SprintAvailableManaResult(availableMana))
-	minRequiredAllottedMana, err := finishedTxBuilder.MinRequiredAllotedMana(a.Client.APIForSlot(finishedTxBuilder.CreationSlot()).ProtocolParameters().WorkScoreParameters(), rmc, issuerAccountID)
-	if err != nil {
-		a.LogError("could not calculate min required allotted mana")
+}
 
-		return
+func (m *Manager) newAccountWallet(alias string) *AccountWallet {
+	accountWallet := newAccountWallet(alias)
+
+	m.wallets[alias] = accountWallet
+
+	return accountWallet
+}
+
+func (m *Manager) getOrCreateWallet(alias string) *AccountWallet {
+	m.Lock()
+	defer m.Unlock()
+
+	w, exists := m.wallets[alias]
+	if !exists {
+		return m.newAccountWallet(alias)
 	}
-	a.LogDebugf("Min required allotted mana: %d", minRequiredAllottedMana)
+
+	return w
 }
 
 func (a *AccountWallet) GetAddrSignerForIndexes(outputs ...*models.OutputData) (iotago.AddressSigner, error) {

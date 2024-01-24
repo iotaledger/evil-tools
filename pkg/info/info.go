@@ -1,18 +1,18 @@
 package info
 
 import (
-	"github.com/iotaledger/evil-tools/pkg/accountwallet"
+	"github.com/iotaledger/evil-tools/pkg/accountmanager"
 	"github.com/iotaledger/hive.go/log"
 )
 
 type Manager struct {
-	accWallet *accountwallet.AccountWallets
-	logger    log.Logger
+	accWallets *accountmanager.Manager
+	logger     log.Logger
 }
 
-func NewManager(logger log.Logger, accWallet *accountwallet.AccountWallets) *Manager {
+func NewManager(logger log.Logger, accWallet *accountmanager.Manager) *Manager {
 	return &Manager{
-		accWallet: accWallet,
-		logger:    logger,
+		accWallets: accWallet,
+		logger:     logger,
 	}
 }

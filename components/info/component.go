@@ -6,7 +6,7 @@ import (
 
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/evil-tools/pkg/accountwallet"
+	"github.com/iotaledger/evil-tools/pkg/accountmanager"
 	"github.com/iotaledger/evil-tools/pkg/info"
 	"github.com/iotaledger/hive.go/app"
 	"github.com/iotaledger/hive.go/ierrors"
@@ -31,7 +31,7 @@ var (
 type dependencies struct {
 	dig.In
 
-	AccountWallets *accountwallet.AccountWallets
+	AccountWallets *accountmanager.Manager
 }
 
 func run() error {

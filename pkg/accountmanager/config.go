@@ -1,7 +1,6 @@
-package accountwallet
+package accountmanager
 
 import (
-	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/ds/types"
 	iotago "github.com/iotaledger/iota.go/v4"
 )
@@ -132,8 +131,4 @@ type NoAccountParams struct {
 
 func (a *NoAccountParams) Type() AccountOperation {
 	return a.Operation
-}
-
-type StateData struct {
-	Wallets []*models.WalletState `serix:"wallets,lenPrefix=uint8"`
 }

@@ -3,7 +3,7 @@ package spammer
 import (
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/evil-tools/pkg/accountwallet"
+	"github.com/iotaledger/evil-tools/pkg/accountmanager"
 	"github.com/iotaledger/evil-tools/programs"
 	"github.com/iotaledger/hive.go/app"
 )
@@ -29,7 +29,7 @@ var (
 type dependencies struct {
 	dig.In
 
-	AccountWallet *accountwallet.AccountWallet
+	AccountManager *accountmanager.Manager
 }
 
 func run() error {
@@ -40,7 +40,7 @@ func run() error {
 		Component.Logger,
 		ParamsSpammer.NodeURLs,
 		ParamsSpammer,
-		deps.AccountWallet)
+		deps.AccountManager)
 
 	return nil
 

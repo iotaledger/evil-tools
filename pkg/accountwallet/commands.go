@@ -51,3 +51,14 @@ func (a *AccountWallets) DelegateToAccount(ctx context.Context, params *Delegate
 func (a *AccountWallets) Rewards(ctx context.Context, params *RewardsAccountParams) error {
 	return a.rewards(ctx, params)
 }
+
+func (a *AccountWallets) Delegators() map[iotago.OutputID]string {
+	delegatedOutputs := make(map[iotago.OutputID]string)
+	for alias, wallet := range a.wallets {
+		for _, out := range wallet.outputs {
+			delegatedOutputs[out.OutputID] = alias
+		}
+	}
+
+	return delegatedOutputs
+}

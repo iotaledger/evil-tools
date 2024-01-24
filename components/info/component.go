@@ -65,6 +65,12 @@ func infoSubcommand(ctx context.Context, manager *info.Manager, subCommand Comma
 		if err := manager.AccountsInfo(); err != nil {
 			return ierrors.Wrapf(err, "error while requesting accounts endpoint")
 		}
+	case CommandDelegations:
+		if err := manager.DelegatorsInfo(ctx); err != nil {
+			return ierrors.Wrapf(err, "error while requesting delegations endpoint")
+		}
+	default:
+		return ierrors.Errorf("unknown command: %s", subCommand)
 	}
 
 	return nil

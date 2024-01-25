@@ -15,14 +15,14 @@ import (
 )
 
 func (a *AccountWallet) logMissingMana(finishedTxBuilder *builder.TransactionBuilder, rmc iotago.Mana, issuerAccountID iotago.AccountID) {
-	availableMana, err := finishedTxBuilder.CalculateAvailableMana(finishedTxBuilder.CreationSlot())
+	availableMana, err := finishedTxBuilder.CalculateAvailableManaInputs(finishedTxBuilder.CreationSlot())
 	if err != nil {
 		a.LogError("could not calculate available mana")
 
 		return
 	}
 	a.LogDebug(utils.SprintAvailableManaResult(availableMana))
-	minRequiredAllottedMana, err := finishedTxBuilder.MinRequiredAllotedMana(rmc, issuerAccountID)
+	minRequiredAllottedMana, err := finishedTxBuilder.MinRequiredAllottedMana(rmc, issuerAccountID)
 	if err != nil {
 		a.LogError("could not calculate min required allotted mana")
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/evil-tools/pkg/utils"
+	hiveEd25519 "github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
 	iotago "github.com/iotaledger/iota.go/v4"
@@ -21,7 +22,7 @@ func (a *AccountWallet) logMissingMana(finishedTxBuilder *builder.TransactionBui
 		return
 	}
 	a.LogDebug(utils.SprintAvailableManaResult(availableMana))
-	minRequiredAllottedMana, err := finishedTxBuilder.MinRequiredAllotedMana(a.Client.APIForSlot(finishedTxBuilder.CreationSlot()).ProtocolParameters().WorkScoreParameters(), rmc, issuerAccountID)
+	minRequiredAllottedMana, err := finishedTxBuilder.MinRequiredAllotedMana(rmc, issuerAccountID)
 	if err != nil {
 		a.LogError("could not calculate min required allotted mana")
 
@@ -53,7 +54,7 @@ func (a *AccountWallet) GetAddrSignerForIndexes(outputs ...*models.OutputData) (
 }
 
 func (a *AccountWallet) getAccountPublicKeys(pubKey crypto.PublicKey) (iotago.BlockIssuerKeys, error) {
-	ed25519PubKey, isEd25519 := pubKey.(ed25519.PublicKey)
+	ed25519PubKey, isEd25519 := pubKey.(hiveEd25519.PublicKey)
 	if !isEd25519 {
 		return nil, ierrors.New("Failed to create account: only Ed25519 keys are supported")
 	}

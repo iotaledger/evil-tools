@@ -90,7 +90,7 @@ func MinIssuerAccountAmount(protocolParameters iotago.ProtocolParameters) iotago
 		Features: iotago.AccountOutputFeatures{
 			&iotago.BlockIssuerFeature{
 				BlockIssuerKeys: iotago.BlockIssuerKeys{
-					&iotago.Ed25519PublicKeyBlockIssuerKey{},
+					&iotago.Ed25519PublicKeyHashBlockIssuerKey{},
 				},
 			},
 		},

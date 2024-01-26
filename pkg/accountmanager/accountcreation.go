@@ -2,11 +2,11 @@ package accountmanager
 
 import (
 	"context"
-	"crypto/ed25519"
 	"time"
 
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/evil-tools/pkg/utils"
+	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
 	iotago "github.com/iotaledger/iota.go/v4"
@@ -185,7 +185,7 @@ func (m *Manager) createAccountCreationTransaction(clt models.Client, wallet *Wa
 		AddOutput(accountOutput).
 		SetCreationSlot(currentSlot).
 		AddCommitmentInput(&iotago.CommitmentInput{CommitmentID: lo.Return1(issuerResp.LatestCommitment.ID())}).AddBlockIssuanceCreditInput(&iotago.BlockIssuanceCreditInput{AccountID: accountID}).
-		WithTransactionCapabilities(iotago.TransactionCapabilitiesBitMaskWithCapabilities(iotago.WithTransactionCanDoAnything())).AllotAllMana(txBuilder.CreationSlot(), accountID)
+		WithTransactionCapabilities(iotago.TransactionCapabilitiesBitMaskWithCapabilities(iotago.WithTransactionCanDoAnything())).AllotAllMana(txBuilder.CreationSlot(), accountID, 0)
 
 	// allot required mana to the implicit account
 	logMissingMana(m.Client, m.Logger, txBuilder, congestionResp.ReferenceManaCost, accountID)

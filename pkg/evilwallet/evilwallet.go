@@ -159,7 +159,7 @@ func (e *EvilWallet) PrepareAndPostBlockWithTxBuildData(ctx context.Context, clt
 	}
 
 	// handle allotment strategy
-	txBuilder.AllotAllMana(txBuilder.CreationSlot(), issuer.ID())
+	txBuilder.AllotAllMana(txBuilder.CreationSlot(), issuer.ID(), 0)
 	signedTx, err := txBuilder.Build(iotago.NewInMemoryAddressSigner(signingKeys...))
 	if err != nil {
 		return iotago.EmptyBlockID, nil, ierrors.Wrap(err, "failed to build and sign transaction")

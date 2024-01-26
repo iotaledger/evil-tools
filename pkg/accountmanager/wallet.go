@@ -7,6 +7,7 @@ import (
 	"go.uber.org/atomic"
 
 	"github.com/iotaledger/evil-tools/pkg/models"
+	hiveEd25519 "github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
 	iotago "github.com/iotaledger/iota.go/v4"
@@ -70,7 +71,7 @@ func (a *Wallet) GetAddrSignerForIndexes(outputs ...*models.OutputData) (iotago.
 }
 
 func (a *Wallet) getAccountPublicKeys(pubKey crypto.PublicKey) (iotago.BlockIssuerKeys, error) {
-	ed25519PubKey, isEd25519 := pubKey.(ed25519.PublicKey)
+	ed25519PubKey, isEd25519 := pubKey.(hiveEd25519.PublicKey)
 	if !isEd25519 {
 		return nil, ierrors.New("Failed to create account: only Ed25519 keys are supported")
 	}

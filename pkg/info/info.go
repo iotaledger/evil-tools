@@ -14,8 +14,8 @@ import (
 
 type Command string
 
-func (a Command) String() string {
-	return string(a)
+func (c Command) String() string {
+	return string(c)
 }
 
 const (
@@ -23,6 +23,7 @@ const (
 	CommandValidators  Command = "validators"
 	CommandAccounts    Command = "accounts"
 	CommandDelegations Command = "delegations"
+	CommandRewards     Command = "rewards"
 )
 
 func availableCommands(cmd string) bool {
@@ -31,6 +32,7 @@ func availableCommands(cmd string) bool {
 		CommandValidators.String():  types.Void,
 		CommandAccounts.String():    types.Void,
 		CommandDelegations.String(): types.Void,
+		CommandRewards.String():     types.Void,
 	}
 
 	_, ok := cmds[cmd]
@@ -38,13 +40,17 @@ func availableCommands(cmd string) bool {
 	return ok
 }
 
-func Run(params *models.ParametersTool, logger log.Logger) error {
+type ParametersInfo struct {
+	Alias string `default:"" usage:"Alias for which info command should be executed."`
+}
+
+func Run(paramsTools *models.ParametersTool, paramsInfo *ParametersInfo, logger log.Logger) error {
 	accManager, err := accountmanager.RunManager(logger,
-		accountmanager.WithClientURL(params.NodeURLs[0]),
-		accountmanager.WithAccountStatesFile(params.AccountStatesFile),
+		accountmanager.WithClientURL(paramsTools.NodeURLs[0]),
+		accountmanager.WithAccountStatesFile(paramsTools.AccountStatesFile),
 		accountmanager.WithFaucetAccountParams(&accountmanager.GenesisAccountParams{
-			FaucetPrivateKey: params.BlockIssuerPrivateKey,
-			FaucetAccountID:  params.AccountID,
+			FaucetPrivateKey: paramsTools.BlockIssuerPrivateKey,
+			FaucetAccountID:  paramsTools.AccountID,
 		}),
 		accountmanager.WithSilence(),
 	)
@@ -56,7 +62,7 @@ func Run(params *models.ParametersTool, logger log.Logger) error {
 	manager := NewManager(logger, accManager)
 	commands := parseInfoCommands(getCommands(os.Args[2:]))
 	for _, cmd := range commands {
-		err = infoSubcommand(context.Background(), manager, cmd)
+		err = infoSubcommand(context.Background(), manager, cmd, paramsInfo)
 		if err != nil {
 			return err
 		}
@@ -66,8 +72,8 @@ func Run(params *models.ParametersTool, logger log.Logger) error {
 }
 
 //nolint:all,forcetypassert
-func infoSubcommand(ctx context.Context, manager *Manager, subCommand Command) error {
-	switch subCommand {
+func infoSubcommand(ctx context.Context, manager *Manager, cmd Command, params *ParametersInfo) error {
+	switch cmd {
 	case CommandCommittee:
 		if err := manager.CommitteeInfo(ctx); err != nil {
 			return ierrors.Wrapf(err, "error while requesting committee endpoint")
@@ -84,8 +90,12 @@ func infoSubcommand(ctx context.Context, manager *Manager, subCommand Command) e
 		if err := manager.DelegatorsInfo(); err != nil {
 			return ierrors.Wrapf(err, "error while requesting delegations endpoint")
 		}
+	case CommandRewards:
+		if err := manager.RewardsInfo(ctx, params); err != nil {
+			return ierrors.Wrapf(err, "error gathering rewards info")
+		}
 	default:
-		return ierrors.Errorf("unknown command: %s", subCommand)
+		return ierrors.Errorf("unknown command: %s", cmd)
 	}
 
 	return nil
@@ -130,6 +140,9 @@ func parseInfoCommands(commands []string) []Command {
 		case CommandDelegations.String():
 			parsedCmds = append(parsedCmds, CommandDelegations)
 
+		case CommandRewards.String():
+			parsedCmds = append(parsedCmds, CommandRewards)
+
 		default:
 			return nil
 		}
@@ -140,12 +153,12 @@ func parseInfoCommands(commands []string) []Command {
 
 type Manager struct {
 	accWallets *accountmanager.Manager
-	logger     log.Logger
+	log.Logger
 }
 
 func NewManager(logger log.Logger, accWallet *accountmanager.Manager) *Manager {
 	return &Manager{
 		accWallets: accWallet,
-		logger:     logger,
+		Logger:     logger,
 	}
 }

@@ -98,11 +98,11 @@ func accountsSubcommand(ctx context.Context, wallets *accountmanager.Manager, su
 		//nolint:forcetypassert // we can safely assume that the type is correct
 		accParams := subCommand.(*accountmanager.AllotAccountParams)
 
-		if err := wallets.AllotToAccount(accParams); err != nil {
+		if err := wallets.AllotToAccount(ctx, accParams); err != nil {
 			return ierrors.Wrap(err, "failed to allot to account")
 		}
 
-	case accountmanager.OperationDelegateAccount:
+	case accountmanager.OperationDelegate:
 		//nolint:forcetypassert // we can safely assume that the type is correct
 		accParams := subCommand.(*accountmanager.DelegateAccountParams)
 
@@ -110,11 +110,11 @@ func accountsSubcommand(ctx context.Context, wallets *accountmanager.Manager, su
 			return ierrors.Wrap(err, "failed to delegate to account")
 		}
 
-	case accountmanager.OperationRewardsAccount:
+	case accountmanager.OperationClaim:
 		//nolint:forcetypassert // we can safely assume that the type is correct
-		accParams := subCommand.(*accountmanager.RewardsAccountParams)
+		accParams := subCommand.(*accountmanager.ClaimAccountParams)
 
-		if err := wallets.Rewards(ctx, accParams); err != nil {
+		if err := wallets.Claim(ctx, accParams); err != nil {
 			return ierrors.Wrap(err, "failed to get rewards")
 		}
 

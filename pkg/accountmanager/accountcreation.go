@@ -188,7 +188,7 @@ func (m *Manager) createAccountCreationTransaction(clt models.Client, wallet *Wa
 		WithTransactionCapabilities(iotago.TransactionCapabilitiesBitMaskWithCapabilities(iotago.WithTransactionCanDoAnything())).AllotAllMana(txBuilder.CreationSlot(), accountID, 0)
 
 	// allot required mana to the implicit account
-	logMissingMana(m.Client, m.Logger, txBuilder, congestionResp.ReferenceManaCost, accountID)
+	logMissingMana(m.Logger, txBuilder, congestionResp.ReferenceManaCost, accountID)
 
 	signedTx, err := txBuilder.Build(addrSigner)
 	if err != nil {

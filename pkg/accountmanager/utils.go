@@ -14,7 +14,7 @@ import (
 	"github.com/iotaledger/iota.go/v4/wallet"
 )
 
-func logMissingMana(clt models.Client, log log.Logger, finishedTxBuilder *builder.TransactionBuilder, rmc iotago.Mana, issuerAccountID iotago.AccountID) {
+func logMissingMana(log log.Logger, finishedTxBuilder *builder.TransactionBuilder, rmc iotago.Mana, issuerAccountID iotago.AccountID) {
 	availableMana, err := finishedTxBuilder.CalculateAvailableManaInputs(finishedTxBuilder.CreationSlot())
 	if err != nil {
 		log.LogError("could not calculate available mana")

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/iotaledger/hive.go/lo"
 	iotago "github.com/iotaledger/iota.go/v4"
 )
 
@@ -36,25 +37,18 @@ func (m *Manager) ListAccount() error {
 	return nil
 }
 
-func (m *Manager) AllotToAccount(_ *AllotAccountParams) error {
-	return nil
+func (m *Manager) AllotToAccount(ctx context.Context, params *AllotAccountParams) error {
+	return m.allot(ctx, params)
 }
 
 func (m *Manager) DelegateToAccount(ctx context.Context, params *DelegateAccountParams) error {
 	return m.delegateToAccount(ctx, params)
 }
 
-func (m *Manager) Rewards(ctx context.Context, params *RewardsAccountParams) error {
-	return m.rewards(ctx, params)
+func (m *Manager) Claim(ctx context.Context, params *ClaimAccountParams) error {
+	return m.claim(ctx, params)
 }
 
-func (m *Manager) Delegators() map[iotago.OutputID]string {
-	delegatedOutputs := make(map[iotago.OutputID]string)
-	for alias, delegations := range m.delegations {
-		for _, delegation := range delegations {
-			delegatedOutputs[delegation.OutputID] = alias
-		}
-	}
-
-	return delegatedOutputs
+func (m *Manager) Delegators() []string {
+	return lo.Keys(m.delegations)
 }

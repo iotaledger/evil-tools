@@ -61,7 +61,7 @@ func parseAccountCommands(commands []string, paramsAccounts *ParametersAccounts)
 			}
 			parsedCmds = append(parsedCmds, allotAccountParams)
 
-		case accountmanager.OperationDelegateAccount.String():
+		case accountmanager.OperationDelegate.String():
 			delegatingAccountParams, err := parseDelegateAccountFlags(&paramsAccounts.Delegate)
 			if err != nil {
 				continue
@@ -75,7 +75,7 @@ func parseAccountCommands(commands []string, paramsAccounts *ParametersAccounts)
 			}
 			parsedCmds = append(parsedCmds, stakingAccountParams)
 
-		case accountmanager.OperationRewardsAccount.String():
+		case accountmanager.OperationClaim.String():
 			rewardsParams, err := parseRewardsFlags(&paramsAccounts.Rewards)
 			if err != nil {
 				continue
@@ -112,13 +112,13 @@ func accountUsage() {
 	fmt.Printf("COMMAND: %s\n", accountmanager.OperationAllotAccount)
 	_, _ = parseAllotAccountFlags(nil)
 
-	fmt.Printf("COMMAND: %s\n", accountmanager.OperationDelegateAccount)
+	fmt.Printf("COMMAND: %s\n", accountmanager.OperationDelegate)
 	_, _ = parseDelegateAccountFlags(nil)
 
 	fmt.Printf("COMMAND: %s\n", accountmanager.OperationStakeAccount)
 	_, _ = parseStakeAccountFlags(nil)
 
-	fmt.Printf("COMMAND: %s\n", accountmanager.OperationRewardsAccount)
+	fmt.Printf("COMMAND: %s\n", accountmanager.OperationClaim)
 	_, _ = parseRewardsFlags(nil)
 }
 
@@ -186,12 +186,12 @@ func parseStakeAccountFlags(paramsAccountStake *ParametersAccountsStake) (*accou
 	}, nil
 }
 
-func parseRewardsFlags(paramsRewards *ParametersRewards) (*accountmanager.RewardsAccountParams, error) {
+func parseRewardsFlags(paramsRewards *ParametersRewards) (*accountmanager.ClaimAccountParams, error) {
 	if paramsRewards == nil {
 		return nil, ierrors.New("paramsRewards missing for rewards account")
 	}
 
-	return &accountmanager.RewardsAccountParams{
+	return &accountmanager.ClaimAccountParams{
 		Alias: paramsRewards.Alias,
 	}, nil
 }

@@ -1,14 +1,13 @@
 package info
 
 import (
+	"github.com/iotaledger/evil-tools/pkg/info"
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/app"
 )
 
-type ParametersInfo struct {
-}
+var ParamsInfo = &info.ParametersInfo{}
 
-var ParamsInfo = &ParametersInfo{}
 var ParamsTool = &models.ParametersTool{}
 
 var params = &app.ComponentParams{

@@ -15,14 +15,14 @@ import (
 )
 
 func logMissingMana(clt models.Client, log log.Logger, finishedTxBuilder *builder.TransactionBuilder, rmc iotago.Mana, issuerAccountID iotago.AccountID) {
-	availableMana, err := finishedTxBuilder.CalculateAvailableMana(finishedTxBuilder.CreationSlot())
+	availableMana, err := finishedTxBuilder.CalculateAvailableManaInputs(finishedTxBuilder.CreationSlot())
 	if err != nil {
 		log.LogError("could not calculate available mana")
 
 		return
 	}
 	log.LogDebug(utils.SprintAvailableManaResult(availableMana))
-	minRequiredAllottedMana, err := finishedTxBuilder.MinRequiredAllotedMana(clt.APIForSlot(finishedTxBuilder.CreationSlot()).ProtocolParameters().WorkScoreParameters(), rmc, issuerAccountID)
+	minRequiredAllottedMana, err := finishedTxBuilder.MinRequiredAllottedMana(rmc, issuerAccountID)
 	if err != nil {
 		log.LogError("could not calculate min required allotted mana")
 

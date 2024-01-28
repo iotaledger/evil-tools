@@ -167,8 +167,8 @@ func parseAllotAccountFlags(paramsAccountAllot *ParametersAccountsAllot) (*accou
 	}
 
 	return &accountmanager.AllotAccountParams{
-		To:     paramsAccountAllot.AllotToAccount,
-		Amount: uint64(paramsAccountAllot.Amount),
+		Alias:  paramsAccountAllot.Alias,
+		Amount: paramsAccountAllot.Amount,
 	}, nil
 }
 

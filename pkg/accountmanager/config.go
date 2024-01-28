@@ -66,8 +66,8 @@ func (d *DestroyAccountParams) Type() AccountOperation {
 }
 
 type AllotAccountParams struct {
-	Amount uint64
-	To     string
+	Alias  string
+	Amount iotago.Mana
 }
 
 func (a *AllotAccountParams) Type() AccountOperation {

@@ -2,6 +2,7 @@ package accountmanager
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/iotaledger/evil-tools/pkg/models"
@@ -12,6 +13,10 @@ import (
 	"github.com/iotaledger/iota.go/v4/api"
 	"github.com/iotaledger/iota.go/v4/builder"
 	"github.com/iotaledger/iota.go/v4/wallet"
+)
+
+const (
+	MaxFaucetRequestsForOneOperation = 10
 )
 
 func (m *Manager) RequestBlockIssuanceData(ctx context.Context, clt models.Client, account wallet.Account) (*api.CongestionResponse, *api.IssuanceBlockHeaderResponse, iotago.Version, error) {
@@ -43,6 +48,30 @@ func (m *Manager) getFaucetFundsOutput(ctx context.Context, clt models.Client, w
 	}
 
 	return createdOutput, nil
+}
+
+func (m *Manager) RequestManaAndFundsFromTheFaucet(ctx context.Context, w *Wallet, minManaAmount iotago.Mana, minTokensAmount iotago.BaseToken) ([]*models.OutputData, error) {
+	if minManaAmount/m.RequestManaAmount > MaxFaucetRequestsForOneOperation {
+		return nil, ierrors.Errorf("required mana is too large, needs more than %d faucet requests", MaxFaucetRequestsForOneOperation)
+	}
+
+	if minTokensAmount/m.RequestTokenAmount > MaxFaucetRequestsForOneOperation {
+		return nil, ierrors.Errorf("required token amount is too large, needs more than %d faucet requests", MaxFaucetRequestsForOneOperation)
+	}
+	numOfRequests := int(math.Max(float64(minManaAmount/m.RequestManaAmount), float64(minTokensAmount/m.RequestTokenAmount)))
+
+	var inputs []*models.OutputData
+
+	// if there is not enough mana to pay for account creation, request mana from the faucet
+	for i := 0; i < numOfRequests; i++ {
+		faucetOutput, err := m.getFaucetFundsOutput(ctx, m.Client, w, iotago.AddressEd25519)
+		if err != nil {
+			return nil, ierrors.Wrap(err, "failed to get faucet funds for delegation output")
+		}
+		inputs = append(inputs, faucetOutput)
+	}
+
+	return inputs, nil
 }
 
 func (m *Manager) RequestFaucetFunds(ctx context.Context, clt models.Client, receiveAddr iotago.Address) (iotago.OutputID, iotago.Output, error) {

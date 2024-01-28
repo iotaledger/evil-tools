@@ -90,3 +90,22 @@ func (a *Wallet) getAddress(addressType iotago.AddressType) (iotago.DirectUnlock
 
 	return receiverAddr, privateKey, newIndex
 }
+
+func (a *Wallet) getPrivateKeyForIndex(index uint32) ed25519.PrivateKey {
+	keyManager := lo.PanicOnErr(wallet.NewKeyManager(a.seed[:], BIP32PathForIndex(index)))
+	privateKey, _ := keyManager.KeyPair()
+
+	return privateKey
+}
+
+func (a *Wallet) createOutputDataForIndex(outputID iotago.OutputID, index uint32, outputStruct iotago.Output) *models.OutputData {
+	privateKey := a.getPrivateKeyForIndex(index)
+
+	return &models.OutputData{
+		OutputID:     outputID,
+		Address:      outputStruct.UnlockConditionSet().Address().Address,
+		AddressIndex: index,
+		PrivateKey:   privateKey,
+		OutputStruct: outputStruct,
+	}
+}

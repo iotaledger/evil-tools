@@ -3,7 +3,6 @@ package accounts
 import (
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/app"
-	iotago "github.com/iotaledger/iota.go/v4"
 )
 
 type (
@@ -24,8 +23,8 @@ type (
 	}
 
 	ParametersAccountsAllot struct {
-		Alias  string      `default:"" usage:"The alias name of the account to allot mana to"`
-		Amount iotago.Mana `default:"10000" usage:"The amount of mana to allot"`
+		Alias  string `default:"" usage:"The alias name of the account to allot mana to"`
+		Amount uint64 `default:"10000" usage:"The amount of mana to allot"`
 	}
 
 	ParametersAccountsStake struct {

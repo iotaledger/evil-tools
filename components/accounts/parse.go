@@ -168,7 +168,7 @@ func parseAllotAccountFlags(paramsAccountAllot *ParametersAccountsAllot) (*accou
 
 	return &accountmanager.AllotAccountParams{
 		Alias:  paramsAccountAllot.Alias,
-		Amount: paramsAccountAllot.Amount,
+		Amount: iotago.Mana(paramsAccountAllot.Amount),
 	}, nil
 }
 

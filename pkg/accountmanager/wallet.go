@@ -71,12 +71,12 @@ func (a *Wallet) GetAddrSignerForIndexes(outputs ...*models.OutputData) (iotago.
 }
 
 func (a *Wallet) getAccountPublicKeys(pubKey crypto.PublicKey) (iotago.BlockIssuerKeys, error) {
-	ed25519PubKey, isEd25519 := pubKey.(hiveEd25519.PublicKey)
+	ed25519PubKey, isEd25519 := pubKey.(ed25519.PublicKey)
 	if !isEd25519 {
 		return nil, ierrors.New("Failed to create account: only Ed25519 keys are supported")
 	}
 
-	blockIssuerKeys := iotago.NewBlockIssuerKeys(iotago.Ed25519PublicKeyHashBlockIssuerKeyFromPublicKey(ed25519PubKey))
+	blockIssuerKeys := iotago.NewBlockIssuerKeys(iotago.Ed25519PublicKeyHashBlockIssuerKeyFromPublicKey(hiveEd25519.PublicKey(ed25519PubKey)))
 
 	return blockIssuerKeys, nil
 

@@ -112,7 +112,6 @@ func (m *Manager) createAccountWithFaucet(ctx context.Context, params *CreateAcc
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to request enough funds for account creation")
 	}
 	accAddr, accPrivateKey, accAddrIndex := w.getAddress(iotago.AddressEd25519)
-
 	blockIssuerKeys, err := w.getAccountPublicKeys(accPrivateKey.Public())
 	if err != nil {
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to get account address and keys")

@@ -40,7 +40,7 @@ func (m *Manager) fromAccountState(state *AccountsState) {
 		m.accounts[accState.Alias] = accState.ToAccountData()
 	}
 	for _, w := range state.Wallets {
-		m.wallets[w.alias] = w
+		m.wallets[w.Alias] = w
 	}
 
 	for _, d := range state.Delegation {
@@ -103,7 +103,7 @@ func (m *Manager) LoadStateFromFile() (loaded bool, err error) {
 
 type AccountsState struct {
 	AccountState       []*AccountState  `serix:"accounts,lenPrefix=uint8"`
-	Wallets            []*Wallet        `serix:"wallets,lenPrefix=uint8,inlined"`
+	Wallets            []*Wallet        `serix:"wallets,lenPrefix=uint8"`
 	Delegation         []*Delegation    `serix:"delegations,lenPrefix=uint8"`
 	RequestTokenAmount iotago.BaseToken `serix:"RequestTokenAmount"`
 	RequestManaAmount  iotago.Mana      `serix:"RequestManaAmount"`

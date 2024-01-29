@@ -79,7 +79,7 @@ func getScript() (string, error) {
 }
 
 func initialize(_ *app.App) error {
-	if info.ScriptName == os.Args[1] {
+	if len(os.Args) > 1 && info.ScriptName == os.Args[1] {
 		err := info.Run()
 		if err != nil {
 			return err

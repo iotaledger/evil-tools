@@ -35,7 +35,7 @@ type (
 		EndEpoch   int64  `default:"0" usage:"The end epoch of the account to stake"`
 	}
 
-	ParametersRewards struct {
+	ParametersClaim struct {
 		Alias string `default:"" usage:"The alias name of the wallet to get rewards for"`
 	}
 
@@ -54,21 +54,15 @@ type (
 		ExpirySlot     int64  `default:"0" usage:"Update the expiry slot of the account"`
 	}
 
-	ParameterAccountsInfo struct {
-		Alias   string `default:"" usage:"Alias name of the account to get info"`
-		Verbose bool   `default:"false" usage:"Verbose output"`
-	}
-
 	ParametersAccounts struct {
 		Create   ParametersAccountsCreate
 		Convert  ParametersAccountsConvert
 		Destroy  ParametersAccountsDestroy
 		Allot    ParametersAccountsAllot
 		Stake    ParametersAccountsStake
-		Rewards  ParametersRewards
+		Claim    ParametersClaim
 		Delegate ParametersAccountsDelegate
 		Update   ParametersAccountsUpdate
-		Info     ParameterAccountsInfo
 	}
 )
 

@@ -198,6 +198,13 @@ func (m *Manager) GetDelegations(alias string) ([]*Delegation, error) {
 	return delegations, nil
 }
 
+func (m *Manager) removeDelegations(alias string) {
+	m.Lock()
+	defer m.Unlock()
+
+	delete(m.delegations, alias)
+}
+
 //nolint:all,unused
 func (m *Manager) registerAccount(alias string, accountID iotago.AccountID, outputID iotago.OutputID, index uint32, privateKey ed25519.PrivateKey) iotago.AccountID {
 	m.Lock()
@@ -216,9 +223,6 @@ func (m *Manager) registerAccount(alias string, accountID iotago.AccountID, outp
 		m.LogDebugf("overwriting account %s with alias %s\noutputID: %s addr: %s\n", accountID.String(), alias, outputID.ToHex(), account.Address().String())
 		return accountID
 	}
-
-	m.wallets[alias] = m.newAccountWallet(alias)
-
 	return accountID
 
 }

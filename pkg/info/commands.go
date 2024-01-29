@@ -36,15 +36,15 @@ func (m *Manager) AccountsInfo() error {
 
 func (m *Manager) DelegatorsInfo() error {
 	delegationOutToAliasMap := m.accWallets.Delegators()
-	t := "### Delegators: \n"
+	t := "\n### Delegators: \n"
 	for _, alias := range delegationOutToAliasMap {
-		t += fmt.Sprintf("Alias: %-12s", alias)
+		t += fmt.Sprintf("Alias: %-12s\n", alias)
 		delegations, err := m.accWallets.GetDelegations(alias)
 		if err != nil {
 			m.LogInfof("Could not get delegations for alias %s: %v", alias, err.Error())
-			for _, del := range delegations {
-				t += fmt.Sprintf("OutputID: %-12s, Amount: %-33d BechAddr: %-40s", del.OutputID.ToHex(), del.Amount, del.DelegatedToBechAddress)
-			}
+		}
+		for _, del := range delegations {
+			t += fmt.Sprintf("OutputID: %s, Amount: %d BechAddr: %s\n", del.OutputID.ToHex(), del.Amount, del.DelegatedToBechAddress)
 		}
 	}
 

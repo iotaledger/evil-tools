@@ -76,7 +76,7 @@ func parseAccountCommands(commands []string, paramsAccounts *ParametersAccounts)
 			parsedCmds = append(parsedCmds, stakingAccountParams)
 
 		case accountmanager.OperationClaim.String():
-			rewardsParams, err := parseRewardsFlags(&paramsAccounts.Rewards)
+			rewardsParams, err := parseRewardsFlags(&paramsAccounts.Claim)
 			if err != nil {
 				continue
 			}
@@ -186,7 +186,7 @@ func parseStakeAccountFlags(paramsAccountStake *ParametersAccountsStake) (*accou
 	}, nil
 }
 
-func parseRewardsFlags(paramsRewards *ParametersRewards) (*accountmanager.ClaimAccountParams, error) {
+func parseRewardsFlags(paramsRewards *ParametersClaim) (*accountmanager.ClaimAccountParams, error) {
 	if paramsRewards == nil {
 		return nil, ierrors.New("paramsRewards missing for rewards account")
 	}

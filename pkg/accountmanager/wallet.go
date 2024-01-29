@@ -4,8 +4,6 @@ import (
 	"crypto"
 	"crypto/ed25519"
 
-	"go.uber.org/atomic"
-
 	"github.com/iotaledger/evil-tools/pkg/models"
 	hiveEd25519 "github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/ierrors"
@@ -16,15 +14,15 @@ import (
 )
 
 type Wallet struct {
-	alias           string        `serix:"alias,lenPrefix=uint8"`
-	seed            [32]byte      `serix:"seed"`
-	latestUsedIndex atomic.Uint32 `serix:"latestUsedIndex"`
+	Alias           string   `serix:"alias,lenPrefix=uint8"`
+	Seed            [32]byte `serix:"seed"`
+	LatestUsedIndex uint32   `serix:"LatestUsedIndex"`
 }
 
 func newAccountWallet(alias string) *Wallet {
 	return &Wallet{
-		alias: alias,
-		seed:  tpkg.RandEd25519Seed(),
+		Alias: alias,
+		Seed:  tpkg.RandEd25519Seed(),
 	}
 }
 
@@ -83,8 +81,9 @@ func (a *Wallet) getAccountPublicKeys(pubKey crypto.PublicKey) (iotago.BlockIssu
 }
 
 func (a *Wallet) getAddress(addressType iotago.AddressType) (iotago.DirectUnlockableAddress, ed25519.PrivateKey, uint32) {
-	newIndex := a.latestUsedIndex.Inc()
-	keyManager := lo.PanicOnErr(wallet.NewKeyManager(a.seed[:], BIP32PathForIndex(newIndex)))
+	a.LatestUsedIndex++
+	newIndex := a.LatestUsedIndex
+	keyManager := lo.PanicOnErr(wallet.NewKeyManager(a.Seed[:], BIP32PathForIndex(newIndex)))
 	privateKey, _ := keyManager.KeyPair()
 	receiverAddr := keyManager.Address(addressType)
 
@@ -92,7 +91,7 @@ func (a *Wallet) getAddress(addressType iotago.AddressType) (iotago.DirectUnlock
 }
 
 func (a *Wallet) getPrivateKeyForIndex(index uint32) ed25519.PrivateKey {
-	keyManager := lo.PanicOnErr(wallet.NewKeyManager(a.seed[:], BIP32PathForIndex(index)))
+	keyManager := lo.PanicOnErr(wallet.NewKeyManager(a.Seed[:], BIP32PathForIndex(index)))
 	privateKey, _ := keyManager.KeyPair()
 
 	return privateKey

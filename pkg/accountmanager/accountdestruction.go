@@ -30,7 +30,7 @@ func (m *Manager) destroyAccount(ctx context.Context, alias string) error {
 		return nil
 	}
 
-	keyManager, err := iotagowallet.NewKeyManager(wallet.seed[:], BIP32PathForIndex(accData.Index))
+	keyManager, err := iotagowallet.NewKeyManager(wallet.Seed[:], BIP32PathForIndex(accData.Index))
 	if err != nil {
 		return err
 	}

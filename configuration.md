@@ -93,62 +93,7 @@ Example:
   }
 ```
 
-## <a id="profiling"></a> 3. Profiling
-
-| Name        | Description                                       | Type    | Default value    |
-| ----------- | ------------------------------------------------- | ------- | ---------------- |
-| enabled     | Whether the profiling component is enabled        | boolean | false            |
-| bindAddress | The bind address on which the profiler listens on | string  | "localhost:6060" |
-
-Example:
-
-```json
-  {
-    "profiling": {
-      "enabled": false,
-      "bindAddress": "localhost:6060"
-    }
-  }
-```
-
-## <a id="spammer"></a> 4. Spammer
-
-| Name                  | Description                                                                                                                                                                                                                                                                        | Type    | Default value |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------------- |
-| type                  | Spammers used during test. Format: strings separated with comma, available options: 'blk' - block, 'tx' - transaction, 'ds' - double spends spammers, 'nds' - n-spends spammer, 'bb' - blowball, or one of custom scenarios that can be found in pkg/evilwallet/customscenarion.go | string  | "tx"          |
-| rate                  | Spamming rate for provided 'spammer'. Format: numbers separated with comma, e.g. 10,100,1 if three spammers were provided for 'spammer' parameter.                                                                                                                                 | int     | 1             |
-| duration              | Spam duration. If not provided spam will lats infinitely. Format: separated by commas list of decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.
- Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.                          | string  | "-1ns"        |
-| account               | Account alias to be used for the spam. Account should be created first with accounts tool.                                                                                                                                                                                         | string  | ""            |
-| rateSetterEnabled     | Enable the rate setter, which will set the rate for the spammer. To enable provide an empty flag.                                                                                                                                                                                  | boolean | false         |
-| deepSpamEnabled       | Enable the deep spam, by reusing outputs created during the spam. To enable provide an empty flag.                                                                                                                                                                                 | boolean | false         |
-| reuseEnabled          | Enable the reuse of outputs created during the spam. To enable provide an empty flag.                                                                                                                                                                                              | boolean | false         |
-| autoRequestingEnabled | Enable the auto-requesting, which will request tokens from faucet for the spammer. To enable provide an empty flag.                                                                                                                                                                | boolean | false         |
-| autoRequestingAmount  | Amount of tokens to be requested from faucet for the spammer. To enable provide an empty flag.                                                                                                                                                                                     | int     | 1000          |
-| nSpend                | Number of outputs to be spent in n-spends spammer for the spammer type needs to be set to 'ds'. Default value is 2 for double-spend.                                                                                                                                               | int     | 2             |
-| blowballSize          | Size of the blowball to be used in blowball spammer. To enable provide an empty flag.                                                                                                                                                                                              | int     | 30            |
-
-Example:
-
-```json
-  {
-    "spammer": {
-      "type": "tx",
-      "rate": 1,
-      "duration": "-1ns",
-      "account": "",
-      "rateSetterEnabled": false,
-      "deepSpamEnabled": false,
-      "reuseEnabled": false,
-      "autoRequestingEnabled": false,
-      "autoRequestingAmount": 1000,
-      "nSpend": 2,
-      "blowballSize": 30
-    }
-  }
-```
-
-## <a id="tool"></a> 5. Tool
+## <a id="tool"></a> 3. Tool
 
 | Name                  | Description                                                  | Type   | Default value                                                                                                                      |
 | --------------------- | ------------------------------------------------------------ | ------ | ---------------------------------------------------------------------------------------------------------------------------------- |
@@ -174,6 +119,40 @@ Example:
   }
 ```
 
+## <a id="profiling"></a> 4. Profiling
+
+| Name        | Description                                       | Type    | Default value    |
+| ----------- | ------------------------------------------------- | ------- | ---------------- |
+| enabled     | Whether the profiling component is enabled        | boolean | false            |
+| bindAddress | The bind address on which the profiler listens on | string  | "localhost:6060" |
+
+Example:
+
+```json
+  {
+    "profiling": {
+      "enabled": false,
+      "bindAddress": "localhost:6060"
+    }
+  }
+```
+
+## <a id="info"></a> 5. Info
+
+| Name  | Description                                      | Type   | Default value |
+| ----- | ------------------------------------------------ | ------ | ------------- |
+| alias | Alias for which info command should be executed. | string | ""            |
+
+Example:
+
+```json
+  {
+    "info": {
+      "alias": ""
+    }
+  }
+```
+
 ## <a id="accounts"></a> 6. Accounts
 
 | Name                           | Description                | Type   | Default value |
@@ -183,7 +162,7 @@ Example:
 | [destroy](#accounts_destroy)   | Configuration for destroy  | object |               |
 | [allot](#accounts_allot)       | Configuration for allot    | object |               |
 | [stake](#accounts_stake)       | Configuration for stake    | object |               |
-| [rewards](#accounts_rewards)   | Configuration for rewards  | object |               |
+| [claim](#accounts_claim)       | Configuration for claim    | object |               |
 | [delegate](#accounts_delegate) | Configuration for delegate | object |               |
 | [update](#accounts_update)     | Configuration for update   | object |               |
 
@@ -226,7 +205,7 @@ Example:
 | startEpoch | The start epoch of the account to stake | int    | 0             |
 | endEpoch   | The end epoch of the account to stake   | int    | 0             |
 
-### <a id="accounts_rewards"></a> Rewards
+### <a id="accounts_claim"></a> Claim
 
 | Name  | Description                                     | Type   | Default value |
 | ----- | ----------------------------------------------- | ------ | ------------- |
@@ -280,7 +259,7 @@ Example:
         "startEpoch": 0,
         "endEpoch": 0
       },
-      "rewards": {
+      "claim": {
         "alias": ""
       },
       "delegate": {
@@ -300,18 +279,39 @@ Example:
   }
 ```
 
-## <a id="info"></a> 7. Info
+## <a id="spammer"></a> 7. Spammer
 
-| Name  | Description                                      | Type   | Default value |
-| ----- | ------------------------------------------------ | ------ | ------------- |
-| alias | Alias for which info command should be executed. | string | ""            |
+| Name                  | Description                                                                                                                                                                                                                                                                        | Type    | Default value |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------------- |
+| type                  | Spammers used during test. Format: strings separated with comma, available options: 'blk' - block, 'tx' - transaction, 'ds' - double spends spammers, 'nds' - n-spends spammer, 'bb' - blowball, or one of custom scenarios that can be found in pkg/evilwallet/customscenarion.go | string  | "tx"          |
+| rate                  | Spamming rate for provided 'spammer'. Format: numbers separated with comma, e.g. 10,100,1 if three spammers were provided for 'spammer' parameter.                                                                                                                                 | int     | 1             |
+| duration              | Spam duration. If not provided spam will lats infinitely. Format: separated by commas list of decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.
+ Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.                          | string  | "-1ns"        |
+| account               | Account alias to be used for the spam. Account should be created first with accounts tool.                                                                                                                                                                                         | string  | ""            |
+| rateSetterEnabled     | Enable the rate setter, which will set the rate for the spammer. To enable provide an empty flag.                                                                                                                                                                                  | boolean | false         |
+| deepSpamEnabled       | Enable the deep spam, by reusing outputs created during the spam. To enable provide an empty flag.                                                                                                                                                                                 | boolean | false         |
+| reuseEnabled          | Enable the reuse of outputs created during the spam. To enable provide an empty flag.                                                                                                                                                                                              | boolean | false         |
+| autoRequestingEnabled | Enable the auto-requesting, which will request tokens from faucet for the spammer. To enable provide an empty flag.                                                                                                                                                                | boolean | false         |
+| autoRequestingAmount  | Amount of tokens to be requested from faucet for the spammer. To enable provide an empty flag.                                                                                                                                                                                     | int     | 1000          |
+| nSpend                | Number of outputs to be spent in n-spends spammer for the spammer type needs to be set to 'ds'. Default value is 2 for double-spend.                                                                                                                                               | int     | 2             |
+| blowballSize          | Size of the blowball to be used in blowball spammer. To enable provide an empty flag.                                                                                                                                                                                              | int     | 30            |
 
 Example:
 
 ```json
   {
-    "info": {
-      "alias": ""
+    "spammer": {
+      "type": "tx",
+      "rate": 1,
+      "duration": "-1ns",
+      "account": "",
+      "rateSetterEnabled": false,
+      "deepSpamEnabled": false,
+      "reuseEnabled": false,
+      "autoRequestingEnabled": false,
+      "autoRequestingAmount": 1000,
+      "nSpend": 2,
+      "blowballSize": 30
     }
   }
 ```

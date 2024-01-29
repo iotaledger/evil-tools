@@ -17,23 +17,6 @@
       "stdout"
     ]
   },
-  "profiling": {
-    "enabled": false,
-    "bindAddress": "localhost:6060"
-  },
-  "spammer": {
-    "type": "tx",
-    "rate": 1,
-    "duration": "-1ns",
-    "account": "",
-    "rateSetterEnabled": false,
-    "deepSpamEnabled": false,
-    "reuseEnabled": false,
-    "autoRequestingEnabled": false,
-    "autoRequestingAmount": 1000,
-    "nSpend": 2,
-    "blowballSize": 30
-  },
   "tool": {
     "nodeURLs": [
       "http://localhost:8050"
@@ -42,6 +25,13 @@
     "accountStatesFile": "wallet.dat",
     "blockIssuerPrivateKey": "db39d2fde6301d313b108dc9db1ee724d0f405f6fde966bd776365bc5f4a5fb31e4b21eb51dcddf65c20db1065e1f1514658b23a3ddbf48d30c0efc926a9a648",
     "accountID": "0x6aee704f25558e8aa7630fed0121da53074188abc423b3c5810f80be4936eb6e"
+  },
+  "profiling": {
+    "enabled": false,
+    "bindAddress": "localhost:6060"
+  },
+  "info": {
+    "alias": ""
   },
   "accounts": {
     "create": {
@@ -68,7 +58,7 @@
       "startEpoch": 0,
       "endEpoch": 0
     },
-    "rewards": {
+    "claim": {
       "alias": ""
     },
     "delegate": {
@@ -85,7 +75,17 @@
       "expirySlot": 0
     }
   },
-  "info": {
-    "alias": ""
+  "spammer": {
+    "type": "tx",
+    "rate": 1,
+    "duration": "-1ns",
+    "account": "",
+    "rateSetterEnabled": false,
+    "deepSpamEnabled": false,
+    "reuseEnabled": false,
+    "autoRequestingEnabled": false,
+    "autoRequestingAmount": 1000,
+    "nSpend": 2,
+    "blowballSize": 30
   }
 }

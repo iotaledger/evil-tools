@@ -5,11 +5,9 @@ import (
 	"github.com/iotaledger/hive.go/app"
 )
 
-var ParamsTool = &models.ParametersTool{}
-
 var params = &app.ComponentParams{
 	Params: map[string]any{
-		"tool": ParamsTool,
+		"tool": models.ParamsTool,
 	},
 	Masked: []string{
 		"info",

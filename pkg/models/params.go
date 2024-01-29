@@ -1,5 +1,7 @@
 package models
 
+var ParamsTool = &ParametersTool{}
+
 type ParametersTool struct {
 	NodeURLs  []string `default:"http://localhost:8050" usage:"API URLs for clients used in test separated with commas"`
 	FaucetURL string   `default:"http://localhost:8088" usage:"Faucet URL used in test"`

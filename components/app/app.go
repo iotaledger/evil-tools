@@ -66,7 +66,7 @@ func init() {
 			Params: params,
 			Provide: func(c *dig.Container) error {
 				return c.Provide(func() *models.ParametersTool {
-					return ParamsTool
+					return models.ParamsTool
 				})
 			},
 		},

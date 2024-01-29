@@ -1,7 +1,6 @@
 package accounts
 
 import (
-	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/app"
 )
 
@@ -67,12 +66,10 @@ type (
 )
 
 var ParamsAccounts = &ParametersAccounts{}
-var ParamsTool = &models.ParametersTool{}
 
 var params = &app.ComponentParams{
 	Params: map[string]any{
 		"accounts": ParamsAccounts,
-		"tool":     ParamsTool,
 	},
 	Masked: []string{
 		"profiling",

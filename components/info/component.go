@@ -3,7 +3,10 @@ package info
 import (
 	"os"
 
+	"go.uber.org/dig"
+
 	"github.com/iotaledger/evil-tools/pkg/info"
+	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/app"
 )
 
@@ -13,13 +16,21 @@ const ScriptName = "info"
 
 func init() {
 	Component = &app.Component{
-		Name:   "Info",
-		Params: params,
+		Name:     "Info",
+		Params:   params,
+		DepsFunc: func(cDeps dependencies) { deps = cDeps },
 	}
+}
+
+type dependencies struct {
+	dig.In
+
+	ParamsTool *models.ParametersTool
 }
 
 var (
 	Component *app.Component
+	deps      dependencies
 )
 
 func Run() error {
@@ -34,7 +45,7 @@ func Run() error {
 		return err
 	}
 
-	err = info.Run(ParamsTool, ParamsInfo, logger)
+	err = info.Run(deps.ParamsTool, ParamsInfo, logger)
 	if err != nil {
 		return err
 	}

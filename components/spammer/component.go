@@ -1,7 +1,10 @@
 package spammer
 
 import (
+	"go.uber.org/dig"
+
 	"github.com/iotaledger/evil-tools/pkg/accountmanager"
+	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/evil-tools/programs"
 	"github.com/iotaledger/hive.go/app"
 )
@@ -12,25 +15,33 @@ const (
 
 func init() {
 	Component = &app.Component{
-		Name:   "EvilTools",
-		Params: params,
-		Run:    run,
+		Name:     "EvilTools",
+		Params:   params,
+		Run:      run,
+		DepsFunc: func(cDeps dependencies) { deps = cDeps },
 	}
+}
+
+type dependencies struct {
+	dig.In
+
+	ParamsTool *models.ParametersTool
 }
 
 var (
 	Component *app.Component
+	deps      dependencies
 )
 
 func run() error {
 	Component.LogInfo("Starting evil-tools spammer ... done")
 	accWallet, err := accountmanager.RunManager(Component.Logger,
-		accountmanager.WithClientURL(ParamsTool.NodeURLs[0]),
-		accountmanager.WithFaucetURL(ParamsTool.FaucetURL),
-		accountmanager.WithAccountStatesFile(ParamsTool.AccountStatesFile),
+		accountmanager.WithClientURL(deps.ParamsTool.NodeURLs[0]),
+		accountmanager.WithFaucetURL(deps.ParamsTool.FaucetURL),
+		accountmanager.WithAccountStatesFile(deps.ParamsTool.AccountStatesFile),
 		accountmanager.WithFaucetAccountParams(&accountmanager.GenesisAccountParams{
-			FaucetPrivateKey: ParamsTool.BlockIssuerPrivateKey,
-			FaucetAccountID:  ParamsTool.AccountID,
+			FaucetPrivateKey: deps.ParamsTool.BlockIssuerPrivateKey,
+			FaucetAccountID:  deps.ParamsTool.AccountID,
 		}),
 	)
 	if err != nil {
@@ -42,8 +53,8 @@ func run() error {
 	programs.RunSpammer(
 		Component.Daemon().ContextStopped(),
 		Component.Logger,
-		ParamsTool.NodeURLs,
-		ParamsTool.FaucetURL,
+		deps.ParamsTool.NodeURLs,
+		deps.ParamsTool.FaucetURL,
 		ParamsSpammer,
 		accWallet)
 

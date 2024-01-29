@@ -1,20 +1,20 @@
-package spammer
+package app
 
 import (
-	"github.com/iotaledger/evil-tools/pkg/spammer"
+	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/app"
 )
 
-var ParamsSpammer = &spammer.ParametersSpammer{}
+var ParamsTool = &models.ParametersTool{}
 
 var params = &app.ComponentParams{
 	Params: map[string]any{
-		"spammer": ParamsSpammer,
+		"tool": ParamsTool,
 	},
-
 	Masked: []string{
+		"info",
+		"app",
 		"profiling",
 		"logger",
-		"app",
 	},
 }

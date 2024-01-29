@@ -34,13 +34,16 @@ func run() error {
 		}),
 	)
 	if err != nil {
-		Component.LogPanic(err.Error())
+		Component.LogErrorf(err.Error())
+
+		return err
 	}
 
 	programs.RunSpammer(
 		Component.Daemon().ContextStopped(),
 		Component.Logger,
 		ParamsTool.NodeURLs,
+		ParamsTool.FaucetURL,
 		ParamsSpammer,
 		accWallet)
 

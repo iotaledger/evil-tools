@@ -78,6 +78,8 @@ func newManager(logger log.Logger, opts ...options.Option[Manager]) (*Manager, e
 		err := m.setupClient()
 		if err != nil {
 			innerErr = err
+
+			return
 		}
 
 		m.setupGenesisAccount()
@@ -92,6 +94,7 @@ func (m *Manager) setupClient() error {
 
 		return ierrors.Wrap(err, "failed to create web client")
 	}
+
 	m.API = m.Client.LatestAPI()
 
 	return nil

@@ -31,9 +31,6 @@ const (
 )
 
 var (
-	defaultClientsURLs = []string{"http://localhost:8050"}
-	defaultFaucetURL   = "http://localhost:8088"
-
 	NoFreshOutputsAvailable = ierrors.New("no fresh wallet is available")
 )
 
@@ -62,8 +59,6 @@ func NewEvilWallet(logger log.Logger, opts ...options.Option[EvilWallet]) *EvilW
 		wallets:                 NewWallets(),
 		aliasManager:            NewAliasManager(),
 		minOutputStorageDeposit: MinOutputStorageDeposit,
-		optsClientURLs:          defaultClientsURLs,
-		optsFaucetURL:           defaultFaucetURL,
 	}, opts, func(w *EvilWallet) {
 		connector := lo.PanicOnErr(models.NewWebClients(w.optsClientURLs, w.optsFaucetURL))
 		w.connector = connector
@@ -669,6 +664,12 @@ func (e *EvilWallet) SetTxOutputsSolid(outputs iotago.OutputIDs, clientID string
 func WithClients(urls ...string) options.Option[EvilWallet] {
 	return func(opts *EvilWallet) {
 		opts.optsClientURLs = urls
+	}
+}
+
+func WithFaucetClient(url string) options.Option[EvilWallet] {
+	return func(opts *EvilWallet) {
+		opts.optsFaucetURL = url
 	}
 }
 

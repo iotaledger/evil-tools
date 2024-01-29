@@ -33,6 +33,7 @@ func Run() error {
 	if err != nil {
 		return err
 	}
+
 	err = info.Run(ParamsTool, ParamsInfo, logger)
 	if err != nil {
 		return err

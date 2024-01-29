@@ -38,7 +38,9 @@ func run() error {
 		}),
 	)
 	if err != nil {
-		Component.LogPanic(err.Error())
+		Component.LogError(err.Error())
+
+		return err
 	}
 
 	accountsSubcommandsFlags := parseAccountCommands(getCommands(os.Args[2:]), ParamsAccounts)

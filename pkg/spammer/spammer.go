@@ -115,11 +115,10 @@ func (s *Spammer) setup() {
 	switch s.SpamType {
 	case SpamEvilWallet:
 		if s.EvilWallet == nil {
-			s.EvilWallet = evilwallet.NewEvilWallet(s.Logger)
+			panic("evil wallet is nil")
 		}
+
 		s.Clients = s.EvilWallet.Connector()
-		// case SpamCommitments:
-		// 	s.CommitmentManager.Setup(s.log)
 	}
 	s.setupSpamDetails()
 

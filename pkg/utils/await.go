@@ -75,15 +75,18 @@ func AwaitBlockAndPayloadAcceptance(ctx context.Context, logger log.Logger, clt 
 		}
 
 		accepted, err := evaluateBlockIssuanceResponse(resp)
+		if err != nil {
+			logger.LogErrorf("Block %s issuance failure, err: %v", blockID.ToHex(), err.Error())
+
+			return err
+		}
+
 		if accepted {
 			logger.LogDebugf("Block %s issuance success, status: %s, transaction state: %s", blockID.ToHex(), resp.BlockState, resp.TransactionMetadata.TransactionState)
 
 			return nil
 		}
 
-		if err != nil {
-			logger.LogDebugf("Block %s issuance failure, block failure reason: %d, tx failure reason: %d", blockID.ToHex(), resp.BlockFailureReason, resp.TransactionMetadata.TransactionFailureReason)
-		}
 	}
 
 	return ierrors.Errorf("failed to await block confirmation or failure: %s", blockID.ToHex())

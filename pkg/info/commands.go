@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/iotaledger/evil-tools/pkg/utils"
-	"github.com/iotaledger/hive.go/ierrors"
 )
 
 func (m *Manager) CommitteeInfo(ctx context.Context) error {
@@ -66,28 +65,32 @@ func (m *Manager) RewardsInfo(ctx context.Context, params *ParametersInfo) error
 		// first, get the account output if this alias has one and check if it has validator rewards
 		accData, err := m.accWallets.GetAccount(params.Alias)
 		if err != nil {
-			m.LogInfof("Could not get account %s: %v", params.Alias, err)
+			out += fmt.Sprintf("No account found for alias %s\n", params.Alias)
 		} else {
 			validatorReward, err := m.accWallets.Client.GetRewards(ctx, accData.OutputID)
 			if err != nil {
-				m.LogInfof("Could not get rewards for account %s: %v", params.Alias, err)
+				out += fmt.Sprintf("No staking rewards found for alias %s\n", params.Alias)
 			} else {
-				out += fmt.Sprintf("Staking reward: %d, startEpoch: %d, endEpoch: %d", validatorReward.Rewards, validatorReward.StartEpoch, validatorReward.EndEpoch)
+				out += fmt.Sprintf("Staking reward: %d, startEpoch: %d, endEpoch: %d\n", validatorReward.Rewards, validatorReward.StartEpoch, validatorReward.EndEpoch)
 			}
 		}
 
 		// next get the rewards for any delegation under this alias
-		delegations, err := m.accWallets.GetDelegations(params.Alias)
+		delegations, err := m.accWallets.GetDelegations(alias)
 		if err != nil {
-			return ierrors.Wrap(err, "failed to get delegations")
+			//m.LogErrorf("failed to get delegations for alias %s", params.Alias)
+
+			continue
 		}
-		out += "Delegations:\n"
+		out += "\nDelegations:\n"
 		for _, delegation := range delegations {
 			delegationReward, err := m.accWallets.Client.GetRewards(ctx, delegation.OutputID)
 			if err != nil {
-				return ierrors.Wrapf(err, "failed to get rewards for output with outputID %s", delegation.OutputID)
+				//m.LogErrorf("failed to get rewards for output with outputID %s", delegation.OutputID)
+
+				continue
 			}
-			out += fmt.Sprintf("OutputID: %-12s, Reward: %-33d startEpoch: %d, endEpoch: %d", delegation.OutputID.ToHex(), delegationReward.Rewards, delegationReward.StartEpoch, delegationReward.EndEpoch)
+			out += fmt.Sprintf("OutputID: %-12s, Reward: %-23d startEpoch: %d, endEpoch: %d\n", delegation.OutputID.ToHex(), delegationReward.Rewards, delegationReward.StartEpoch, delegationReward.EndEpoch)
 		}
 	}
 

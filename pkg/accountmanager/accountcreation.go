@@ -6,7 +6,6 @@ import (
 
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/evil-tools/pkg/utils"
-	"github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
 	iotago "github.com/iotaledger/iota.go/v4"
@@ -62,10 +61,14 @@ func (m *Manager) transitionImplicitAccount(ctx context.Context, implicitAccount
 	// build account output with new Ed25519 address
 	wallet := m.getOrCreateWallet(params.Alias)
 	accEd25519Addr, accPrivateKey, accAddrIndex := wallet.getAddress(iotago.AddressEd25519)
-	accBlockIssuerKey := iotago.Ed25519PublicKeyHashBlockIssuerKeyFromPublicKey(accPrivateKey.Public().(ed25519.PublicKey))
+
+	accBlockIssuerKey, err := utils.GetAccountIssuerKeys(accPrivateKey.Public())
+	if err != nil {
+		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to get account address and keys")
+	}
 	accountOutput := builder.NewAccountOutputBuilder(accEd25519Addr, tokenBalance).
 		AccountID(accountID).
-		BlockIssuer(iotago.NewBlockIssuerKeys(accBlockIssuerKey), iotago.MaxSlotIndex).MustBuild()
+		BlockIssuer(accBlockIssuerKey, iotago.MaxSlotIndex).MustBuild()
 
 	// transaction preparation, issue block with implicit account
 	implicitAccountIssuer := iotagowallet.NewEd25519Account(accountID, implicitAccountOutput.PrivateKey)
@@ -112,7 +115,7 @@ func (m *Manager) createAccountWithFaucet(ctx context.Context, params *CreateAcc
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to request enough funds for account creation")
 	}
 	accAddr, accPrivateKey, accAddrIndex := w.getAddress(iotago.AddressEd25519)
-	blockIssuerKeys, err := w.getAccountPublicKeys(accPrivateKey.Public())
+	blockIssuerKeys, err := utils.GetAccountIssuerKeys(accPrivateKey.Public())
 	if err != nil {
 		return iotago.EmptyAccountID, ierrors.Wrap(err, "failed to get account address and keys")
 	}

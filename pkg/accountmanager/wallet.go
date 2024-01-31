@@ -1,11 +1,9 @@
 package accountmanager
 
 import (
-	"crypto"
 	"crypto/ed25519"
 
 	"github.com/iotaledger/evil-tools/pkg/models"
-	hiveEd25519 "github.com/iotaledger/hive.go/crypto/ed25519"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
 	iotago "github.com/iotaledger/iota.go/v4"
@@ -46,7 +44,7 @@ func (m *Manager) getOrCreateWallet(alias string) *Wallet {
 	return w
 }
 
-func (a *Wallet) GetAddrSignerForIndexes(outputs ...*models.OutputData) (iotago.AddressSigner, error) {
+func (w *Wallet) GetAddrSignerForIndexes(outputs ...*models.OutputData) (iotago.AddressSigner, error) {
 	var addrKeys []iotago.AddressKeys
 	for _, out := range outputs {
 		switch out.Address.Type() {
@@ -68,37 +66,25 @@ func (a *Wallet) GetAddrSignerForIndexes(outputs ...*models.OutputData) (iotago.
 	return iotago.NewInMemoryAddressSigner(addrKeys...), nil
 }
 
-func (a *Wallet) getAccountPublicKeys(pubKey crypto.PublicKey) (iotago.BlockIssuerKeys, error) {
-	ed25519PubKey, isEd25519 := pubKey.(ed25519.PublicKey)
-	if !isEd25519 {
-		return nil, ierrors.New("Failed to create account: only Ed25519 keys are supported")
-	}
-
-	blockIssuerKeys := iotago.NewBlockIssuerKeys(iotago.Ed25519PublicKeyHashBlockIssuerKeyFromPublicKey(hiveEd25519.PublicKey(ed25519PubKey)))
-
-	return blockIssuerKeys, nil
-
-}
-
-func (a *Wallet) getAddress(addressType iotago.AddressType) (iotago.DirectUnlockableAddress, ed25519.PrivateKey, uint32) {
-	a.LatestUsedIndex++
-	newIndex := a.LatestUsedIndex
-	keyManager := lo.PanicOnErr(wallet.NewKeyManager(a.Seed[:], BIP32PathForIndex(newIndex)))
+func (w *Wallet) getAddress(addressType iotago.AddressType) (iotago.DirectUnlockableAddress, ed25519.PrivateKey, uint32) {
+	w.LatestUsedIndex++
+	newIndex := w.LatestUsedIndex
+	keyManager := lo.PanicOnErr(wallet.NewKeyManager(w.Seed[:], BIP32PathForIndex(newIndex)))
 	privateKey, _ := keyManager.KeyPair()
 	receiverAddr := keyManager.Address(addressType)
 
 	return receiverAddr, privateKey, newIndex
 }
 
-func (a *Wallet) getPrivateKeyForIndex(index uint32) ed25519.PrivateKey {
-	keyManager := lo.PanicOnErr(wallet.NewKeyManager(a.Seed[:], BIP32PathForIndex(index)))
+func (w *Wallet) getPrivateKeyForIndex(index uint32) ed25519.PrivateKey {
+	keyManager := lo.PanicOnErr(wallet.NewKeyManager(w.Seed[:], BIP32PathForIndex(index)))
 	privateKey, _ := keyManager.KeyPair()
 
 	return privateKey
 }
 
-func (a *Wallet) createOutputDataForIndex(outputID iotago.OutputID, index uint32, outputStruct iotago.Output) *models.OutputData {
-	privateKey := a.getPrivateKeyForIndex(index)
+func (w *Wallet) createOutputDataForIndex(outputID iotago.OutputID, index uint32, outputStruct iotago.Output) *models.OutputData {
+	privateKey := w.getPrivateKeyForIndex(index)
 
 	return &models.OutputData{
 		OutputID:     outputID,

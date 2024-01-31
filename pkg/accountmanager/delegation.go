@@ -154,7 +154,6 @@ func (m *Manager) createDelegationOutputs(wallet *Wallet, inputAmount iotago.Bas
 	delegationOutput, err := builder.NewDelegationOutputBuilder(accountAddress, ownerAddress, delegatedAmount).
 		DelegatedAmount(delegatedAmount).
 		StartEpoch(m.delegationStart(api, issuingSlot, commitmentID.Slot())).
-		EndEpoch(m.delegationEnd(api, issuingSlot, commitmentID.Slot())).
 		Build()
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to build delegation output")

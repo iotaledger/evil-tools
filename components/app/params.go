@@ -10,6 +10,7 @@ var params = &app.ComponentParams{
 		"tool": models.ParamsTool,
 	},
 	Masked: []string{
+		"tool.blockissuerprivatekey",
 		"info",
 		"app",
 		"profiling",

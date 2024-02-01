@@ -64,6 +64,7 @@ func (m *Manager) claim(ctx context.Context, params *ClaimAccountParams) error {
 		}
 
 		m.LogInfof("Posted transaction with blockID %s: claiming rewards connected to alias %s", blockID.ToHex(), params.Alias)
+		m.LogInfof("Delegation output stored mana: %d, rewards amount according to API: %d", outputData.OutputStruct.StoredMana(), rewardsResp.Rewards)
 		txID := lo.PanicOnErr(signedTx.Transaction.ID())
 		basicOutputID := iotago.OutputIDFromTransactionIDAndIndex(txID, 0)
 
@@ -73,12 +74,13 @@ func (m *Manager) claim(ctx context.Context, params *ClaimAccountParams) error {
 
 		m.LogInfof("Block and Transaction accepted: blockID %s", blockID.ToHex())
 		// check if the creation output exists
-		_, err = m.Client.Client().OutputByID(ctx, basicOutputID)
+		out, err := m.Client.Client().OutputByID(ctx, basicOutputID)
 		if err != nil {
 			m.LogDebugf("Failed to get output from node")
 
 			return ierrors.Wrapf(err, "failed to get output from node")
 		}
+		m.LogInfof("Output with reward exists, with stored mana: %d", out.StoredMana())
 	}
 
 	m.removeDelegations(params.Alias)
@@ -125,7 +127,6 @@ func (m *Manager) createClaimingTransaction(input *models.OutputData, rewardsRes
 	txBuilder.
 		AddOutput(output).
 		SetCreationSlot(currentSlot).
-		//WithTransactionCapabilities(iotago.TransactionCapabilitiesBitMaskWithCapabilities(iotago.WithTransactionCanDoAnything()))
 		AllotAllMana(txBuilder.CreationSlot(), accountID, 0)
 
 	signedTx, err := txBuilder.Build(addrSigner)

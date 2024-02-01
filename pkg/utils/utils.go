@@ -13,6 +13,23 @@ import (
 	"github.com/iotaledger/iota.go/v4/tpkg"
 )
 
+func DelegationEnd(apiForSlot iotago.API, issuingSlot iotago.SlotIndex, commitmentSlot iotago.SlotIndex) iotago.EpochIndex {
+	futureBoundedSlotIndex := commitmentSlot + apiForSlot.ProtocolParameters().MinCommittableAge()
+	futureBoundedEpochIndex := apiForSlot.TimeProvider().EpochFromSlot(futureBoundedSlotIndex)
+
+	registrationSlot := DelegationRegistrationSlot(apiForSlot, issuingSlot)
+
+	if futureBoundedEpochIndex <= iotago.EpochIndex(registrationSlot) {
+		return futureBoundedEpochIndex
+	}
+
+	return futureBoundedEpochIndex + 1
+}
+
+func DelegationRegistrationSlot(apiForSlot iotago.API, slot iotago.SlotIndex) iotago.SlotIndex {
+	return apiForSlot.TimeProvider().EpochEnd(apiForSlot.TimeProvider().EpochFromSlot(slot)) - apiForSlot.ProtocolParameters().EpochNearingThreshold()
+}
+
 func GetAccountIssuerKeys(pubKey crypto.PublicKey) (iotago.BlockIssuerKeys, error) {
 	ed25519PubKey, isEd25519 := pubKey.(ed25519.PublicKey)
 	if !isEd25519 {

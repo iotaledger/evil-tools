@@ -233,28 +233,11 @@ func (m *Manager) delegationStart(apiForSlot iotago.API, issuingSlot iotago.Slot
 	pastBoundedSlotIndex := commitmentSlot + apiForSlot.ProtocolParameters().MaxCommittableAge()
 	pastBoundedEpochIndex := apiForSlot.TimeProvider().EpochFromSlot(pastBoundedSlotIndex)
 
-	registrationSlot := m.registrationSlot(apiForSlot, issuingSlot)
+	registrationSlot := utils.DelegationRegistrationSlot(apiForSlot, issuingSlot)
 
 	if pastBoundedSlotIndex <= registrationSlot {
 		return pastBoundedEpochIndex + 1
 	}
 
 	return pastBoundedEpochIndex + 2
-}
-
-func (m *Manager) delegationEnd(apiForSlot iotago.API, issuingSlot iotago.SlotIndex, commitmentSlot iotago.SlotIndex) iotago.EpochIndex {
-	futureBoundedSlotIndex := commitmentSlot + apiForSlot.ProtocolParameters().MinCommittableAge()
-	futureBoundedEpochIndex := apiForSlot.TimeProvider().EpochFromSlot(futureBoundedSlotIndex)
-
-	registrationSlot := m.registrationSlot(apiForSlot, issuingSlot)
-
-	if futureBoundedEpochIndex <= iotago.EpochIndex(registrationSlot) {
-		return futureBoundedEpochIndex
-	}
-
-	return futureBoundedEpochIndex + 1
-}
-
-func (m *Manager) registrationSlot(apiForSlot iotago.API, slot iotago.SlotIndex) iotago.SlotIndex {
-	return apiForSlot.TimeProvider().EpochEnd(apiForSlot.TimeProvider().EpochFromSlot(slot)) - apiForSlot.ProtocolParameters().EpochNearingThreshold()
 }

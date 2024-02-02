@@ -11,8 +11,8 @@ import (
 	"github.com/iotaledger/iota.go/v4/wallet"
 )
 
-func (m *Manager) toAccountState() *AccountsState {
-	state := &AccountsState{
+func (m *Manager) toManagerState() *ManagerState {
+	state := &ManagerState{
 		AccountState:       make([]*AccountState, len(m.accounts)),
 		Wallets:            make([]*Wallet, len(m.wallets)),
 		Delegation:         make([]*Delegation, 0),
@@ -35,7 +35,7 @@ func (m *Manager) toAccountState() *AccountsState {
 	return state
 }
 
-func (m *Manager) fromAccountState(state *AccountsState) {
+func (m *Manager) fromManagerState(state *ManagerState) {
 	for _, accState := range state.AccountState {
 		m.accounts[accState.Alias] = accState.ToAccountData()
 	}
@@ -58,7 +58,7 @@ func (m *Manager) SaveStateToFile() error {
 	m.Lock()
 	defer m.Unlock()
 
-	state := m.toAccountState()
+	state := m.toManagerState()
 	stateBytes, err := m.Client.LatestAPI().Encode(state)
 	if err != nil {
 		return ierrors.Wrap(err, "failed to encode account state")
@@ -87,7 +87,7 @@ func (m *Manager) LoadStateFromFile() (loaded bool, err error) {
 		return false, nil
 	}
 
-	state := &AccountsState{
+	state := &ManagerState{
 		AccountState: make([]*AccountState, 0),
 		Wallets:      make([]*Wallet, 0),
 		Delegation:   make([]*Delegation, 0),
@@ -96,12 +96,12 @@ func (m *Manager) LoadStateFromFile() (loaded bool, err error) {
 	if err != nil {
 		return false, ierrors.Wrap(err, "failed to decode from file")
 	}
-	m.fromAccountState(state)
+	m.fromManagerState(state)
 
 	return true, nil
 }
 
-type AccountsState struct {
+type ManagerState struct {
 	AccountState       []*AccountState  `serix:"accounts,lenPrefix=uint8"`
 	Wallets            []*Wallet        `serix:"wallets,lenPrefix=uint8"`
 	Delegation         []*Delegation    `serix:"delegations,lenPrefix=uint8"`

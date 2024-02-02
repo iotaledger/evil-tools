@@ -3,9 +3,6 @@ package spammer
 import "time"
 
 type ParametersSpammer struct {
-	NodeURLs  []string `default:"http://localhost:8050" usage:"API URLs for clients used in test separated with commas"`
-	FaucetURL string   `default:"http://localhost:8088" usage:"Faucet URL used in test"`
-
 	Type                  string        `default:"tx" usage:"Spammers used during test. Format: strings separated with comma, available options: 'blk' - block, 'tx' - transaction, 'ds' - double spends spammers, 'nds' - n-spends spammer, 'bb' - blowball, or one of custom scenarios that can be found in pkg/evilwallet/customscenarion.go"`
 	Rate                  int           `default:"1" usage:"Spamming rate for provided 'spammer'. Format: numbers separated with comma, e.g. 10,100,1 if three spammers were provided for 'spammer' parameter."`
 	Duration              time.Duration `default:"-1ns" usage:"Spam duration. If not provided spam will lats infinitely. Format: separated by commas list of decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.\n Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'."`

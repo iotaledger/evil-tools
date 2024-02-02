@@ -6,7 +6,8 @@ import (
 
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/evil-tools/pkg/accountwallet"
+	"github.com/iotaledger/evil-tools/pkg/models"
+	"github.com/iotaledger/evil-tools/pkg/walletmanager"
 	"github.com/iotaledger/hive.go/app"
 	"github.com/iotaledger/hive.go/ierrors"
 )
@@ -19,13 +20,15 @@ func init() {
 	Component = &app.Component{
 		Name:     "Accounts",
 		Params:   params,
-		DepsFunc: func(cDeps dependencies) { deps = cDeps },
 		Run:      run,
-		Provide: func(c *dig.Container) error {
-			return c.Provide(provideWallet)
-		},
-		IsEnabled: func(_ *dig.Container) bool { return true },
+		DepsFunc: func(cDeps dependencies) { deps = cDeps },
 	}
+}
+
+type dependencies struct {
+	dig.In
+
+	ParamsTool *models.ParametersTool
 }
 
 var (
@@ -33,53 +36,45 @@ var (
 	deps      dependencies
 )
 
-type dependencies struct {
-	dig.In
-
-	AccountWallets *accountwallet.AccountWallets
-}
-
 func run() error {
 	Component.LogInfo("Starting evil-tools accounts ... done")
-	// save wallet state on shutdown
-	defer func() {
-		err := accountwallet.SaveState(deps.AccountWallets)
-		if err != nil {
-			Component.LogErrorf("Error while saving wallet state: %v", err)
-		}
-	}()
+
+	accManager, err := walletmanager.RunManager(Component.Logger,
+		walletmanager.WithClientURL(deps.ParamsTool.NodeURLs[0]),
+		walletmanager.WithFaucetURL(deps.ParamsTool.FaucetURL),
+		walletmanager.WithAccountStatesFile(deps.ParamsTool.AccountStatesFile),
+		walletmanager.WithFaucetAccountParams(&walletmanager.GenesisAccountParams{
+			FaucetPrivateKey: deps.ParamsTool.BlockIssuerPrivateKey,
+			FaucetAccountID:  deps.ParamsTool.AccountID,
+		}),
+	)
+	if err != nil {
+		Component.LogError(err.Error())
+
+		return err
+	}
 
 	accountsSubcommandsFlags := parseAccountCommands(getCommands(os.Args[2:]), ParamsAccounts)
 	accountsSubcommands(
 		Component.Daemon().ContextStopped(),
-		deps.AccountWallets,
+		accManager,
 		accountsSubcommandsFlags,
 	)
 
 	return nil
 }
 
-func provideWallet() *accountwallet.AccountWallets {
-	// load wallet
-	accWallet, err := accountwallet.Run(Component.Daemon().ContextStopped(), Component.Logger,
-		accountwallet.WithClientURL(ParamsAccounts.NodeURLs[0]),
-		accountwallet.WithFaucetURL(ParamsAccounts.FaucetURL),
-		accountwallet.WithAccountStatesFile(ParamsAccounts.AccountStatesFile),
-		accountwallet.WithFaucetAccountParams(&accountwallet.GenesisAccountParams{
-			FaucetPrivateKey: ParamsAccounts.BlockIssuerPrivateKey,
-			FaucetAccountID:  ParamsAccounts.AccountID,
-		}),
-	)
-	if err != nil {
-		Component.LogPanic(err.Error())
-	}
+func accountsSubcommands(ctx context.Context, accManager *walletmanager.Manager, subcommands []walletmanager.AccountSubcommands) {
+	// save wallet state on shutdown
+	defer func() {
+		err := accManager.SaveStateToFile()
+		if err != nil {
+			Component.LogErrorf("Error while saving wallet state: %v", err)
+		}
+	}()
 
-	return accWallet
-}
-
-func accountsSubcommands(ctx context.Context, wallets *accountwallet.AccountWallets, subcommands []accountwallet.AccountSubcommands) {
 	for _, sub := range subcommands {
-		err := accountsSubcommand(ctx, wallets, sub)
+		err := accountsSubcommand(ctx, accManager, sub)
 		if err != nil {
 			Component.LogFatal(ierrors.Wrap(err, "failed to run subcommand").Error())
 
@@ -89,13 +84,13 @@ func accountsSubcommands(ctx context.Context, wallets *accountwallet.AccountWall
 }
 
 //nolint:all,forcetypassert
-func accountsSubcommand(ctx context.Context, wallets *accountwallet.AccountWallets, subCommand accountwallet.AccountSubcommands) error {
+func accountsSubcommand(ctx context.Context, wallets *walletmanager.Manager, subCommand walletmanager.AccountSubcommands) error {
 	Component.LogInfof("Run subcommand: %s, with parameter set: %v", subCommand.Type().String(), subCommand)
 
 	switch subCommand.Type() {
-	case accountwallet.OperationCreateAccount:
+	case walletmanager.OperationCreateAccount:
 		//nolint:forcetypassert // we can safely assume that the type is correct
-		accParams := subCommand.(*accountwallet.CreateAccountParams)
+		accParams := subCommand.(*walletmanager.CreateAccountParams)
 
 		accountID, err := wallets.CreateAccount(ctx, accParams)
 		if err != nil {
@@ -104,35 +99,35 @@ func accountsSubcommand(ctx context.Context, wallets *accountwallet.AccountWalle
 
 		Component.LogInfof("Created account %s", accountID)
 
-	case accountwallet.OperationDestroyAccount:
+	case walletmanager.OperationDestroyAccount:
 		//nolint:forcetypassert // we can safely assume that the type is correct
-		accParams := subCommand.(*accountwallet.DestroyAccountParams)
+		accParams := subCommand.(*walletmanager.DestroyAccountParams)
 
 		if err := wallets.DestroyAccount(ctx, accParams); err != nil {
 			return ierrors.Wrap(err, "failed to destroy account")
 		}
 
-	case accountwallet.OperationAllotAccount:
+	case walletmanager.OperationAllotAccount:
 		//nolint:forcetypassert // we can safely assume that the type is correct
-		accParams := subCommand.(*accountwallet.AllotAccountParams)
+		accParams := subCommand.(*walletmanager.AllotAccountParams)
 
-		if err := wallets.AllotToAccount(accParams); err != nil {
+		if err := wallets.AllotToAccount(ctx, accParams); err != nil {
 			return ierrors.Wrap(err, "failed to allot to account")
 		}
 
-	case accountwallet.OperationDelegateAccount:
+	case walletmanager.OperationDelegate:
 		//nolint:forcetypassert // we can safely assume that the type is correct
-		params := subCommand.(*accountwallet.DelegateAccountParams)
+		accParams := subCommand.(*walletmanager.DelegateAccountParams)
 
-		if err := wallets.DelegateToAccount(ctx, params); err != nil {
+		if err := wallets.DelegateToAccount(ctx, accParams); err != nil {
 			return ierrors.Wrap(err, "failed to delegate to account")
 		}
 
-	case accountwallet.OperationRewardsAccount:
+	case walletmanager.OperationClaim:
 		//nolint:forcetypassert // we can safely assume that the type is correct
-		params := subCommand.(*accountwallet.RewardsAccountParams)
+		accParams := subCommand.(*walletmanager.ClaimAccountParams)
 
-		if err := wallets.Rewards(ctx, params); err != nil {
+		if err := wallets.Claim(ctx, accParams); err != nil {
 			return ierrors.Wrap(err, "failed to get rewards")
 		}
 

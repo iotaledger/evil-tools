@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/iotaledger/evil-tools/pkg/accountwallet"
+	"github.com/iotaledger/evil-tools/pkg/walletmanager"
 	"github.com/iotaledger/hive.go/ierrors"
 	iotago "github.com/iotaledger/iota.go/v4"
 )
@@ -21,7 +21,7 @@ func getCommands(args []string) []string {
 			continue
 		}
 
-		if !accountwallet.AvailableCommands(arg) {
+		if !walletmanager.AvailableCommands(arg) {
 			// skip as it might be a flag parameter
 			continue
 		}
@@ -31,58 +31,58 @@ func getCommands(args []string) []string {
 	return commands
 }
 
-func parseAccountCommands(commands []string, paramsAccounts *ParametersAccounts) []accountwallet.AccountSubcommands {
-	parsedCmds := make([]accountwallet.AccountSubcommands, 0)
+func parseAccountCommands(commands []string, paramsAccounts *ParametersAccounts) []walletmanager.AccountSubcommands {
+	parsedCmds := make([]walletmanager.AccountSubcommands, 0)
 
 	for _, cmd := range commands {
 		switch cmd {
-		case accountwallet.OperationCreateAccount.String():
+		case walletmanager.OperationCreateAccount.String():
 			createAccountParams, err := parseCreateAccountParams(&paramsAccounts.Create)
 			if err != nil {
 				continue
 			}
 			parsedCmds = append(parsedCmds, createAccountParams)
 
-		case accountwallet.OperationConvertAccount.String():
+		case walletmanager.OperationConvertAccount.String():
 			convertAccountParams := parseConvertAccountFlags(&paramsAccounts.Convert)
 			parsedCmds = append(parsedCmds, convertAccountParams)
 
-		case accountwallet.OperationDestroyAccount.String():
+		case walletmanager.OperationDestroyAccount.String():
 			destroyAccountParams, err := parseDestroyAccountFlags(&paramsAccounts.Destroy)
 			if err != nil {
 				continue
 			}
 			parsedCmds = append(parsedCmds, destroyAccountParams)
 
-		case accountwallet.OperationAllotAccount.String():
+		case walletmanager.OperationAllotAccount.String():
 			allotAccountParams, err := parseAllotAccountFlags(&paramsAccounts.Allot)
 			if err != nil {
 				continue
 			}
 			parsedCmds = append(parsedCmds, allotAccountParams)
 
-		case accountwallet.OperationDelegateAccount.String():
+		case walletmanager.OperationDelegate.String():
 			delegatingAccountParams, err := parseDelegateAccountFlags(&paramsAccounts.Delegate)
 			if err != nil {
 				continue
 			}
 			parsedCmds = append(parsedCmds, delegatingAccountParams)
 
-		case accountwallet.OperationStakeAccount.String():
+		case walletmanager.OperationStakeAccount.String():
 			stakingAccountParams, err := parseStakeAccountFlags(&paramsAccounts.Stake)
 			if err != nil {
 				continue
 			}
 			parsedCmds = append(parsedCmds, stakingAccountParams)
 
-		case accountwallet.OperationRewardsAccount.String():
-			rewardsParams, err := parseRewardsFlags(&paramsAccounts.Rewards)
+		case walletmanager.OperationClaim.String():
+			rewardsParams, err := parseRewardsFlags(&paramsAccounts.Claim)
 			if err != nil {
 				continue
 			}
 			parsedCmds = append(parsedCmds, rewardsParams)
 
-		case accountwallet.OperationUpdateAccount.String():
+		case walletmanager.OperationUpdateAccount.String():
 			updateAccountParams, err := parseUpdateAccountFlags(&paramsAccounts.Update)
 			if err != nil {
 				continue
@@ -100,29 +100,29 @@ func parseAccountCommands(commands []string, paramsAccounts *ParametersAccounts)
 
 func accountUsage() {
 	fmt.Println("Usage for accounts [COMMAND] [FLAGS], multiple commands can be chained together.")
-	fmt.Printf("COMMAND: %s\n", accountwallet.OperationCreateAccount)
+	fmt.Printf("COMMAND: %s\n", walletmanager.OperationCreateAccount)
 	_, _ = parseCreateAccountParams(nil)
 
-	fmt.Printf("COMMAND: %s\n", accountwallet.OperationConvertAccount)
+	fmt.Printf("COMMAND: %s\n", walletmanager.OperationConvertAccount)
 	_ = parseConvertAccountFlags(nil)
 
-	fmt.Printf("COMMAND: %s\n", accountwallet.OperationDestroyAccount)
+	fmt.Printf("COMMAND: %s\n", walletmanager.OperationDestroyAccount)
 	_, _ = parseDestroyAccountFlags(nil)
 
-	fmt.Printf("COMMAND: %s\n", accountwallet.OperationAllotAccount)
+	fmt.Printf("COMMAND: %s\n", walletmanager.OperationAllotAccount)
 	_, _ = parseAllotAccountFlags(nil)
 
-	fmt.Printf("COMMAND: %s\n", accountwallet.OperationDelegateAccount)
+	fmt.Printf("COMMAND: %s\n", walletmanager.OperationDelegate)
 	_, _ = parseDelegateAccountFlags(nil)
 
-	fmt.Printf("COMMAND: %s\n", accountwallet.OperationStakeAccount)
+	fmt.Printf("COMMAND: %s\n", walletmanager.OperationStakeAccount)
 	_, _ = parseStakeAccountFlags(nil)
 
-	fmt.Printf("COMMAND: %s\n", accountwallet.OperationRewardsAccount)
+	fmt.Printf("COMMAND: %s\n", walletmanager.OperationClaim)
 	_, _ = parseRewardsFlags(nil)
 }
 
-func parseCreateAccountParams(paramsAccountCreate *ParametersAccountsCreate) (*accountwallet.CreateAccountParams, error) {
+func parseCreateAccountParams(paramsAccountCreate *ParametersAccountsCreate) (*walletmanager.CreateAccountParams, error) {
 	if paramsAccountCreate == nil {
 		return nil, ierrors.New("paramsAccountCreate missing for create account")
 	}
@@ -136,7 +136,7 @@ func parseCreateAccountParams(paramsAccountCreate *ParametersAccountsCreate) (*a
 		paramsAccountCreate.Transition = true
 	}
 
-	return &accountwallet.CreateAccountParams{
+	return &walletmanager.CreateAccountParams{
 		Alias:      paramsAccountCreate.Alias,
 		NoBIF:      paramsAccountCreate.NoBlockIssuerFeature,
 		Implicit:   paramsAccountCreate.Implicit,
@@ -144,40 +144,40 @@ func parseCreateAccountParams(paramsAccountCreate *ParametersAccountsCreate) (*a
 	}, nil
 }
 
-func parseConvertAccountFlags(paramsAccountConvert *ParametersAccountsConvert) *accountwallet.ConvertAccountParams {
-	return &accountwallet.ConvertAccountParams{
+func parseConvertAccountFlags(paramsAccountConvert *ParametersAccountsConvert) *walletmanager.ConvertAccountParams {
+	return &walletmanager.ConvertAccountParams{
 		AccountAlias: paramsAccountConvert.Alias,
 	}
 }
 
-func parseDestroyAccountFlags(paramsAccountDestroy *ParametersAccountsDestroy) (*accountwallet.DestroyAccountParams, error) {
+func parseDestroyAccountFlags(paramsAccountDestroy *ParametersAccountsDestroy) (*walletmanager.DestroyAccountParams, error) {
 	if paramsAccountDestroy == nil {
 		return nil, ierrors.New("paramsAccountDestroy missing for destroy account")
 	}
 
-	return &accountwallet.DestroyAccountParams{
+	return &walletmanager.DestroyAccountParams{
 		AccountAlias: paramsAccountDestroy.Alias,
 		ExpirySlot:   uint64(paramsAccountDestroy.ExpirySlot),
 	}, nil
 }
 
-func parseAllotAccountFlags(paramsAccountAllot *ParametersAccountsAllot) (*accountwallet.AllotAccountParams, error) {
+func parseAllotAccountFlags(paramsAccountAllot *ParametersAccountsAllot) (*walletmanager.AllotAccountParams, error) {
 	if paramsAccountAllot == nil {
 		return nil, ierrors.New("paramsAccountAllot missing for allot account")
 	}
 
-	return &accountwallet.AllotAccountParams{
-		To:     paramsAccountAllot.AllotToAccount,
-		Amount: uint64(paramsAccountAllot.Amount),
+	return &walletmanager.AllotAccountParams{
+		Alias:  paramsAccountAllot.Alias,
+		Amount: iotago.Mana(paramsAccountAllot.Amount),
 	}, nil
 }
 
-func parseStakeAccountFlags(paramsAccountStake *ParametersAccountsStake) (*accountwallet.StakeAccountParams, error) {
+func parseStakeAccountFlags(paramsAccountStake *ParametersAccountsStake) (*walletmanager.StakeAccountParams, error) {
 	if paramsAccountStake == nil {
 		return nil, ierrors.New("paramsAccountStake missing for stake account")
 	}
 
-	return &accountwallet.StakeAccountParams{
+	return &walletmanager.StakeAccountParams{
 		Alias:      paramsAccountStake.Alias,
 		Amount:     uint64(paramsAccountStake.Amount),
 		FixedCost:  uint64(paramsAccountStake.FixedCost),
@@ -186,22 +186,22 @@ func parseStakeAccountFlags(paramsAccountStake *ParametersAccountsStake) (*accou
 	}, nil
 }
 
-func parseRewardsFlags(paramsRewards *ParametersRewards) (*accountwallet.RewardsAccountParams, error) {
+func parseRewardsFlags(paramsRewards *ParametersClaim) (*walletmanager.ClaimAccountParams, error) {
 	if paramsRewards == nil {
 		return nil, ierrors.New("paramsRewards missing for rewards account")
 	}
 
-	return &accountwallet.RewardsAccountParams{
+	return &walletmanager.ClaimAccountParams{
 		Alias: paramsRewards.Alias,
 	}, nil
 }
 
-func parseDelegateAccountFlags(paramsAccountDelegate *ParametersAccountsDelegate) (*accountwallet.DelegateAccountParams, error) {
+func parseDelegateAccountFlags(paramsAccountDelegate *ParametersAccountsDelegate) (*walletmanager.DelegateAccountParams, error) {
 	if paramsAccountDelegate == nil {
 		return nil, ierrors.New("paramsAccountDelegate missing for delegate account")
 	}
 
-	return &accountwallet.DelegateAccountParams{
+	return &walletmanager.DelegateAccountParams{
 		FromAlias: paramsAccountDelegate.FromAlias,
 		ToAddress: paramsAccountDelegate.ToAddress,
 		Amount:    iotago.BaseToken(paramsAccountDelegate.Amount),
@@ -209,12 +209,12 @@ func parseDelegateAccountFlags(paramsAccountDelegate *ParametersAccountsDelegate
 	}, nil
 }
 
-func parseUpdateAccountFlags(paramsAccountUpdate *ParametersAccountsUpdate) (*accountwallet.UpdateAccountParams, error) {
+func parseUpdateAccountFlags(paramsAccountUpdate *ParametersAccountsUpdate) (*walletmanager.UpdateAccountParams, error) {
 	if paramsAccountUpdate == nil {
 		return nil, ierrors.New("paramsAccountUpdate missing for update account")
 	}
 
-	return &accountwallet.UpdateAccountParams{
+	return &walletmanager.UpdateAccountParams{
 		Alias:          paramsAccountUpdate.Alias,
 		BlockIssuerKey: paramsAccountUpdate.BlockIssuerKey,
 		Amount:         uint64(paramsAccountUpdate.Amount),

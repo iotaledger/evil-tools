@@ -28,28 +28,6 @@ type OutputData struct {
 	OutputStruct iotago.Output
 }
 
-type OutputState struct {
-	PrivateKey ed25519.PrivateKey `serix:",lenPrefix=uint8"`
-	OutputID   iotago.OutputID    `serix:""`
-	Index      uint32             `serix:""`
-}
-
-func OutputStateFromOutputData(out *OutputData) *OutputState {
-	return &OutputState{
-		PrivateKey: out.PrivateKey,
-		OutputID:   out.OutputID,
-		Index:      out.AddressIndex,
-	}
-}
-
-func (o *OutputState) ToOutputData() *OutputData {
-	return &OutputData{
-		OutputID:     o.OutputID,
-		AddressIndex: o.Index,
-		PrivateKey:   o.PrivateKey,
-	}
-}
-
 func NewOutputDataWithEmptyID(api iotago.API, addr iotago.Address, index uint32, privateKey ed25519.PrivateKey, out iotago.Output) (*OutputData, error) {
 	outID, err := NewTempOutputID(api, out)
 	if err != nil {
@@ -97,38 +75,6 @@ type AccountData struct {
 	Account  wallet.Account
 	OutputID iotago.OutputID
 	Index    uint32
-}
-
-type AccountState struct {
-	AccountID  iotago.AccountID   `serix:""`
-	PrivateKey ed25519.PrivateKey `serix:",lenPrefix=uint8"`
-	OutputID   iotago.OutputID    `serix:""`
-	Index      uint32             `serix:""`
-}
-
-func AccountStateFromAccountData(acc *AccountData) []*AccountState {
-	return []*AccountState{{
-		AccountID:  acc.Account.ID(),
-		PrivateKey: acc.Account.PrivateKey(),
-		OutputID:   acc.OutputID,
-		Index:      acc.Index,
-	}}
-}
-
-func (a *AccountState) ToAccountData() *AccountData {
-	return &AccountData{
-		Account:  wallet.NewEd25519Account(a.AccountID, a.PrivateKey),
-		OutputID: a.OutputID,
-		Index:    a.Index,
-	}
-}
-
-type WalletState struct {
-	Alias         string          `serix:",lenPrefix=uint8"`
-	Seed          string          `serix:",lenPrefix=uint8"`
-	LastUsedIndex uint32          `serix:""`
-	AccountState  []*AccountState `serix:"account,lenPrefix=uint8"`
-	OutputStates  []*OutputState  `serix:"outputs,lenPrefix=uint8"`
 }
 
 // PayloadIssuanceData contains data for issuing a payload. Either ready payload or transaction build data along with issuer account required for signing.

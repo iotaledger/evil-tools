@@ -6,9 +6,9 @@ import (
 
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/evil-tools/pkg/accountwallet"
 	"github.com/iotaledger/evil-tools/pkg/evilwallet"
 	"github.com/iotaledger/evil-tools/pkg/models"
+	"github.com/iotaledger/evil-tools/pkg/walletmanager"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/log"
 	"github.com/iotaledger/hive.go/runtime/options"
@@ -115,11 +115,10 @@ func (s *Spammer) setup() {
 	switch s.SpamType {
 	case SpamEvilWallet:
 		if s.EvilWallet == nil {
-			s.EvilWallet = evilwallet.NewEvilWallet(s.Logger)
+			panic("evil wallet is nil")
 		}
+
 		s.Clients = s.EvilWallet.Connector()
-		// case SpamCommitments:
-		// 	s.CommitmentManager.Setup(s.log)
 	}
 	s.setupSpamDetails()
 
@@ -142,7 +141,7 @@ func (s *Spammer) setupSpamDetails() {
 	}
 
 	if s.IssuerAlias == "" {
-		s.IssuerAlias = accountwallet.GenesisAccountAlias
+		s.IssuerAlias = walletmanager.GenesisAccountAlias
 	}
 }
 
@@ -244,7 +243,7 @@ func (s *Spammer) PrepareBlock(ctx context.Context, issuanceData *models.Payload
 
 		return nil
 	}
-	issuerAccount, err := s.EvilWallet.GetAccount(ctx)
+	issuerAccount, err := s.EvilWallet.GetAccount(ctx, s.IssuerAlias)
 	if err != nil {
 		s.logError(ierrors.Wrap(err, ErrFailGetAccount.Error()))
 		s.ErrCounter.CountError(ierrors.Wrap(err, ErrFailGetAccount.Error()))
@@ -269,7 +268,7 @@ func (s *Spammer) PrepareAndPostBlock(ctx context.Context, issuanceData *models.
 
 		return iotago.EmptyBlockID
 	}
-	issuerAccount, err := s.EvilWallet.GetAccount(ctx)
+	issuerAccount, err := s.EvilWallet.GetAccount(ctx, s.IssuerAlias)
 	if err != nil {
 		s.logError(ierrors.Wrap(err, ErrFailGetAccount.Error()))
 		s.ErrCounter.CountError(ierrors.Wrap(err, ErrFailGetAccount.Error()))

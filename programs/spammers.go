@@ -8,13 +8,14 @@ import (
 
 	"github.com/iotaledger/hive.go/log"
 
-	"github.com/iotaledger/evil-tools/pkg/accountwallet"
 	"github.com/iotaledger/evil-tools/pkg/evilwallet"
 	"github.com/iotaledger/evil-tools/pkg/spammer"
+	"github.com/iotaledger/evil-tools/pkg/walletmanager"
 )
 
-func RunSpammer(ctx context.Context, logger log.Logger, nodeURLs []string, paramsSpammer *spammer.ParametersSpammer, accWallet *accountwallet.AccountWallet) {
-	w := evilwallet.NewEvilWallet(logger, evilwallet.WithClients(nodeURLs...), evilwallet.WithAccountsWallet(accWallet))
+func RunSpammer(ctx context.Context, logger log.Logger, nodeURLs []string, faucetURL string, paramsSpammer *spammer.ParametersSpammer, accManager *walletmanager.Manager) {
+	fmt.Println("RunSpammer")
+	w := evilwallet.NewEvilWallet(logger, evilwallet.WithClients(nodeURLs...), evilwallet.WithAccountsManager(accManager), evilwallet.WithFaucetClient(faucetURL))
 	wg := sync.WaitGroup{}
 
 	logger.LogInfof("Start spamming with rate: %d, spamming type: %s.", paramsSpammer.Rate, paramsSpammer.Type)
@@ -125,8 +126,8 @@ func SpamTransaction(logger log.Logger, w *evilwallet.EvilWallet, paramsSpammer 
 }
 
 func SpamDoubleSpends(logger log.Logger, w *evilwallet.EvilWallet, paramsSpammer *spammer.ParametersSpammer) *spammer.Spammer {
-	if w.NumOfClient() < 2 {
-		logger.LogInfof("Warning: At least two client are needed to spam, and %d was provided", w.NumOfClient())
+	if w.NumOfClient() < 1 {
+		logger.LogInfo("Warning: At least one client are needed to spam")
 	}
 
 	scenarioOptions := []evilwallet.ScenarioOption{

@@ -1,71 +1,45 @@
 package info
 
 import (
-	"context"
 	"os"
 
-	"go.uber.org/dig"
-
-	"github.com/iotaledger/evil-tools/pkg/accountwallet"
 	"github.com/iotaledger/evil-tools/pkg/info"
+	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/hive.go/app"
-	"github.com/iotaledger/hive.go/ierrors"
 )
 
 const ScriptName = "info"
 
+// no need for run function as we use Component only to load parameters
+
 func init() {
 	Component = &app.Component{
-		Name:     "Info",
-		Params:   params,
-		Run:      run,
-		DepsFunc: func(cDeps dependencies) { deps = cDeps },
+		Name:   "Info",
+		Params: params,
 	}
 }
 
 var (
 	Component *app.Component
-	deps      dependencies
 )
 
-type dependencies struct {
-	dig.In
-
-	AccountWallets *accountwallet.AccountWallets
-}
-
-func run() error {
-	Component.LogInfo("Start info component ... done")
-	manager := info.NewManager(Component.Logger, deps.AccountWallets)
-
-	commands := parseInfoCommands(getCommands(os.Args[2:]))
-
-	for _, cmd := range commands {
-		err := infoSubcommand(context.Background(), manager, cmd)
-		if err != nil {
-			Component.LogFatal(err.Error())
-		}
+func Run() error {
+	loggerConfig := &app.LoggerConfig{
+		Name:        "info",
+		Level:       "info",
+		TimeFormat:  "rfc3339",
+		OutputPaths: []string{"stdout"},
+	}
+	logger, err := app.NewLoggerFromConfig(loggerConfig)
+	if err != nil {
+		return err
+	}
+	err = info.Run(models.ParamsTool, ParamsInfo, logger)
+	if err != nil {
+		return err
 	}
 
-	return nil
-}
-
-//nolint:all,forcetypassert
-func infoSubcommand(ctx context.Context, manager *info.Manager, subCommand Command) error {
-	switch subCommand {
-	case CommandCommittee:
-		if err := manager.CommitteeInfo(ctx); err != nil {
-			return ierrors.Wrapf(err, "error while requesting committee endpoint")
-		}
-	case CommandValidators:
-		if err := manager.ValidatorsInfo(ctx); err != nil {
-			return ierrors.Wrapf(err, "error while requesting stakers endpoint")
-		}
-	case CommandAccounts:
-		if err := manager.AccountsInfo(); err != nil {
-			return ierrors.Wrapf(err, "error while requesting accounts endpoint")
-		}
-	}
+	os.Exit(0)
 
 	return nil
 }

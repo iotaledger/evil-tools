@@ -137,7 +137,7 @@ func (e *EvilWallet) requestFaucetFunds(ctx context.Context, wallet *Wallet) (ou
 	}
 
 	// update wallet with newly created output
-	output = e.outputManager.createOutputFromAddress(wallet, e.accWallet.API, receiveAddr, outputID, iotaOutput)
+	output = e.outputManager.createOutputFromAddress(wallet, e.accManager.API, receiveAddr, outputID, iotaOutput)
 
 	return output, nil
 }
@@ -148,7 +148,7 @@ func (e *EvilWallet) splitOutput(ctx context.Context, splitOutput *models.Output
 		return iotago.EmptyTransactionID, ierrors.Wrapf(err, "failed to create splitted outputs")
 	}
 
-	genesisAccount := e.accWallet.AccountData()
+	genesisAccount := e.accManager.GenesisAccount()
 	if genesisAccount == nil {
 		return iotago.EmptyTransactionID, ierrors.New("failed to split output, genesis account is nil")
 	}
@@ -163,7 +163,7 @@ func (e *EvilWallet) splitOutput(ctx context.Context, splitOutput *models.Output
 		return iotago.EmptyTransactionID, err
 	}
 
-	_, tx, err := e.PrepareAndPostBlockWithTxBuildData(ctx, e.connector.GetClient(), issuanceData.TransactionBuilder, issuanceData.TxSigningKeys, genesisAccount.Account)
+	_, tx, err := e.PrepareAndPostBlockWithTxBuildData(ctx, e.connector.GetClient(), issuanceData.TransactionBuilder, issuanceData.TxSigningKeys, genesisAccount)
 	if err != nil {
 		return iotago.EmptyTransactionID, err
 	}

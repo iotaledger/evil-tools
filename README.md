@@ -7,10 +7,19 @@ go build
 ./evil-tools [spammer,accounts] [[script-flag-set]]
 ```
 
-The evil-tools app has two applications: 
+The evil-tools app has three applications: 
 - spammer - to spam the network with transactions, nested conflicts, etc.
 - accounts - to create, convert and destroy accounts.
+- info - to print details about the network, accounts, delegations, etc.
 List of all possible flags can be found in [configuration.md](configuration.md)
+
+### Setup
+To run the evil spammer tool on a network different than the local docker network, remember to provide:
+ - `--tool.nodeURLs` - the list of URLs of the nodes in the network
+ - `--tool.faucetURL` - the URL of the faucet in the network
+ - `--tool.blockIssuerPrivateKey` - the private key of the existing block issuer account, best some account created in the genesis. Spammer will mostly use mana from this account to pay for the issuance.
+ - `--tools.accountID` - the corresponding account ID of the existing block issuer account.
+
 
 ### `spammer`
 Usage for spammer tool:
@@ -37,15 +46,18 @@ Infinite spam is enabled when no duration flag is provided.
 ```bash
 ./evil-tools spammer --spammer.type tx --spammer.rate 10
 ```
-You can provide urls for clients:
+You can provide urls for clients and the faucet, each client should run the inx-indexer:
 ```bash
-./evil-tools spammer --spammer.urls "http://localhost:8050,http://localhost:8060" --spammer.type tx --spammer.rate 10
+./evil-tools spammer --tool.nodeURLs "http://localhost:8050" --tool.faucetURL  "http://localhost:8088" --spammer.type tx --spammer.rate 10
 ```
 Enable deep spam:
 ```bash
-./evil-tools spammer --spammer.type tx --spammer.rate 10 --spammer.duration 100s --spammer.deep
+./evil-tools spammer --spammer.type tx --spammer.rate 10 --spammer.duration 100s --spammer.deepSpamEnabled
 ```
-
+Spam with the account created by the evil-tools app:
+```bash
+./evil-tools spammer --spammer.type tx --spammer.rate 10 --spammer.duration 100s --spammer.accountAlias A
+```
 ### Examples for the accounts
 Create implicit account with alias `A`:
 ```bash
@@ -55,6 +67,41 @@ Create account with genesis account paying for creation transaction:
 ```bash
 ./evil-tools accounts create --accounts.create.alias A
 ```
+Delegate 1000 tokens (requested from the Faucet) and store it under alias `A`:
+```bash
+./evil-tools accounts delegate --accounts.delegate.fromAlias A --accounts.delegate.amount 100000
+```
+Allot at least `amount` of mana to the account with alias `A`:
+```bash
+./evil-tools accounts allot --accounts.allot.alias A --accounts.allot.amount 100000
+``` 
+Claim all rewards under alias `A`:
+```bash
+./evil-tools accounts claim --accounts.claim.alias A
+```
+
+### Examples for printing tool details and info about the network
+List all accounts stored in the wallet.dat file of the evil-tools app:
+```bash
+./evil-tools info accounts
+```
+List all delegations done with the evil-tools app to be claimed:
+```bash
+./evil-tools info delegations
+```
+Request validators endpoint:
+```bash
+./evil-tools info validators
+```
+Request committee endpoint:
+```bash
+./evil-tools info committee
+```
+List rewards endpoint responses for all delegations done by the app:
+```bash
+./evil-tools info rewards
+```
+
 
 ### Scenario diagrams:
 ##### No conflicts

@@ -93,7 +93,33 @@ Example:
   }
 ```
 
-## <a id="profiling"></a> 3. Profiling
+## <a id="tool"></a> 3. Tool
+
+| Name                  | Description                                                  | Type   | Default value                                                                                                                      |
+| --------------------- | ------------------------------------------------------------ | ------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| nodeURLs              | API URLs for clients used in test separated with commas      | array  | http://localhost:8050                                                                                                              |
+| faucetURL             | Faucet URL used in test                                      | string | "http://localhost:8088"                                                                                                            |
+| accountStatesFile     | File to store account states in                              | string | "wallet.dat"                                                                                                                       |
+| blockIssuerPrivateKey | Block issuer private key (in hex) to use for genesis account | string | "db39d2fde6301d313b108dc9db1ee724d0f405f6fde966bd776365bc5f4a5fb31e4b21eb51dcddf65c20db1065e1f1514658b23a3ddbf48d30c0efc926a9a648" |
+| accountID             | Account ID to use for genesis account                        | string | "0x6aee704f25558e8aa7630fed0121da53074188abc423b3c5810f80be4936eb6e"                                                               |
+
+Example:
+
+```json
+  {
+    "tool": {
+      "nodeURLs": [
+        "http://localhost:8050"
+      ],
+      "faucetURL": "http://localhost:8088",
+      "accountStatesFile": "wallet.dat",
+      "blockIssuerPrivateKey": "db39d2fde6301d313b108dc9db1ee724d0f405f6fde966bd776365bc5f4a5fb31e4b21eb51dcddf65c20db1065e1f1514658b23a3ddbf48d30c0efc926a9a648",
+      "accountID": "0x6aee704f25558e8aa7630fed0121da53074188abc423b3c5810f80be4936eb6e"
+    }
+  }
+```
+
+## <a id="profiling"></a> 4. Profiling
 
 | Name        | Description                                       | Type    | Default value    |
 | ----------- | ------------------------------------------------- | ------- | ---------------- |
@@ -111,24 +137,34 @@ Example:
   }
 ```
 
-## <a id="accounts"></a> 4. Accounts
+## <a id="info"></a> 5. Info
 
-| Name                           | Description                                                  | Type   | Default value                                                                                                                      |
-| ------------------------------ | ------------------------------------------------------------ | ------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| nodeURLs                       | API URLs for clients used in test separated with commas      | array  | http://localhost:8050                                                                                                              |
-| faucetURL                      | Faucet URL used in test                                      | string | "http://localhost:8088"                                                                                                            |
-| accountStatesFile              | File to store account states in                              | string | "wallet.dat"                                                                                                                       |
-| blockIssuerPrivateKey          | Block issuer private key (in hex) to use for genesis account | string | "db39d2fde6301d313b108dc9db1ee724d0f405f6fde966bd776365bc5f4a5fb31e4b21eb51dcddf65c20db1065e1f1514658b23a3ddbf48d30c0efc926a9a648" |
-| accountID                      | Account ID to use for genesis account                        | string | "0x6aee704f25558e8aa7630fed0121da53074188abc423b3c5810f80be4936eb6e"                                                               |
-| [create](#accounts_create)     | Configuration for create                                     | object |                                                                                                                                    |
-| [convert](#accounts_convert)   | Configuration for convert                                    | object |                                                                                                                                    |
-| [destroy](#accounts_destroy)   | Configuration for destroy                                    | object |                                                                                                                                    |
-| [allot](#accounts_allot)       | Configuration for allot                                      | object |                                                                                                                                    |
-| [stake](#accounts_stake)       | Configuration for stake                                      | object |                                                                                                                                    |
-| [rewards](#accounts_rewards)   | Configuration for rewards                                    | object |                                                                                                                                    |
-| [delegate](#accounts_delegate) | Configuration for delegate                                   | object |                                                                                                                                    |
-| [update](#accounts_update)     | Configuration for update                                     | object |                                                                                                                                    |
-| [info](#accounts_info)         | Configuration for info                                       | object |                                                                                                                                    |
+| Name  | Description                                      | Type   | Default value |
+| ----- | ------------------------------------------------ | ------ | ------------- |
+| alias | Alias for which info command should be executed. | string | ""            |
+
+Example:
+
+```json
+  {
+    "info": {
+      "alias": ""
+    }
+  }
+```
+
+## <a id="accounts"></a> 6. Accounts
+
+| Name                           | Description                | Type   | Default value |
+| ------------------------------ | -------------------------- | ------ | ------------- |
+| [create](#accounts_create)     | Configuration for create   | object |               |
+| [convert](#accounts_convert)   | Configuration for convert  | object |               |
+| [destroy](#accounts_destroy)   | Configuration for destroy  | object |               |
+| [allot](#accounts_allot)       | Configuration for allot    | object |               |
+| [stake](#accounts_stake)       | Configuration for stake    | object |               |
+| [claim](#accounts_claim)       | Configuration for claim    | object |               |
+| [delegate](#accounts_delegate) | Configuration for delegate | object |               |
+| [update](#accounts_update)     | Configuration for update   | object |               |
 
 ### <a id="accounts_create"></a> Create
 
@@ -154,10 +190,10 @@ Example:
 
 ### <a id="accounts_allot"></a> Allot
 
-| Name           | Description                                    | Type   | Default value |
-| -------------- | ---------------------------------------------- | ------ | ------------- |
-| allotToAccount | The alias name of the account to allot mana to | string | ""            |
-| amount         | The amount of mana to allot                    | int    | 1000          |
+| Name   | Description                                    | Type   | Default value |
+| ------ | ---------------------------------------------- | ------ | ------------- |
+| alias  | The alias name of the account to allot mana to | string | ""            |
+| amount | The amount of mana to allot                    | uint   | 10000         |
 
 ### <a id="accounts_stake"></a> Stake
 
@@ -169,7 +205,7 @@ Example:
 | startEpoch | The start epoch of the account to stake | int    | 0             |
 | endEpoch   | The end epoch of the account to stake   | int    | 0             |
 
-### <a id="accounts_rewards"></a> Rewards
+### <a id="accounts_claim"></a> Claim
 
 | Name  | Description                                     | Type   | Default value |
 | ----- | ----------------------------------------------- | ------ | ------------- |
@@ -179,7 +215,7 @@ Example:
 
 | Name      | Description                                                                      | Type    | Default value                                                     |
 | --------- | -------------------------------------------------------------------------------- | ------- | ----------------------------------------------------------------- |
-| fromAlias | The alias of the account to delegate IOTA tokens from                            | string  | ""                                                                |
+| fromAlias | The alias of the delegator, does not need to have an account                     | string  | "default"                                                         |
 | toAddress | The account address of the account to delegate IOTA tokens to                    | string  | "rms1pzg8cqhfxqhq7pt37y8cs4v5u4kcc48lquy2k73ehsdhf5ukhya3y5rx2w6" |
 | amount    | The amount of mana to delegate                                                   | int     | 100                                                               |
 | checkPool | Check if the delegation is added to pool stake when the start epoch is committed | boolean | false                                                             |
@@ -194,25 +230,11 @@ Example:
 | mana           | Amount of mana to add                 | int    | 100           |
 | expirySlot     | Update the expiry slot of the account | int    | 0             |
 
-### <a id="accounts_info"></a> Info
-
-| Name    | Description                           | Type    | Default value |
-| ------- | ------------------------------------- | ------- | ------------- |
-| alias   | Alias name of the account to get info | string  | ""            |
-| verbose | Verbose output                        | boolean | false         |
-
 Example:
 
 ```json
   {
     "accounts": {
-      "nodeURLs": [
-        "http://localhost:8050"
-      ],
-      "faucetURL": "http://localhost:8088",
-      "accountStatesFile": "wallet.dat",
-      "blockIssuerPrivateKey": "db39d2fde6301d313b108dc9db1ee724d0f405f6fde966bd776365bc5f4a5fb31e4b21eb51dcddf65c20db1065e1f1514658b23a3ddbf48d30c0efc926a9a648",
-      "accountID": "0x6aee704f25558e8aa7630fed0121da53074188abc423b3c5810f80be4936eb6e",
       "create": {
         "alias": "",
         "noBlockIssuerFeature": false,
@@ -227,8 +249,8 @@ Example:
         "expirySlot": 0
       },
       "allot": {
-        "allotToAccount": "",
-        "amount": 1000
+        "alias": "",
+        "amount": 10000
       },
       "stake": {
         "alias": "",
@@ -237,11 +259,11 @@ Example:
         "startEpoch": 0,
         "endEpoch": 0
       },
-      "rewards": {
+      "claim": {
         "alias": ""
       },
       "delegate": {
-        "fromAlias": "",
+        "fromAlias": "default",
         "toAddress": "rms1pzg8cqhfxqhq7pt37y8cs4v5u4kcc48lquy2k73ehsdhf5ukhya3y5rx2w6",
         "amount": 100,
         "checkPool": false
@@ -252,43 +274,33 @@ Example:
         "amount": 100,
         "mana": 100,
         "expirySlot": 0
-      },
-      "info": {
-        "alias": "",
-        "verbose": false
       }
     }
   }
 ```
 
-## <a id="spammer"></a> 5. Spammer
+## <a id="spammer"></a> 7. Spammer
 
-| Name                  | Description                                                                                                                                                                                                                                                                        | Type    | Default value           |
-| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ----------------------- |
-| nodeURLs              | API URLs for clients used in test separated with commas                                                                                                                                                                                                                            | array   | http://localhost:8050   |
-| faucetURL             | Faucet URL used in test                                                                                                                                                                                                                                                            | string  | "http://localhost:8088" |
-| type                  | Spammers used during test. Format: strings separated with comma, available options: 'blk' - block, 'tx' - transaction, 'ds' - double spends spammers, 'nds' - n-spends spammer, 'bb' - blowball, or one of custom scenarios that can be found in pkg/evilwallet/customscenarion.go | string  | "tx"                    |
-| rate                  | Spamming rate for provided 'spammer'. Format: numbers separated with comma, e.g. 10,100,1 if three spammers were provided for 'spammer' parameter.                                                                                                                                 | int     | 1                       |
+| Name                  | Description                                                                                                                                                                                                                                                                        | Type    | Default value |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------------- |
+| type                  | Spammers used during test. Format: strings separated with comma, available options: 'blk' - block, 'tx' - transaction, 'ds' - double spends spammers, 'nds' - n-spends spammer, 'bb' - blowball, or one of custom scenarios that can be found in pkg/evilwallet/customscenarion.go | string  | "tx"          |
+| rate                  | Spamming rate for provided 'spammer'. Format: numbers separated with comma, e.g. 10,100,1 if three spammers were provided for 'spammer' parameter.                                                                                                                                 | int     | 1             |
 | duration              | Spam duration. If not provided spam will lats infinitely. Format: separated by commas list of decimal numbers, each with optional fraction and a unit suffix, such as '300ms', '-1.5h' or '2h45m'.
- Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.                          | string  | "-1ns"                  |
-| account               | Account alias to be used for the spam. Account should be created first with accounts tool.                                                                                                                                                                                         | string  | ""                      |
-| rateSetterEnabled     | Enable the rate setter, which will set the rate for the spammer. To enable provide an empty flag.                                                                                                                                                                                  | boolean | false                   |
-| deepSpamEnabled       | Enable the deep spam, by reusing outputs created during the spam. To enable provide an empty flag.                                                                                                                                                                                 | boolean | false                   |
-| reuseEnabled          | Enable the reuse of outputs created during the spam. To enable provide an empty flag.                                                                                                                                                                                              | boolean | false                   |
-| autoRequestingEnabled | Enable the auto-requesting, which will request tokens from faucet for the spammer. To enable provide an empty flag.                                                                                                                                                                | boolean | false                   |
-| autoRequestingAmount  | Amount of tokens to be requested from faucet for the spammer. To enable provide an empty flag.                                                                                                                                                                                     | int     | 1000                    |
-| nSpend                | Number of outputs to be spent in n-spends spammer for the spammer type needs to be set to 'ds'. Default value is 2 for double-spend.                                                                                                                                               | int     | 2                       |
-| blowballSize          | Size of the blowball to be used in blowball spammer. To enable provide an empty flag.                                                                                                                                                                                              | int     | 30                      |
+ Valid time units are 'ns', 'us', 'ms', 's', 'm', 'h'.                          | string  | "-1ns"        |
+| account               | Account alias to be used for the spam. Account should be created first with accounts tool.                                                                                                                                                                                         | string  | ""            |
+| rateSetterEnabled     | Enable the rate setter, which will set the rate for the spammer. To enable provide an empty flag.                                                                                                                                                                                  | boolean | false         |
+| deepSpamEnabled       | Enable the deep spam, by reusing outputs created during the spam. To enable provide an empty flag.                                                                                                                                                                                 | boolean | false         |
+| reuseEnabled          | Enable the reuse of outputs created during the spam. To enable provide an empty flag.                                                                                                                                                                                              | boolean | false         |
+| autoRequestingEnabled | Enable the auto-requesting, which will request tokens from faucet for the spammer. To enable provide an empty flag.                                                                                                                                                                | boolean | false         |
+| autoRequestingAmount  | Amount of tokens to be requested from faucet for the spammer. To enable provide an empty flag.                                                                                                                                                                                     | int     | 1000          |
+| nSpend                | Number of outputs to be spent in n-spends spammer for the spammer type needs to be set to 'ds'. Default value is 2 for double-spend.                                                                                                                                               | int     | 2             |
+| blowballSize          | Size of the blowball to be used in blowball spammer. To enable provide an empty flag.                                                                                                                                                                                              | int     | 30            |
 
 Example:
 
 ```json
   {
     "spammer": {
-      "nodeURLs": [
-        "http://localhost:8050"
-      ],
-      "faucetURL": "http://localhost:8088",
       "type": "tx",
       "rate": 1,
       "duration": "-1ns",

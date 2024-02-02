@@ -6,9 +6,9 @@ import (
 
 	"go.uber.org/atomic"
 
-	"github.com/iotaledger/evil-tools/pkg/accountmanager"
 	"github.com/iotaledger/evil-tools/pkg/evilwallet"
 	"github.com/iotaledger/evil-tools/pkg/models"
+	"github.com/iotaledger/evil-tools/pkg/walletmanager"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/log"
 	"github.com/iotaledger/hive.go/runtime/options"
@@ -141,7 +141,7 @@ func (s *Spammer) setupSpamDetails() {
 	}
 
 	if s.IssuerAlias == "" {
-		s.IssuerAlias = accountmanager.GenesisAccountAlias
+		s.IssuerAlias = walletmanager.GenesisAccountAlias
 	}
 }
 

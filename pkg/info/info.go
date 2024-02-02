@@ -5,8 +5,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/iotaledger/evil-tools/pkg/accountmanager"
 	"github.com/iotaledger/evil-tools/pkg/models"
+	"github.com/iotaledger/evil-tools/pkg/walletmanager"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/log"
@@ -45,14 +45,14 @@ type ParametersInfo struct {
 }
 
 func Run(paramsTools *models.ParametersTool, paramsInfo *ParametersInfo, logger log.Logger) error {
-	accManager, err := accountmanager.RunManager(logger,
-		accountmanager.WithClientURL(paramsTools.NodeURLs[0]),
-		accountmanager.WithAccountStatesFile(paramsTools.AccountStatesFile),
-		accountmanager.WithFaucetAccountParams(&accountmanager.GenesisAccountParams{
+	accManager, err := walletmanager.RunManager(logger,
+		walletmanager.WithClientURL(paramsTools.NodeURLs[0]),
+		walletmanager.WithAccountStatesFile(paramsTools.AccountStatesFile),
+		walletmanager.WithFaucetAccountParams(&walletmanager.GenesisAccountParams{
 			FaucetPrivateKey: paramsTools.BlockIssuerPrivateKey,
 			FaucetAccountID:  paramsTools.AccountID,
 		}),
-		accountmanager.WithSilence(),
+		walletmanager.WithSilence(),
 	)
 
 	if err != nil {
@@ -152,11 +152,11 @@ func parseInfoCommands(commands []string) []Command {
 }
 
 type Manager struct {
-	accWallets *accountmanager.Manager
+	accWallets *walletmanager.Manager
 	log.Logger
 }
 
-func NewManager(logger log.Logger, accWallet *accountmanager.Manager) *Manager {
+func NewManager(logger log.Logger, accWallet *walletmanager.Manager) *Manager {
 	return &Manager{
 		accWallets: accWallet,
 		Logger:     logger,

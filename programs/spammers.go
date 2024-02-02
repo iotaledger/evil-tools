@@ -8,12 +8,12 @@ import (
 
 	"github.com/iotaledger/hive.go/log"
 
-	"github.com/iotaledger/evil-tools/pkg/accountmanager"
 	"github.com/iotaledger/evil-tools/pkg/evilwallet"
 	"github.com/iotaledger/evil-tools/pkg/spammer"
+	"github.com/iotaledger/evil-tools/pkg/walletmanager"
 )
 
-func RunSpammer(ctx context.Context, logger log.Logger, nodeURLs []string, faucetURL string, paramsSpammer *spammer.ParametersSpammer, accManager *accountmanager.Manager) {
+func RunSpammer(ctx context.Context, logger log.Logger, nodeURLs []string, faucetURL string, paramsSpammer *spammer.ParametersSpammer, accManager *walletmanager.Manager) {
 	fmt.Println("RunSpammer")
 	w := evilwallet.NewEvilWallet(logger, evilwallet.WithClients(nodeURLs...), evilwallet.WithAccountsManager(accManager), evilwallet.WithFaucetClient(faucetURL))
 	wg := sync.WaitGroup{}

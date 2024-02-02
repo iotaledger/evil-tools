@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
-	"github.com/iotaledger/evil-tools/pkg/accountmanager"
 	"github.com/iotaledger/evil-tools/pkg/models"
 	"github.com/iotaledger/evil-tools/pkg/utils"
+	"github.com/iotaledger/evil-tools/pkg/walletmanager"
 	"github.com/iotaledger/hive.go/ds/types"
 	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/lo"
@@ -41,7 +41,7 @@ type EvilWallet struct {
 	log.Logger
 
 	wallets       *Wallets
-	accManager    *accountmanager.Manager
+	accManager    *walletmanager.Manager
 	connector     models.Connector
 	outputManager *OutputManager
 	aliasManager  *AliasManager
@@ -673,7 +673,7 @@ func WithFaucetClient(url string) options.Option[EvilWallet] {
 	}
 }
 
-func WithAccountsManager(manager *accountmanager.Manager) options.Option[EvilWallet] {
+func WithAccountsManager(manager *walletmanager.Manager) options.Option[EvilWallet] {
 	return func(opts *EvilWallet) {
 		opts.accManager = manager
 	}

@@ -1,4 +1,4 @@
-package accountmanager
+package walletmanager
 
 import (
 	"github.com/iotaledger/hive.go/ds/types"

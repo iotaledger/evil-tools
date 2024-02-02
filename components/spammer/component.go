@@ -3,8 +3,8 @@ package spammer
 import (
 	"go.uber.org/dig"
 
-	"github.com/iotaledger/evil-tools/pkg/accountmanager"
 	"github.com/iotaledger/evil-tools/pkg/models"
+	"github.com/iotaledger/evil-tools/pkg/walletmanager"
 	"github.com/iotaledger/evil-tools/programs"
 	"github.com/iotaledger/hive.go/app"
 )
@@ -35,11 +35,11 @@ var (
 
 func run() error {
 	Component.LogInfo("Starting evil-tools spammer ... done")
-	accWallet, err := accountmanager.RunManager(Component.Logger,
-		accountmanager.WithClientURL(deps.ParamsTool.NodeURLs[0]),
-		accountmanager.WithFaucetURL(deps.ParamsTool.FaucetURL),
-		accountmanager.WithAccountStatesFile(deps.ParamsTool.AccountStatesFile),
-		accountmanager.WithFaucetAccountParams(&accountmanager.GenesisAccountParams{
+	accWallet, err := walletmanager.RunManager(Component.Logger,
+		walletmanager.WithClientURL(deps.ParamsTool.NodeURLs[0]),
+		walletmanager.WithFaucetURL(deps.ParamsTool.FaucetURL),
+		walletmanager.WithAccountStatesFile(deps.ParamsTool.AccountStatesFile),
+		walletmanager.WithFaucetAccountParams(&walletmanager.GenesisAccountParams{
 			FaucetPrivateKey: deps.ParamsTool.BlockIssuerPrivateKey,
 			FaucetAccountID:  deps.ParamsTool.AccountID,
 		}),

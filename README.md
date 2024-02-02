@@ -7,10 +7,19 @@ go build
 ./evil-tools [spammer,accounts] [[script-flag-set]]
 ```
 
-The evil-tools app has two applications: 
+The evil-tools app has three applications: 
 - spammer - to spam the network with transactions, nested conflicts, etc.
 - accounts - to create, convert and destroy accounts.
+- info - to print details about the network, accounts, delegations, etc.
 List of all possible flags can be found in [configuration.md](configuration.md)
+
+### Setup
+To run the evil spammer tool on a network different than the local docker network, remember to provide:
+ - `--tool.nodeURLs` - the list of URLs of the nodes in the network
+ - `--tool.faucetURL` - the URL of the faucet in the network
+ - `--tool.blockIssuerPrivateKey` - the private key of the existing block issuer account, best some account created in the genesis. Spammer will mostly use mana from this account to pay for the issuance.
+ - `--tools.accountID` - the corresponding account ID of the existing block issuer account.
+
 
 ### `spammer`
 Usage for spammer tool:
@@ -45,7 +54,10 @@ Enable deep spam:
 ```bash
 ./evil-tools spammer --spammer.type tx --spammer.rate 10 --spammer.duration 100s --spammer.deepSpamEnabled
 ```
-
+Spam with the account created by the evil-tools app:
+```bash
+./evil-tools spammer --spammer.type tx --spammer.rate 10 --spammer.duration 100s --spammer.accountAlias A
+```
 ### Examples for the accounts
 Create implicit account with alias `A`:
 ```bash

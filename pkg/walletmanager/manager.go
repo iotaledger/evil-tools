@@ -16,11 +16,32 @@ import (
 	"github.com/iotaledger/iota.go/v4/wallet"
 )
 
-const GenesisAccountAlias = "genesis-account"
+const (
+	GenesisAccountAlias = "genesis-account"
+	FaucetRequestsAlias = "faucet-requests"
+)
 
 type GenesisAccountParams struct {
-	FaucetPrivateKey string
-	FaucetAccountID  string
+	GenesisPrivateKey string
+	GenesisAccountID  string
+	FaucetPrivateKey  string
+	FaucetAccountID   string
+}
+
+func NewGenesisAccountParams(params *models.ParametersTool) *GenesisAccountParams {
+	g := &GenesisAccountParams{
+		GenesisPrivateKey: params.BlockIssuerPrivateKey,
+		GenesisAccountID:  params.AccountID,
+		FaucetPrivateKey:  params.BlockIssuerPrivateKey,
+		FaucetAccountID:   params.AccountID,
+	}
+	// use default genesis accounts if the faucet specific were not provided
+	if params.FaucetRequestsAccountID == "" || params.FaucetRequestsBlockIssuerPrivateKey == "" {
+		g.FaucetAccountID = g.GenesisAccountID
+		g.FaucetPrivateKey = g.GenesisPrivateKey
+	}
+
+	return g
 }
 
 func RunManager(logger log.Logger, opts ...options.Option[Manager]) (*Manager, error) {
@@ -102,12 +123,20 @@ func (m *Manager) setupClient() error {
 
 func (m *Manager) setupGenesisAccount() {
 	genesisAccountData := &models.AccountData{
-		Account:  lo.PanicOnErr(wallet.AccountFromParams(m.optsGenesisAccountParams.FaucetAccountID, m.optsGenesisAccountParams.FaucetPrivateKey)),
+		Account:  lo.PanicOnErr(wallet.AccountFromParams(m.optsGenesisAccountParams.GenesisAccountID, m.optsGenesisAccountParams.GenesisPrivateKey)),
 		Status:   models.AccountReady,
 		OutputID: iotago.EmptyOutputID,
 		Index:    0,
 	}
 	m.AddAccount(GenesisAccountAlias, genesisAccountData)
+
+	faucetRequestsAccountData := &models.AccountData{
+		Account:  lo.PanicOnErr(wallet.AccountFromParams(m.optsGenesisAccountParams.FaucetAccountID, m.optsGenesisAccountParams.FaucetPrivateKey)),
+		Status:   models.AccountReady,
+		OutputID: iotago.EmptyOutputID,
+		Index:    0,
+	}
+	m.AddAccount(FaucetRequestsAlias, faucetRequestsAccountData)
 }
 
 func (m *Manager) setupRequestsAmounts() error {
@@ -187,6 +216,10 @@ func (m *Manager) GetWallet(alias string) (*Wallet, error) {
 
 func (m *Manager) GenesisAccount() wallet.Account {
 	return lo.Return1(m.GetAccount(GenesisAccountAlias)).Account
+}
+
+func (m *Manager) FaucetRequestsAccount() wallet.Account {
+	return lo.Return1(m.GetAccount(FaucetRequestsAlias)).Account
 }
 
 func (m *Manager) GetDelegations(alias string) ([]*Delegation, error) {

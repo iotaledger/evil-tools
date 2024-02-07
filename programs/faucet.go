@@ -2,11 +2,12 @@ package programs
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/iotaledger/evil-tools/pkg/evilwallet"
 	"github.com/iotaledger/evil-tools/pkg/spammer"
-	"github.com/iotaledger/hive.go/ierrors"
+	"github.com/iotaledger/hive.go/lo"
 	"github.com/iotaledger/hive.go/log"
 )
 
@@ -15,25 +16,16 @@ func requestFaucetFunds(ctx context.Context, logger log.Logger, paramsSpammer *s
 		return nil, nil
 	}
 
-	var numOfBigWallets = evilwallet.BigFaucetWalletsAtOnce
-	if paramsSpammer.Duration != spammer.InfiniteDuration {
-		numNeeded := spammer.BigWalletsNeeded(paramsSpammer.Rate, paramsSpammer.Duration)
-		if numNeeded > evilwallet.MaxBigWalletsCreatedAtOnce {
-			numNeeded = evilwallet.MaxBigWalletsCreatedAtOnce
-			logger.LogWarnf("Reached maximum number of big wallets created at once: %d, use infinite spam instead", evilwallet.MaxBigWalletsCreatedAtOnce)
-		}
-		numOfBigWallets = numNeeded
-	}
-
-	success := w.RequestFreshBigFaucetWallets(ctx, numOfBigWallets)
+	numOfInputs := spammer.EvaluateNumOfBatchInputs(paramsSpammer)
+	fmt.Println("numOfInputs evaluated", numOfInputs)
+	walletsNeeded := spammer.BigWalletsNeeded(paramsSpammer.Rate, paramsSpammer.Duration, numOfInputs)
+	fmt.Println("walletsNeeded evaluated", walletsNeeded)
+	success := w.RequestFreshBigFaucetWallets(ctx, lo.Min[int](walletsNeeded, evilwallet.BackgroundRequestingBigWalletsThreshold))
 	if !success {
-		logger.LogError("Failed to request faucet wallet")
-		return nil, ierrors.Errorf("failed to request faucet wallet")
+		logger.LogError("Failed to request faucet wallet funds. Spammer will try again.")
 	}
-
-	if paramsSpammer.Duration != spammer.InfiniteDuration {
-		unspentOutputsLeft := w.UnspentOutputsLeft(evilwallet.Fresh)
-		logger.LogDebugf("Prepared %d unspent outputs for spamming.", unspentOutputsLeft)
+	if success && spammer.InfiniteDuration != paramsSpammer.Duration && walletsNeeded < evilwallet.BackgroundRequestingBigWalletsThreshold {
+		// no need for an additional funds
 
 		return nil, nil
 	}
@@ -57,16 +49,15 @@ func requestInfinitely(ctx context.Context, logger log.Logger, w *evilwallet.Evi
 		case <-time.After(evilwallet.CheckFundsLeftInterval):
 			outputsLeft := w.UnspentOutputsLeft(evilwallet.Fresh)
 			// keep requesting over and over until we have at least deposit
-			if outputsLeft < evilwallet.BigFaucetWalletDeposit*evilwallet.FaucetRequestSplitNumber*evilwallet.FaucetRequestSplitNumber {
+			if outputsLeft < evilwallet.BigWalletDepositThreshold*evilwallet.FaucetRequestSplitNumber*evilwallet.FaucetRequestSplitNumber {
 				logger.LogDebugf("Requesting new faucet funds, outputs left: %d", outputsLeft)
+				// TODO forward here the ctx and send it to a separate go routine, use sematpore or some kind of wroker pool to limit number of ongoing requests
 				success := w.RequestFreshBigFaucetWallets(ctx, evilwallet.BigFaucetWalletsAtOnce)
 				if !success {
-					logger.LogError("Failed to request faucet wallet, stopping next requests..., stopping spammer")
-
-					return
+					logger.LogError("Failed to request faucet wallet, stopping next requests...")
+				} else {
+					logger.LogDebugf("Requesting finished, currently available: %d unspent outputs for spamming.", w.UnspentOutputsLeft(evilwallet.Fresh))
 				}
-
-				logger.LogDebugf("Requesting finished, currently available: %d unspent outputs for spamming.", w.UnspentOutputsLeft(evilwallet.Fresh))
 			}
 		}
 	}

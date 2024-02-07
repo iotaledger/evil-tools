@@ -13,7 +13,7 @@ import (
 
 const (
 	// FaucetRequestSplitNumber defines the number of outputs to split from a faucet request.
-	FaucetRequestSplitNumber = 100
+	FaucetRequestSplitNumber = 50
 )
 
 // RequestFundsFromFaucet requests funds from the faucet, then track the confirmed status of unspent output,
@@ -148,7 +148,7 @@ func (e *EvilWallet) splitOutput(ctx context.Context, splitOutput *models.Output
 		return iotago.EmptyTransactionID, ierrors.Wrapf(err, "failed to create splitted outputs")
 	}
 
-	genesisAccount := e.accManager.GenesisAccount()
+	genesisAccount := e.accManager.FaucetRequestsAccount()
 	if genesisAccount == nil {
 		return iotago.EmptyTransactionID, ierrors.New("failed to split output, genesis account is nil")
 	}

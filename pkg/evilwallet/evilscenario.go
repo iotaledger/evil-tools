@@ -52,8 +52,6 @@ type EvilScenario struct {
 	RestrictedInputWallet *Wallet
 	// used together with scenario ID to create a prefix for distinct batch alias creation
 	BatchesCreated *atomic.Uint64
-	// used to determine how many clients are needed to run this scenario, some double spends need more than one client to pass the filter
-	NumOfClientsNeeded int
 }
 
 func NewEvilScenario(options ...ScenarioOption) *EvilScenario {
@@ -69,19 +67,8 @@ func NewEvilScenario(options ...ScenarioOption) *EvilScenario {
 		option(scenario)
 	}
 	scenario.ID = base58.Encode([]byte(fmt.Sprintf("%v%v%v", scenario.ConflictBatch, scenario.Reuse, scenario.OutputWallet.ID)))[:11]
-	scenario.NumOfClientsNeeded = calculateNumOfClientsNeeded(scenario)
 
 	return scenario
-}
-
-func calculateNumOfClientsNeeded(scenario *EvilScenario) (counter int) {
-	for _, conflictMap := range scenario.ConflictBatch {
-		if len(conflictMap) > counter {
-			counter = len(conflictMap)
-		}
-	}
-
-	return
 }
 
 // readCustomConflictsPattern determines outputs of the batch, needed for saving batch outputs to the outputWallet.

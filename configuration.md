@@ -95,13 +95,15 @@ Example:
 
 ## <a id="tool"></a> 3. Tool
 
-| Name                  | Description                                                  | Type   | Default value                                                                                                                      |
-| --------------------- | ------------------------------------------------------------ | ------ | ---------------------------------------------------------------------------------------------------------------------------------- |
-| nodeURLs              | API URLs for clients used in test separated with commas      | array  | http://localhost:8050                                                                                                              |
-| faucetURL             | Faucet URL used in test                                      | string | "http://localhost:8088"                                                                                                            |
-| accountStatesFile     | File to store account states in                              | string | "wallet.dat"                                                                                                                       |
-| blockIssuerPrivateKey | Block issuer private key (in hex) to use for genesis account | string | "db39d2fde6301d313b108dc9db1ee724d0f405f6fde966bd776365bc5f4a5fb31e4b21eb51dcddf65c20db1065e1f1514658b23a3ddbf48d30c0efc926a9a648" |
-| accountID             | Account ID to use for genesis account                        | string | "0x6aee704f25558e8aa7630fed0121da53074188abc423b3c5810f80be4936eb6e"                                                               |
+| Name                                | Description                                                        | Type   | Default value                                                                                                                      |
+| ----------------------------------- | ------------------------------------------------------------------ | ------ | ---------------------------------------------------------------------------------------------------------------------------------- |
+| nodeURLs                            | API URLs for clients used in test separated with commas            | array  | http://localhost:8050                                                                                                              |
+| faucetURL                           | Faucet URL used in test                                            | string | "http://localhost:8088"                                                                                                            |
+| accountStatesFile                   | File to store account states in                                    | string | "wallet.dat"                                                                                                                       |
+| blockIssuerPrivateKey               | Block issuer private key (in hex) to use for genesis account spams | string | "db39d2fde6301d313b108dc9db1ee724d0f405f6fde966bd776365bc5f4a5fb31e4b21eb51dcddf65c20db1065e1f1514658b23a3ddbf48d30c0efc926a9a648" |
+| accountID                           | Account ID to use for genesis account                              | string | "0x6aee704f25558e8aa7630fed0121da53074188abc423b3c5810f80be4936eb6e"                                                               |
+| faucetRequestsBlockIssuerPrivateKey | Block issuer private key (in hex) to use for faucet requests       | string | "5cceed8ca18146639330177ab4f61ab1a71e2d3fea3d4389f9e2e43f34ec8b33c9ceac37d293155a578381aa313ee74edfa3ac73ee930d045564aae7771e8ffe" |
+| faucetRequestsAccountID             |                                                                    | string | "0xc9ceac37d293155a578381aa313ee74edfa3ac73ee930d045564aae7771e8ffe"                                                               |
 
 Example:
 
@@ -114,7 +116,9 @@ Example:
       "faucetURL": "http://localhost:8088",
       "accountStatesFile": "wallet.dat",
       "blockIssuerPrivateKey": "db39d2fde6301d313b108dc9db1ee724d0f405f6fde966bd776365bc5f4a5fb31e4b21eb51dcddf65c20db1065e1f1514658b23a3ddbf48d30c0efc926a9a648",
-      "accountID": "0x6aee704f25558e8aa7630fed0121da53074188abc423b3c5810f80be4936eb6e"
+      "accountID": "0x6aee704f25558e8aa7630fed0121da53074188abc423b3c5810f80be4936eb6e",
+      "faucetRequestsBlockIssuerPrivateKey": "5cceed8ca18146639330177ab4f61ab1a71e2d3fea3d4389f9e2e43f34ec8b33c9ceac37d293155a578381aa313ee74edfa3ac73ee930d045564aae7771e8ffe",
+      "faucetRequestsAccountID": "0xc9ceac37d293155a578381aa313ee74edfa3ac73ee930d045564aae7771e8ffe"
     }
   }
 ```

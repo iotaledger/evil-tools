@@ -178,9 +178,6 @@ func SpamNestedConflicts(logger log.Logger, w *evilwallet.EvilWallet, paramsSpam
 	}
 
 	scenario := evilwallet.NewEvilScenario(scenarioOptions...)
-	if scenario.NumOfClientsNeeded > w.NumOfClient() {
-		logger.LogInfof("Warning: At least %d client are needed to spam, and %d was provided", scenario.NumOfClientsNeeded, w.NumOfClient())
-	}
 
 	return spammer.NewSpammer(logger,
 		spammer.WithRate(paramsSpammer.Rate),

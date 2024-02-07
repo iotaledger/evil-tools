@@ -42,12 +42,6 @@ type State struct {
 	spamDuration time.Duration
 }
 
-type SpamType int
-
-const (
-	SpamEvilWallet SpamType = iota
-)
-
 // Spammer is a utility object for new spammer creations, can be modified by passing options.
 // Mandatory options: WithClients, WithSpammingFunc
 // Not mandatory options, if not provided spammer will use default settings:
@@ -72,7 +66,6 @@ type Spammer struct {
 	spammingFunc  SpammingFunc
 	IssuerAlias   string
 	UseRateSetter bool
-	SpamType      SpamType
 	Rate          int
 	MaxDuration   time.Duration
 	BlowballSize  int
@@ -90,7 +83,6 @@ func NewSpammer(logger log.Logger, opts ...options.Option[Spammer]) *Spammer {
 		Logger:         logger.NewChildLogger("Spammer"),
 		spammingFunc:   CustomConflictSpammingFunc,
 		State:          state,
-		SpamType:       SpamEvilWallet,
 		EvilScenario:   evilwallet.NewEvilScenario(),
 		UseRateSetter:  true,
 		done:           make(chan bool),
@@ -112,14 +104,11 @@ func (s *Spammer) BatchesPrepared() uint64 {
 }
 
 func (s *Spammer) setup() {
-	switch s.SpamType {
-	case SpamEvilWallet:
-		if s.EvilWallet == nil {
-			panic("evil wallet is nil")
-		}
-
-		s.Clients = s.EvilWallet.Connector()
+	if s.EvilWallet == nil {
+		panic("evil wallet is nil")
 	}
+	s.Clients = s.EvilWallet.Connector()
+
 	s.setupSpamDetails()
 
 	s.State.spamTicker = s.initSpamTicker()
@@ -178,7 +167,7 @@ func (s *Spammer) Spam(ctx context.Context) {
 		for {
 			select {
 			case <-s.State.logTicker.C:
-				s.LogInfof("Blocks issued so far: %d, errors encountered: %d", s.State.blkSent.Load(), s.ErrCounter.GetTotalErrorCount())
+				s.LogInfof("Blocks issued so far: %d, faucet outputs left: %d, errors encountered: %d", s.State.blkSent.Load(), s.EvilWallet.UnspentOutputsLeft(evilwallet.Fresh), s.ErrCounter.GetTotalErrorCount())
 			case <-ctx.Done():
 				s.LogInfo("Maximum spam duration exceeded, stopping spammer....")
 				return
@@ -321,19 +310,12 @@ func (s *Spammer) PrepareAndPostBlock(ctx context.Context, issuanceData *models.
 	}
 
 	if issuanceData.Type != iotago.PayloadSignedTransaction {
-		count := s.State.blkSent.Add(1)
-		if count%200 == 0 {
-			s.LogInfof("Blocks issued so far: %d, errors encountered: %d", count, s.ErrCounter.GetTotalErrorCount())
-		}
+		s.State.blkSent.Add(1)
 
 		return blockID
 	}
 
-	count := s.State.blkSent.Add(1)
-	//s.log.Debugf("Last block sent, ID: %s, txCount: %d", blockID.ToHex(), count)
-	if count%200 == 0 {
-		s.LogInfof("Blocks issued so far: %d, errors encountered: %d", count, s.ErrCounter.GetTotalErrorCount())
-	}
+	s.State.blkSent.Add(1)
 
 	return blockID
 }

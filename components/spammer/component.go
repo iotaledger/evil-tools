@@ -39,10 +39,7 @@ func run() error {
 		walletmanager.WithClientURL(deps.ParamsTool.NodeURLs[0]),
 		walletmanager.WithFaucetURL(deps.ParamsTool.FaucetURL),
 		walletmanager.WithAccountStatesFile(deps.ParamsTool.AccountStatesFile),
-		walletmanager.WithFaucetAccountParams(&walletmanager.GenesisAccountParams{
-			FaucetPrivateKey: deps.ParamsTool.BlockIssuerPrivateKey,
-			FaucetAccountID:  deps.ParamsTool.AccountID,
-		}),
+		walletmanager.WithFaucetAccountParams(walletmanager.NewGenesisAccountParams(deps.ParamsTool)),
 	)
 	if err != nil {
 		Component.LogErrorf(err.Error())

@@ -40,12 +40,6 @@ func CustomConflictSpammingFunc(ctx context.Context, s *Spammer) error {
 		return err
 	}
 
-	//  TODO do we want to use allotment strategy different than All? Maybe to test blocking account...
-	//issuanceAndAllotmentStrategy := &models.IssuancePaymentStrategy{
-	//	AllotmentStrategy: models.AllotmentStrategyAll,
-	//	IssuerAlias:       s.IssuerAlias,
-	//}
-
 	for _, payloadsIssuanceData := range conflictBatch {
 		clients := s.Clients.GetClients(len(payloadsIssuanceData))
 		if len(payloadsIssuanceData) > len(clients) {

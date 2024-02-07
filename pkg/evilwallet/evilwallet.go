@@ -20,10 +20,10 @@ import (
 
 const (
 	MinOutputStorageDeposit = iotago.BaseToken(500)
-	// MaxBigWalletsCreatedAtOnce is maximum of evil wallets that can be created at once for non-infinite spam.
-	MaxBigWalletsCreatedAtOnce = 10
-	// BigFaucetWalletDeposit indicates the minimum outputs left number that triggers funds requesting in the background.
-	BigFaucetWalletDeposit = 4
+	// BackgroundRequestingBigWalletsThreshold is minimum number of wallets needed that triggers funds requesting in the background.
+	BackgroundRequestingBigWalletsThreshold = 6
+	// BigWalletDepositThreshold indicates the minimum outputs left number that triggers funds requesting in the background.
+	BigWalletDepositThreshold = 8
 	// CheckFundsLeftInterval is the interval to check funds left in the background for requesting funds triggering.
 	CheckFundsLeftInterval = time.Second * 5
 	// BigFaucetWalletsAtOnce number of faucet wallets requested at once in the background.

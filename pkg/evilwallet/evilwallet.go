@@ -20,14 +20,6 @@ import (
 
 const (
 	MinOutputStorageDeposit = iotago.BaseToken(500)
-	// BackgroundRequestingBigWalletsThreshold is minimum number of wallets needed that triggers funds requesting in the background.
-	BackgroundRequestingBigWalletsThreshold = 6
-	// BigWalletDepositThreshold indicates the minimum outputs left number that triggers funds requesting in the background.
-	BigWalletDepositThreshold = 8
-	// CheckFundsLeftInterval is the interval to check funds left in the background for requesting funds triggering.
-	CheckFundsLeftInterval = time.Second * 5
-	// BigFaucetWalletsAtOnce number of faucet wallets requested at once in the background.
-	BigFaucetWalletsAtOnce = 2
 )
 
 var (

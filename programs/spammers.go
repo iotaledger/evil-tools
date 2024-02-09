@@ -10,23 +10,34 @@ import (
 
 	"github.com/iotaledger/evil-tools/pkg/evilwallet"
 	"github.com/iotaledger/evil-tools/pkg/spammer"
-	"github.com/iotaledger/evil-tools/pkg/walletmanager"
 )
 
-func RunSpammer(ctx context.Context, logger log.Logger, nodeURLs []string, faucetURL string, paramsSpammer *spammer.ParametersSpammer, accManager *walletmanager.Manager) {
-	fmt.Println("RunSpammer")
-	w := evilwallet.NewEvilWallet(logger, evilwallet.WithClients(nodeURLs...), evilwallet.WithAccountsManager(accManager), evilwallet.WithFaucetClient(faucetURL))
+func awaitFaucetFundsReady(ctx context.Context, logger log.Logger, w *evilwallet.EvilWallet, fundsNeeded int) {
+	logger.LogInfof("Waiting for at least %d faucet outputs (%d wallets) to be ready...", fundsNeeded, fundsNeeded/evilwallet.FaucetRequestSplitNumber/evilwallet.FaucetRequestSplitNumber+1)
+	timeout := time.After(FaucetFundsAwaitTimeout)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-timeout:
+			return
+		case <-time.After(SelectCheckInterval):
+			if w.UnspentOutputsLeft(evilwallet.Fresh) >= fundsNeeded {
+				return
+			}
+		}
+	}
+}
+
+func RunSpammer(ctx context.Context, logger log.Logger, paramsSpammer *spammer.ParametersSpammer, w *evilwallet.EvilWallet, fundsReadyToStart int) {
 	wg := sync.WaitGroup{}
 
-	logger.LogInfof("Start spamming with rate: %d, spamming type: %s.", paramsSpammer.Rate, paramsSpammer.Type)
-
-	// cancel is a context.CancelFunc that can be used to cancel the infinite requesting goroutine.
-	_, err := requestFaucetFunds(ctx, logger, paramsSpammer, w)
-	if err != nil {
-		logger.LogWarnf("Failed to request faucet funds, stopping spammer: %v", err)
-		return
+	if faucetFundsNeededForSpamType(paramsSpammer.Type) {
+		awaitFaucetFundsReady(ctx, logger, w, fundsReadyToStart)
 	}
 
+	logger.LogInfof("Start spamming with rate: %d, spamming type: %s.", paramsSpammer.Rate, paramsSpammer.Type)
 	switch paramsSpammer.Type {
 	case spammer.TypeBlock:
 		wg.Add(1)

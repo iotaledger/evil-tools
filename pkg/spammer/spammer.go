@@ -24,7 +24,9 @@ const (
 )
 
 const (
-	InfiniteDuration = time.Duration(-1)
+	// MinSpamDurationFundsReady is the minimum duration for which the funds need to be ready before the spammer starts spamming.
+	MinSpamDurationFundsReady = 5 * time.Minute
+	InfiniteDuration          = time.Duration(-1)
 )
 
 // region Spammer //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -76,7 +78,7 @@ func NewSpammer(logger log.Logger, opts ...options.Option[Spammer]) *Spammer {
 	state := &State{
 		blkSent:       atomic.NewInt64(0),
 		batchPrepared: atomic.NewInt64(0),
-		logTickTime:   time.Second * 30,
+		logTickTime:   time.Second * 20,
 	}
 
 	spammer := options.Apply(&Spammer{

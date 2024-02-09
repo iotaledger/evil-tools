@@ -1,7 +1,6 @@
 package spammer
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/iotaledger/evil-tools/pkg/evilwallet"
@@ -10,18 +9,21 @@ import (
 
 // BigWalletsNeeded calculates how many big wallets needs to be prepared for a spam based on provided spam details.
 func BigWalletsNeeded(rate int, duration time.Duration, spammingBatchSize int) int {
-	if duration == InfiniteDuration {
-		return evilwallet.BigWalletDepositThreshold
-	}
-
 	bigWalletSize := evilwallet.FaucetRequestSplitNumber * evilwallet.FaucetRequestSplitNumber
-	fmt.Println("bigWalletSize evaluated", bigWalletSize)
 	outputsNeeded := rate * int(duration/time.Second) * spammingBatchSize
-	fmt.Println("outputsNeeded evaluated", outputsNeeded)
 	walletsNeeded := outputsNeeded/bigWalletSize + 1
-	fmt.Println("walletsNeeded evaluated", walletsNeeded)
 
 	return walletsNeeded
+}
+
+func MinFaucetFundsDeposit(rate int, duration time.Duration, spammingBatchSize int) int {
+	minSpamDurationFundsReady := MinSpamDurationFundsReady
+	if duration != InfiniteDuration && duration < MinSpamDurationFundsReady {
+		minSpamDurationFundsReady = duration
+	}
+	minFaucetFundsDeposit := int(minSpamDurationFundsReady/time.Second) * rate * spammingBatchSize
+
+	return minFaucetFundsDeposit
 }
 
 func EvaluateNumOfBatchInputs(params *ParametersSpammer) int {

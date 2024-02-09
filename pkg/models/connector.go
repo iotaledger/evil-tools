@@ -291,7 +291,6 @@ type FaucetEnqueueRequest struct {
 
 func (c *WebClient) RequestFaucetFunds(ctx context.Context, address iotago.Address) (err error) {
 	addrBech := address.Bech32(c.client.CommittedAPI().ProtocolParameters().Bech32HRP())
-	fmt.Printf("Faucet request funds for Bech address: %s\n", addrBech)
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.faucetURL+"/api/enqueue", func() io.Reader {
 		jsonData, _ := json.Marshal(&FaucetEnqueueRequest{
 			Address: addrBech,

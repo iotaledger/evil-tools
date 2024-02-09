@@ -1,9 +1,13 @@
 package spammer
 
 import (
+	"context"
+
 	"go.uber.org/dig"
 
+	"github.com/iotaledger/evil-tools/pkg/evilwallet"
 	"github.com/iotaledger/evil-tools/pkg/models"
+	"github.com/iotaledger/evil-tools/pkg/spammer"
 	"github.com/iotaledger/evil-tools/pkg/walletmanager"
 	"github.com/iotaledger/evil-tools/programs"
 	"github.com/iotaledger/hive.go/app"
@@ -35,7 +39,7 @@ var (
 
 func run() error {
 	Component.LogInfo("Starting evil-tools spammer ... done")
-	accWallet, err := walletmanager.RunManager(Component.Logger,
+	accManager, err := walletmanager.RunManager(Component.Logger,
 		walletmanager.WithClientURL(deps.ParamsTool.NodeURLs[0]),
 		walletmanager.WithFaucetURL(deps.ParamsTool.FaucetURL),
 		walletmanager.WithAccountStatesFile(deps.ParamsTool.AccountStatesFile),
@@ -47,13 +51,36 @@ func run() error {
 		return err
 	}
 
-	programs.RunSpammer(
-		Component.Daemon().ContextStopped(),
+	evilWallet := evilwallet.NewEvilWallet(
 		Component.Logger,
-		deps.ParamsTool.NodeURLs,
-		deps.ParamsTool.FaucetURL,
-		ParamsSpammer,
-		accWallet)
+		evilwallet.WithClients(deps.ParamsTool.NodeURLs...),
+		evilwallet.WithAccountsManager(accManager),
+		evilwallet.WithFaucetClient(deps.ParamsTool.FaucetURL),
+	)
+
+	numOfInputs := spammer.EvaluateNumOfBatchInputs(ParamsSpammer)
+	totalWalletsNeeded := spammer.BigWalletsNeeded(ParamsSpammer.Rate, ParamsSpammer.Duration, numOfInputs)
+	minFaucetFundsDeposit := spammer.MinFaucetFundsDeposit(ParamsSpammer.Rate, ParamsSpammer.Duration, numOfInputs)
+
+	err = Component.Daemon().BackgroundWorker("Funds Requesting", func(ctx context.Context) {
+		programs.RequestFaucetFunds(ctx, Component.Logger, ParamsSpammer, evilWallet, totalWalletsNeeded, minFaucetFundsDeposit)
+	})
+	if err != nil {
+		Component.Logger.LogError("error starting background worker for funds requesting ", err)
+	}
+
+	err = Component.Daemon().BackgroundWorker("Spammer", func(ctx context.Context) {
+		programs.RunSpammer(ctx,
+			Component.Logger,
+			ParamsSpammer,
+			evilWallet,
+			minFaucetFundsDeposit)
+	})
+	if err != nil {
+		Component.Logger.LogError("error starting background worker for funds requesting ", err)
+	}
+
+	Component.Daemon().Run()
 
 	return nil
 

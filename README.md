@@ -20,6 +20,13 @@ To run the evil spammer tool on a network different than the local docker networ
  - `--tool.blockIssuerPrivateKey` - the private key of the existing block issuer account, best some account created in the genesis. Spammer will mostly use mana from this account to pay for the issuance.
  - `--tools.accountID` - the corresponding account ID of the existing block issuer account.
 
+Optionally you can provide separate private key and accountID for faucet requests, 
+to make sure that funds requesting will not be interrupted by congestion caused by the spammer.
+If not provided spammer will use `--tool.blockIssuerPrivateKey` and `--tools.AccountID`.
+faucet requesting does not require mana, but the spammer is dividing an output from the single faucet request up to many more, 
+to speed up the process, so mana is needed to pay for the split transactions.
+ - `--tools.faucetRequestsBlockIssuerPrivateKey` - the private key of the existing block issuer account. It will be used for the faucet funds creation.
+ - `--tools.faucetRequestsAccountID` - the corresponding account ID of the existing block issuer account for the faucet funds splitting.
 
 ### `spammer`
 Usage for spammer tool:

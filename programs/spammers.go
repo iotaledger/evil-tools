@@ -13,7 +13,7 @@ import (
 )
 
 func awaitFaucetFundsReady(ctx context.Context, logger log.Logger, w *evilwallet.EvilWallet, fundsNeeded int) {
-	logger.LogInfof("Waiting for at least %d faucet outputs (%d wallets) to be ready...", fundsNeeded, fundsNeeded/evilwallet.FaucetRequestSplitNumber/evilwallet.FaucetRequestSplitNumber+1)
+	logger.LogInfof("Waiting for at least %d outputs to be ready...", fundsNeeded)
 	timeout := time.After(FaucetFundsAwaitTimeout)
 
 	for {

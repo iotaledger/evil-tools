@@ -11,11 +11,6 @@ import (
 	iotago "github.com/iotaledger/iota.go/v4"
 )
 
-const (
-	// FaucetRequestSplitNumber defines the number of outputs to split from a faucet request.
-	FaucetRequestSplitNumber = 50
-)
-
 // RequestFundsFromFaucet requests funds from the faucet, then track the confirmed status of unspent output,
 // also register the alias name for the unspent output if provided.
 func (e *EvilWallet) RequestFundsFromFaucet(ctx context.Context) (initWallet *Wallet, err error) {
@@ -29,42 +24,6 @@ func (e *EvilWallet) RequestFundsFromFaucet(ctx context.Context) (initWallet *Wa
 	e.LogDebug("Funds requested successfully")
 
 	return
-}
-
-// RequestFreshBigFaucetWallets creates n new wallets, each wallet is created from one faucet request and contains 1000 outputs.
-func (e *EvilWallet) RequestFreshBigFaucetWallets(ctx context.Context, numberOfWallets int) bool {
-	e.LogDebugf("Requesting %d wallets from faucet", numberOfWallets)
-	success := true
-	// channel to block the number of concurrent goroutines
-	semaphore := make(chan bool, 1)
-	wg := sync.WaitGroup{}
-
-	for reqNum := 0; reqNum < numberOfWallets; reqNum++ {
-		wg.Add(1)
-
-		// block if full
-		semaphore <- true
-		go func() {
-			defer wg.Done()
-			defer func() {
-				// release
-				<-semaphore
-			}()
-
-			err := e.RequestFreshBigFaucetWallet(ctx)
-			if err != nil {
-				success = false
-				e.LogErrorf("Failed to request wallet from faucet: %s", err)
-
-				return
-			}
-		}()
-	}
-	wg.Wait()
-
-	e.LogDebugf("Finished requesting %d wallets from faucet, outputs available: %d", numberOfWallets, e.UnspentOutputsLeft(Fresh))
-
-	return success
 }
 
 // RequestFreshBigFaucetWallet creates a new wallet and fills the wallet with 1000 outputs created from funds
@@ -218,7 +177,7 @@ func (e *EvilWallet) splitOutputs(ctx context.Context, inputWallet, outputWallet
 
 func (e *EvilWallet) createSplitOutputs(input *models.OutputData, receiveWallet *Wallet) ([]*OutputOption, error) {
 	totalAmount := input.OutputStruct.BaseTokenAmount()
-	splitNumber := FaucetRequestSplitNumber
+	splitNumber := e.faucetSplitNumber
 	minDeposit := e.minOutputStorageDeposit
 
 	// make sure the amount of output covers the min deposit

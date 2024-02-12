@@ -25,7 +25,7 @@ const (
 
 const (
 	// MinSpamDurationFundsReady is the minimum duration for which the funds need to be ready before the spammer starts spamming.
-	MinSpamDurationFundsReady = 5 * time.Minute
+	MinSpamDurationFundsReady = 3 * time.Minute
 	InfiniteDuration          = time.Duration(-1)
 )
 

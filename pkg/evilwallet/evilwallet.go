@@ -39,6 +39,7 @@ type EvilWallet struct {
 	aliasManager  *AliasManager
 
 	minOutputStorageDeposit iotago.BaseToken
+	faucetSplitNumber       int
 
 	optsClientURLs []string
 	optsFaucetURL  string
@@ -668,5 +669,11 @@ func WithFaucetClient(url string) options.Option[EvilWallet] {
 func WithAccountsManager(manager *walletmanager.Manager) options.Option[EvilWallet] {
 	return func(opts *EvilWallet) {
 		opts.accManager = manager
+	}
+}
+
+func WithFaucetSplitNumber(n int) options.Option[EvilWallet] {
+	return func(opts *EvilWallet) {
+		opts.faucetSplitNumber = n
 	}
 }

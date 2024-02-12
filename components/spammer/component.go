@@ -56,14 +56,15 @@ func run() error {
 		evilwallet.WithClients(deps.ParamsTool.NodeURLs...),
 		evilwallet.WithAccountsManager(accManager),
 		evilwallet.WithFaucetClient(deps.ParamsTool.FaucetURL),
+		evilwallet.WithFaucetSplitNumber(deps.ParamsTool.FaucetSplitNumber),
 	)
 
 	numOfInputs := spammer.EvaluateNumOfBatchInputs(ParamsSpammer)
-	totalWalletsNeeded := spammer.BigWalletsNeeded(ParamsSpammer.Rate, ParamsSpammer.Duration, numOfInputs)
+	totalWalletsNeeded := spammer.BigWalletsNeeded(ParamsSpammer.Rate, ParamsSpammer.Duration, numOfInputs, deps.ParamsTool.FaucetSplitNumber)
 	minFaucetFundsDeposit := spammer.MinFaucetFundsDeposit(ParamsSpammer.Rate, ParamsSpammer.Duration, numOfInputs)
 
 	err = Component.Daemon().BackgroundWorker("Funds Requesting", func(ctx context.Context) {
-		programs.RequestFaucetFunds(ctx, Component.Logger, ParamsSpammer, evilWallet, totalWalletsNeeded, minFaucetFundsDeposit)
+		programs.RequestFaucetFunds(ctx, Component.Logger, ParamsSpammer, evilWallet, totalWalletsNeeded, minFaucetFundsDeposit, deps.ParamsTool.FaucetSplitNumber)
 	})
 	if err != nil {
 		Component.Logger.LogError("error starting background worker for funds requesting ", err)

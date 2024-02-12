@@ -27,7 +27,7 @@ func faucetFundsNeededForSpamType(spamType string) bool {
 	return true
 }
 
-func RequestFaucetFunds(ctx context.Context, logger log.Logger, paramsSpammer *spammer.ParametersSpammer, w *evilwallet.EvilWallet, totalWalletsNeeded int, minFundsDeposit int) {
+func RequestFaucetFunds(ctx context.Context, logger log.Logger, paramsSpammer *spammer.ParametersSpammer, w *evilwallet.EvilWallet, totalWalletsNeeded int, minFundsDeposit int, faucetSplitNumber int) {
 	if !faucetFundsNeededForSpamType(paramsSpammer.Type) {
 		return
 	}
@@ -48,9 +48,9 @@ func RequestFaucetFunds(ctx context.Context, logger log.Logger, paramsSpammer *s
 	}
 
 	if paramsSpammer.Duration == spammer.InfiniteDuration {
-		logger.LogInfo("Infinitely requesting faucet funds in the background...")
+		logger.LogInfof("Wallet size: %d, Infinitely requesting faucet funds in the background...", faucetSplitNumber*faucetSplitNumber)
 	} else {
-		logger.LogInfof("Requesting faucet funds in the background, total wallets needed %d", totalWalletsNeeded)
+		logger.LogInfof("Requesting faucet funds in the background, total wallets needed %d of size %d", totalWalletsNeeded, faucetSplitNumber*faucetSplitNumber)
 	}
 	wp := workerpool.New("Funds Requesting", workerpool.WithWorkerCount(2),
 		workerpool.WithCancelPendingTasksOnShutdown(true))
@@ -73,7 +73,7 @@ func RequestFaucetFunds(ctx context.Context, logger log.Logger, paramsSpammer *s
 
 			wp.Submit(func() {
 				running.Inc()
-				logger.LogInfof("Requesting wallet from faucet, wallets prepared %d, in progress %d", walletsReady.Load(), running.Load())
+				logger.LogInfof("Requesting faucet funds, preparing wallets, ready %d, in progress %d", walletsReady.Load(), running.Load())
 				err := w.RequestFreshBigFaucetWallet(ctx)
 				running.Dec()
 				if err != nil {

@@ -204,7 +204,7 @@ type Client interface {
 	// GetCommittee returns the committee for a given epoch.
 	GetCommittee(ctx context.Context) (*api.CommitteeResponse, error)
 	// GetValidators returns the validators for the current epoch.
-	GetValidators(ctx context.Context) (*api.ValidatorsResponse, error)
+	GetValidators(ctx context.Context) (*api.ValidatorsResponse, bool, error)
 	// GetStaking returns the staking data of a given accountAddress.
 	GetStaking(ctx context.Context, accountAddress *iotago.AccountAddress) (resp *api.ValidatorResponse, err error)
 	// GetRewards returns the rewards of a given outputID.
@@ -392,26 +392,15 @@ func (c *WebClient) GetBlockIssuance(ctx context.Context) (resp *api.IssuanceBlo
 }
 
 func (c *WebClient) GetCongestion(ctx context.Context, accAddress *iotago.AccountAddress, optCommitmentID ...iotago.CommitmentID) (resp *api.CongestionResponse, err error) {
-	return c.client.Congestion(ctx, accAddress, optCommitmentID...)
+	return c.client.Congestion(ctx, accAddress, 0, optCommitmentID...)
 }
 
 func (c *WebClient) GetCommittee(ctx context.Context) (*api.CommitteeResponse, error) {
 	return c.client.Committee(ctx)
 }
 
-func (c *WebClient) GetValidators(ctx context.Context) (*api.ValidatorsResponse, error) {
-	// TODO add cursor query param to node client validators method
-	//validators := make([]*api.ValidatorResponse, 0)
-	//resp, err := c.client.Validators(ctx)
-	//if err != nil {
-	//	return validators, err
-	//}
-	//validators = append(validators, resp.Validators...)
-	//if resp.Cursor == "" {
-	//	// this is the lat page
-	//	return validators, nil
-	//}
-	return c.client.Validators(ctx)
+func (c *WebClient) GetValidators(ctx context.Context) (*api.ValidatorsResponse, bool, error) {
+	return c.client.ValidatorsAll(ctx)
 }
 
 func (c *WebClient) GetStaking(ctx context.Context, accountAddress *iotago.AccountAddress) (resp *api.ValidatorResponse, err error) {

@@ -19,7 +19,7 @@ func (m *Manager) CommitteeInfo(ctx context.Context) error {
 }
 
 func (m *Manager) ValidatorsInfo(ctx context.Context) error {
-	resp, err := m.accWallets.Client.GetValidators(ctx)
+	resp, _, err := m.accWallets.Client.GetValidators(ctx)
 	if err != nil {
 		return err
 	}

@@ -48,10 +48,7 @@ func Run(paramsTools *models.ParametersTool, paramsInfo *ParametersInfo, logger 
 	accManager, err := walletmanager.RunManager(logger,
 		walletmanager.WithClientURL(paramsTools.NodeURLs[0]),
 		walletmanager.WithAccountStatesFile(paramsTools.AccountStatesFile),
-		walletmanager.WithFaucetAccountParams(&walletmanager.GenesisAccountParams{
-			FaucetPrivateKey: paramsTools.BlockIssuerPrivateKey,
-			FaucetAccountID:  paramsTools.AccountID,
-		}),
+		walletmanager.WithFaucetAccountParams(walletmanager.NewGenesisAccountParams(paramsTools)),
 		walletmanager.WithSilence(),
 	)
 

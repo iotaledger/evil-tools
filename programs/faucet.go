@@ -4,70 +4,86 @@ import (
 	"context"
 	"time"
 
+	"go.uber.org/atomic"
+
 	"github.com/iotaledger/evil-tools/pkg/evilwallet"
 	"github.com/iotaledger/evil-tools/pkg/spammer"
-	"github.com/iotaledger/hive.go/ierrors"
 	"github.com/iotaledger/hive.go/log"
+	"github.com/iotaledger/hive.go/runtime/workerpool"
 )
 
-func requestFaucetFunds(ctx context.Context, logger log.Logger, paramsSpammer *spammer.ParametersSpammer, w *evilwallet.EvilWallet) (context.CancelFunc, error) {
-	if paramsSpammer.Type == spammer.TypeBlock {
-		return nil, nil
+const (
+	MaxPendingRequestsRunning = 4
+	FaucetFundsAwaitTimeout   = 3 * time.Minute
+	SelectCheckInterval       = 5 * time.Second
+)
+
+func faucetFundsNeededForSpamType(spamType string) bool {
+	switch spamType {
+	case spammer.TypeBlock, spammer.TypeBlowball:
+		return false
 	}
 
-	var numOfBigWallets = evilwallet.BigFaucetWalletsAtOnce
-	if paramsSpammer.Duration != spammer.InfiniteDuration {
-		numNeeded := spammer.BigWalletsNeeded(paramsSpammer.Rate, paramsSpammer.Duration)
-		if numNeeded > evilwallet.MaxBigWalletsCreatedAtOnce {
-			numNeeded = evilwallet.MaxBigWalletsCreatedAtOnce
-			logger.LogWarnf("Reached maximum number of big wallets created at once: %d, use infinite spam instead", evilwallet.MaxBigWalletsCreatedAtOnce)
-		}
-		numOfBigWallets = numNeeded
-	}
-
-	success := w.RequestFreshBigFaucetWallets(ctx, numOfBigWallets)
-	if !success {
-		logger.LogError("Failed to request faucet wallet")
-		return nil, ierrors.Errorf("failed to request faucet wallet")
-	}
-
-	if paramsSpammer.Duration != spammer.InfiniteDuration {
-		unspentOutputsLeft := w.UnspentOutputsLeft(evilwallet.Fresh)
-		logger.LogDebugf("Prepared %d unspent outputs for spamming.", unspentOutputsLeft)
-
-		return nil, nil
-	}
-
-	logger.LogDebug("Start requesting faucet funds infinitely...")
-	infiniteCtx, cancel := context.WithCancel(ctx)
-	go requestInfinitely(infiniteCtx, logger, w)
-
-	return cancel, nil
-
+	return true
 }
 
-func requestInfinitely(ctx context.Context, logger log.Logger, w *evilwallet.EvilWallet) {
+func RequestFaucetFunds(ctx context.Context, logger log.Logger, paramsSpammer *spammer.ParametersSpammer, w *evilwallet.EvilWallet, totalWalletsNeeded int, minFundsDeposit int, faucetSplitNumber int) {
+	if !faucetFundsNeededForSpamType(paramsSpammer.Type) {
+		return
+	}
+
+	walletsReady := atomic.NewInt32(0)
+	running := atomic.NewInt32(0)
+
+	allRequested := func() bool {
+		if paramsSpammer.Duration == spammer.InfiniteDuration {
+			return false
+		}
+
+		return walletsReady.Load() >= int32(totalWalletsNeeded)
+	}
+
+	canSubmit := func() bool {
+		return running.Load() < MaxPendingRequestsRunning && w.UnspentOutputsLeft(evilwallet.Fresh) <= 2*minFundsDeposit
+	}
+
+	if paramsSpammer.Duration == spammer.InfiniteDuration {
+		logger.LogInfof("Wallet size: %d, Infinitely requesting faucet funds in the background...", faucetSplitNumber*faucetSplitNumber)
+	} else {
+		logger.LogInfof("Requesting faucet funds in the background, total wallets needed %d of size %d", totalWalletsNeeded, faucetSplitNumber*faucetSplitNumber)
+	}
+	wp := workerpool.New("Funds Requesting", workerpool.WithWorkerCount(2),
+		workerpool.WithCancelPendingTasksOnShutdown(true))
+	wp.Start()
+
 	for {
 		select {
 		case <-ctx.Done():
-			logger.LogDebugf("Shutdown signal. Stopping requesting faucet funds for spam: %d", 0)
-
 			return
+		case <-time.After(SelectCheckInterval):
+			if allRequested() {
+				wp.Shutdown()
 
-		case <-time.After(evilwallet.CheckFundsLeftInterval):
-			outputsLeft := w.UnspentOutputsLeft(evilwallet.Fresh)
-			// keep requesting over and over until we have at least deposit
-			if outputsLeft < evilwallet.BigFaucetWalletDeposit*evilwallet.FaucetRequestSplitNumber*evilwallet.FaucetRequestSplitNumber {
-				logger.LogDebugf("Requesting new faucet funds, outputs left: %d", outputsLeft)
-				success := w.RequestFreshBigFaucetWallets(ctx, evilwallet.BigFaucetWalletsAtOnce)
-				if !success {
-					logger.LogError("Failed to request faucet wallet, stopping next requests..., stopping spammer")
+				return
+			}
+
+			if !canSubmit() {
+				continue
+			}
+
+			wp.Submit(func() {
+				running.Inc()
+				logger.LogInfof("Requesting faucet funds, preparing wallets, ready %d, in progress %d", walletsReady.Load(), running.Load())
+				err := w.RequestFreshBigFaucetWallet(ctx)
+				running.Dec()
+				if err != nil {
+					logger.LogErrorf("Failed to request wallet from faucet: %s", err)
 
 					return
 				}
 
-				logger.LogDebugf("Requesting finished, currently available: %d unspent outputs for spamming.", w.UnspentOutputsLeft(evilwallet.Fresh))
-			}
+				walletsReady.Inc()
+			})
 		}
 	}
 }

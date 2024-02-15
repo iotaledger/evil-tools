@@ -11,6 +11,7 @@ var params = &app.ComponentParams{
 	},
 	Masked: []string{
 		"tool.blockissuerprivatekey",
+		"tool.faucetrequestsblockissuerprivatekey",
 		"info",
 		"app",
 		"profiling",

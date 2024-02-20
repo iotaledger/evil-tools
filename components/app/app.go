@@ -21,7 +21,7 @@ var (
 	Name = "evil-spammer"
 
 	// Version of the app.
-	Version = "0.1.0"
+	Version = "v0.1.0-develop"
 )
 
 func App() *app.App {

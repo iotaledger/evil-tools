@@ -23,7 +23,7 @@ func (m *Manager) delegateToAccount(ctx context.Context, params *DelegateAccount
 	// check the pool stake before delegating
 	var poolStakeBefore, poolStakeAfter iotago.BaseToken
 	if params.CheckPool {
-		validatorResp, err := m.Client.GetStaking(ctx, accountAddress)
+		validatorResp, err := m.Client.GetValidator(ctx, accountAddress)
 		if err != nil {
 			return ierrors.Wrap(err, "failed to get staking data from node")
 		}
@@ -85,7 +85,7 @@ func (m *Manager) delegateToAccount(ctx context.Context, params *DelegateAccount
 		}
 
 		// check the pool stake after delegating
-		validatorResp, err := m.Client.GetStaking(ctx, accountAddress)
+		validatorResp, err := m.Client.GetValidator(ctx, accountAddress)
 		if err != nil {
 			return ierrors.Wrap(err, "failed to get staking data from node")
 		}
@@ -191,8 +191,14 @@ func (m *Manager) createDelegationOutputs(wallet *Wallet, inputAmount iotago.Bas
 func (m *Manager) createDelegationTransaction(wallet *Wallet, params *DelegateAccountParams, toAccountAddress *iotago.AccountAddress, inputs []*models.OutputData, commitmentID iotago.CommitmentID, issuingSlot iotago.SlotIndex) (*iotago.SignedTransaction, *models.OutputData, error) {
 	// create a transaction with the delegation output
 	apiForSlot := m.Client.APIForSlot(issuingSlot)
+
+	addressSigner, err := wallet.GetAddrSignerForIndexes(inputs...)
+	if err != nil {
+		return nil, nil, ierrors.Wrap(err, "failed to get address signer")
+	}
+
 	var totalInputAmount iotago.BaseToken
-	txBuilder := builder.NewTransactionBuilder(apiForSlot)
+	txBuilder := builder.NewTransactionBuilder(apiForSlot, addressSigner)
 	for _, input := range inputs {
 		txBuilder.AddInput(&builder.TxInput{
 			UnlockTarget: input.Address,
@@ -212,12 +218,7 @@ func (m *Manager) createDelegationTransaction(wallet *Wallet, params *DelegateAc
 	txBuilder.SetCreationSlot(issuingSlot)
 	txBuilder.WithTransactionCapabilities(iotago.TransactionCapabilitiesBitMaskWithCapabilities(iotago.WithTransactionCanDoAnything()))
 
-	addressSigner, err := wallet.GetAddrSignerForIndexes(inputs...)
-	if err != nil {
-		return nil, nil, ierrors.Wrap(err, "failed to get address signer")
-	}
-
-	signedTx, err := txBuilder.Build(addressSigner)
+	signedTx, err := txBuilder.Build()
 	if err != nil {
 		return nil, nil, ierrors.Wrap(err, "failed to build tx")
 	}

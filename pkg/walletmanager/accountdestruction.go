@@ -127,7 +127,7 @@ func (m *Manager) destroyAccount(ctx context.Context, alias string) error {
 func (m *Manager) changeExpirySlotTransaction(ctx context.Context, clt models.Client, newExpirySlot iotago.SlotIndex, issuingSlot iotago.SlotIndex, accData *models.AccountData, commitmentID iotago.CommitmentID, addressSigner iotago.AddressSigner) (*iotago.SignedTransaction, error) {
 	// start building the transaction
 	apiForSlot := clt.APIForSlot(issuingSlot)
-	txBuilder := builder.NewTransactionBuilder(apiForSlot)
+	txBuilder := builder.NewTransactionBuilder(apiForSlot, addressSigner)
 	accountOutput := clt.GetOutput(ctx, accData.OutputID)
 
 	// add the account output as input
@@ -152,13 +152,13 @@ func (m *Manager) changeExpirySlotTransaction(ctx context.Context, clt models.Cl
 	// set the transaction capabilities to be able to do anything
 	txBuilder.WithTransactionCapabilities(iotago.TransactionCapabilitiesBitMaskWithCapabilities(iotago.WithTransactionCanDoAnything()))
 	// build the transaction
-	return txBuilder.Build(addressSigner)
+	return txBuilder.Build()
 }
 
 func (m *Manager) destroyAccountTransaction(ctx context.Context, clt models.Client, issuingSlot iotago.SlotIndex, alias string, accData *models.AccountData, commitmentID iotago.CommitmentID, addressSigner iotago.AddressSigner) (*iotago.SignedTransaction, error) {
 	// start building the transaction
 	apiForSlot := clt.APIForSlot(issuingSlot)
-	txBuilder := builder.NewTransactionBuilder(apiForSlot)
+	txBuilder := builder.NewTransactionBuilder(apiForSlot, addressSigner)
 	expiredAccountOutput := clt.GetOutput(ctx, accData.OutputID)
 	txBuilder.AddInput(&builder.TxInput{
 		UnlockTarget: expiredAccountOutput.UnlockConditionSet().Address().Address,
@@ -183,5 +183,5 @@ func (m *Manager) destroyAccountTransaction(ctx context.Context, clt models.Clie
 	txBuilder.WithTransactionCapabilities(iotago.TransactionCapabilitiesBitMaskWithCapabilities(iotago.WithTransactionCanDoAnything()))
 
 	// build the transaction
-	return txBuilder.Build(addressSigner)
+	return txBuilder.Build()
 }

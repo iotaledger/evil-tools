@@ -56,7 +56,7 @@ func (m *Manager) createAllotTransaction(inputs []*models.OutputData, w *Wallet,
 		return nil, ierrors.Wrap(err, "failed to get address signer")
 	}
 
-	txBuilder := builder.NewTransactionBuilder(apiForSlot)
+	txBuilder := builder.NewTransactionBuilder(apiForSlot, addrSigner)
 	for _, output := range inputs {
 		txBuilder.AddInput(&builder.TxInput{
 			UnlockTarget: output.Address,
@@ -73,7 +73,7 @@ func (m *Manager) createAllotTransaction(inputs []*models.OutputData, w *Wallet,
 		//WithTransactionCapabilities(iotago.TransactionCapabilitiesBitMaskWithCapabilities(iotago.WithTransactionCanDoAnything()))
 		AllotAllMana(txBuilder.CreationSlot(), accountID, 0)
 
-	signedTx, err := txBuilder.Build(addrSigner)
+	signedTx, err := txBuilder.Build()
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to build tx")
 	}

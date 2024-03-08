@@ -140,7 +140,7 @@ func (e *EvilWallet) PrepareAndPostBlockWithPayload(ctx context.Context, clt mod
 	return blockID, nil
 }
 
-func (e *EvilWallet) PrepareAndPostBlockWithTxBuildData(ctx context.Context, clt models.Client, txBuilder *builder.TransactionBuilder, signingKeys []iotago.AddressKeys, issuer wallet.Account) (iotago.BlockID, *iotago.Transaction, error) {
+func (e *EvilWallet) PrepareAndPostBlockWithTxBuildData(ctx context.Context, clt models.Client, txBuilder *builder.TransactionBuilder, issuer wallet.Account) (iotago.BlockID, *iotago.Transaction, error) {
 	congestionResp, issuerResp, version, err := e.accManager.RequestBlockIssuanceData(ctx, clt, issuer)
 	if err != nil {
 		return iotago.EmptyBlockID, nil, ierrors.Wrap(err, "failed to get block built data")
@@ -148,7 +148,7 @@ func (e *EvilWallet) PrepareAndPostBlockWithTxBuildData(ctx context.Context, clt
 
 	// handle allotment strategy
 	txBuilder.AllotAllMana(txBuilder.CreationSlot(), issuer.ID(), 0)
-	signedTx, err := txBuilder.Build(iotago.NewInMemoryAddressSigner(signingKeys...))
+	signedTx, err := txBuilder.Build()
 	if err != nil {
 		return iotago.EmptyBlockID, nil, ierrors.Wrap(err, "failed to build and sign transaction")
 	}
@@ -255,11 +255,9 @@ func (e *EvilWallet) CreateTransaction(ctx context.Context, options ...Option) (
 			addrAliasMap[tempID] = alias
 		}
 	}
-	txBuilder, signingKeys := e.prepareTransactionBuild(inputs, outputs, buildOptions.inputWallet)
 	issuanceData := &models.PayloadIssuanceData{
 		Type:               iotago.PayloadSignedTransaction,
-		TransactionBuilder: txBuilder,
-		TxSigningKeys:      signingKeys,
+		TransactionBuilder: e.prepareTransactionBuild(inputs, outputs, buildOptions.inputWallet),
 	}
 
 	addedOutputs := e.addOutputsToOutputManager(outputs, buildOptions.outputWallet, tempWallet, tempAddresses)
@@ -524,24 +522,11 @@ func (e *EvilWallet) updateOutputBalances(ctx context.Context, buildOptions *Opt
 	return
 }
 
-func (e *EvilWallet) prepareTransactionBuild(inputs []*models.OutputData, outputs iotago.Outputs[iotago.Output], w *Wallet) (tx *builder.TransactionBuilder, keys []iotago.AddressKeys) {
+func (e *EvilWallet) prepareTransactionBuild(inputs []*models.OutputData, outputs iotago.Outputs[iotago.Output], w *Wallet) *builder.TransactionBuilder {
 	clt := e.Connector().GetClient()
 	currentTime := time.Now()
 	targetSlot := clt.LatestAPI().TimeProvider().SlotFromTime(currentTime)
 	targetAPI := clt.APIForSlot(targetSlot)
-
-	txBuilder := builder.NewTransactionBuilder(targetAPI)
-
-	for _, input := range inputs {
-		txBuilder.AddInput(&builder.TxInput{UnlockTarget: input.Address, InputID: input.OutputID, Input: input.OutputStruct})
-	}
-
-	for _, output := range outputs {
-		txBuilder.AddOutput(output)
-	}
-
-	randomPayload := tpkg.Rand12ByteArray()
-	txBuilder.AddTaggedDataPayload(&iotago.TaggedData{Tag: randomPayload[:], Data: randomPayload[:]})
 
 	walletKeys := make([]iotago.AddressKeys, len(inputs))
 	for i, input := range inputs {
@@ -558,9 +543,22 @@ func (e *EvilWallet) prepareTransactionBuild(inputs []*models.OutputData, output
 		walletKeys[i] = iotago.AddressKeys{Address: addr, Keys: inputPrivateKey}
 	}
 
+	txBuilder := builder.NewTransactionBuilder(targetAPI, iotago.NewInMemoryAddressSigner(walletKeys...))
+
+	for _, input := range inputs {
+		txBuilder.AddInput(&builder.TxInput{UnlockTarget: input.Address, InputID: input.OutputID, Input: input.OutputStruct})
+	}
+
+	for _, output := range outputs {
+		txBuilder.AddOutput(output)
+	}
+
+	randomPayload := tpkg.Rand12ByteArray()
+	txBuilder.AddTaggedDataPayload(&iotago.TaggedData{Tag: randomPayload[:], Data: randomPayload[:]})
+
 	txBuilder.SetCreationSlot(targetSlot)
 
-	return txBuilder, walletKeys
+	return txBuilder
 }
 
 func (e *EvilWallet) PrepareCustomConflictsSpam(ctx context.Context, scenario *EvilScenario) (txsData [][]*models.PayloadIssuanceData, allAliases ScenarioAlias, err error) {

@@ -193,6 +193,8 @@ type Client interface {
 	GetOutput(ctx context.Context, outputID iotago.OutputID) iotago.Output
 	// GetTransaction gets the transaction.
 	GetTransaction(ctx context.Context, txID iotago.TransactionID) (resp *iotago.SignedTransaction, err error)
+	// GetTransactionMetadata gets the transaction metadata.
+	GetTransactionMetadata(ctx context.Context, txID iotago.TransactionID) (resp *api.TransactionMetadataResponse, err error)
 	// GetBlockIssuance returns the latest commitment and data needed to create a new block.
 	GetBlockIssuance(ctx context.Context) (resp *api.IssuanceBlockHeaderResponse, err error)
 	// GetCongestion returns congestion data such as rmc or issuing readiness.
@@ -205,8 +207,8 @@ type Client interface {
 	GetCommittee(ctx context.Context) (*api.CommitteeResponse, error)
 	// GetValidators returns the validators for the current epoch.
 	GetValidators(ctx context.Context) (*api.ValidatorsResponse, bool, error)
-	// GetStaking returns the staking data of a given accountAddress.
-	GetStaking(ctx context.Context, accountAddress *iotago.AccountAddress) (resp *api.ValidatorResponse, err error)
+	// GetValidator returns the validator data of a given accountAddress.
+	GetValidator(ctx context.Context, accountAddress *iotago.AccountAddress) (resp *api.ValidatorResponse, err error)
 	// GetRewards returns the rewards of a given outputID.
 	GetRewards(ctx context.Context, outputID iotago.OutputID) (resp *api.ManaRewardsResponse, err error)
 
@@ -387,6 +389,11 @@ func (c *WebClient) GetTransaction(ctx context.Context, txID iotago.TransactionI
 	return tx, nil
 }
 
+// GetTransactionMetadata gets the transaction metadata.
+func (c *WebClient) GetTransactionMetadata(ctx context.Context, txID iotago.TransactionID) (*api.TransactionMetadataResponse, error) {
+	return c.client.TransactionMetadata(ctx, txID)
+}
+
 func (c *WebClient) GetBlockIssuance(ctx context.Context) (resp *api.IssuanceBlockHeaderResponse, err error) {
 	return c.client.BlockIssuance(ctx)
 }
@@ -403,8 +410,8 @@ func (c *WebClient) GetValidators(ctx context.Context) (*api.ValidatorsResponse,
 	return c.client.ValidatorsAll(ctx)
 }
 
-func (c *WebClient) GetStaking(ctx context.Context, accountAddress *iotago.AccountAddress) (resp *api.ValidatorResponse, err error) {
-	return c.client.StakingAccount(ctx, accountAddress)
+func (c *WebClient) GetValidator(ctx context.Context, accountAddress *iotago.AccountAddress) (resp *api.ValidatorResponse, err error) {
+	return c.client.Validator(ctx, accountAddress)
 }
 
 func (c *WebClient) GetRewards(ctx context.Context, outputID iotago.OutputID) (*api.ManaRewardsResponse, error) {

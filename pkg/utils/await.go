@@ -27,13 +27,13 @@ func isBlockStateAtLeastAccepted(blockState api.BlockState) bool {
 
 func isTransactionStateAtLeastAccepted(transactionState api.TransactionState) bool {
 	return transactionState == api.TransactionStateAccepted ||
-		transactionState == api.TransactionStateConfirmed ||
+		transactionState == api.TransactionStateCommitted ||
 		transactionState == api.TransactionStateFinalized
 }
 
 func isBlockStateFailure(blockState api.BlockState) bool {
-	return blockState == api.BlockStateFailed ||
-		blockState == api.BlockStateRejected
+	return blockState == api.BlockStateDropped ||
+		blockState == api.BlockStateOrphaned
 }
 
 func isTransactionStateFailure(transactionState api.TransactionState) bool {
@@ -41,24 +41,29 @@ func isTransactionStateFailure(transactionState api.TransactionState) bool {
 }
 
 func evaluateBlockIssuanceResponse(resp *api.BlockMetadataResponse) (accepted bool, err error) {
-	if resp.TransactionMetadata == nil {
-		return false, ierrors.New("no transaction metadata in block metadata response")
-	}
-
-	if isBlockStateAtLeastAccepted(resp.BlockState) && isTransactionStateAtLeastAccepted(resp.TransactionMetadata.TransactionState) {
+	if isBlockStateAtLeastAccepted(resp.BlockState) {
 		return true, nil
 	}
 
-	if isBlockStateFailure(resp.BlockState) || isTransactionStateFailure(resp.TransactionMetadata.TransactionState) {
+	if isBlockStateFailure(resp.BlockState) {
 		err = ierrors.Errorf("block status failure")
 		if isBlockStateFailure(resp.BlockState) {
-			err = ierrors.Wrapf(err, "block failure reason: %d", resp.BlockFailureReason)
-		}
-		if isTransactionStateFailure(resp.TransactionMetadata.TransactionState) {
-			err = ierrors.Wrapf(err, "transaction failure reason: %d", resp.TransactionMetadata.TransactionFailureReason)
+			err = ierrors.Wrapf(err, "block failure reason: %s", resp.BlockState.String())
 		}
 
 		return false, err
+	}
+
+	return false, nil
+}
+
+func evaluateTransactionIssuanceResponse(resp *api.TransactionMetadataResponse) (accepted bool, err error) {
+	if isTransactionStateAtLeastAccepted(resp.TransactionState) {
+		return true, nil
+	}
+
+	if isTransactionStateFailure(resp.TransactionState) {
+		return false, ierrors.Wrapf(err, "transaction failure reason: %d", resp.TransactionFailureReason)
 	}
 
 	return false, nil
@@ -75,18 +80,17 @@ func AwaitBlockAndPayloadAcceptance(ctx context.Context, logger log.Logger, clt 
 		}
 
 		accepted, err := evaluateBlockIssuanceResponse(resp)
-		if err != nil {
-			logger.LogErrorf("Block %s issuance failure, err: %v", blockID.ToHex(), err.Error())
-
-			return err
-		}
-
 		if accepted {
-			logger.LogDebugf("Block %s issuance success, status: %s, transaction state: %s", blockID.ToHex(), resp.BlockState, resp.TransactionMetadata.TransactionState)
+			logger.LogDebugf("Block %s issuance success, status: %s", blockID.ToHex(), resp.BlockState)
 
 			return nil
 		}
 
+		if err != nil {
+			logger.LogDebugf("Block %s issuance failure, block failure reason: %s", blockID.ToHex(), resp.BlockState.String())
+
+			return err
+		}
 	}
 
 	return ierrors.Errorf("failed to await block confirmation or failure: %s", blockID.ToHex())
@@ -95,20 +99,20 @@ func AwaitBlockAndPayloadAcceptance(ctx context.Context, logger log.Logger, clt 
 // AwaitBlockWithTransactionToBeAccepted awaits for acceptance of a single transaction.
 func AwaitBlockWithTransactionToBeAccepted(ctx context.Context, logger log.Logger, clt models.Client, txID iotago.TransactionID) error {
 	for t := time.Now(); time.Since(t) < MaxAcceptanceAwait; time.Sleep(AwaitInterval) {
-		resp, _ := clt.GetBlockStateFromTransaction(ctx, txID)
+		resp, _ := clt.GetTransactionMetadata(ctx, txID)
 		if resp == nil {
 			continue
 		}
 
-		accepted, err := evaluateBlockIssuanceResponse(resp)
+		accepted, err := evaluateTransactionIssuanceResponse(resp)
 		if accepted {
-			logger.LogDebugf("Transaction %s issuance success, state: %s", txID.ToHex(), resp.TransactionMetadata.TransactionState)
+			logger.LogDebugf("Transaction %s issuance success, state: %s", txID.ToHex(), resp.TransactionState)
 
 			return nil
 		}
 
 		if err != nil {
-			logger.LogDebugf("Transaction %s issuance failure, tx failure reason: %d, block failure reason: %d", txID.ToHex(), resp.TransactionMetadata.TransactionFailureReason, resp.BlockFailureReason)
+			logger.LogDebugf("Transaction %s issuance failure, tx failure reason: %d", txID.ToHex(), resp.TransactionFailureReason)
 
 			return err
 		}
@@ -152,12 +156,12 @@ func AwaitAddressUnspentOutputToBeAccepted(ctx context.Context, logger log.Logge
 // Useful when we have only an address and no transactionID, e.g. faucet funds request.
 func AwaitOutputToBeAccepted(ctx context.Context, clt models.Client, outputID iotago.OutputID) error {
 	for t := time.Now(); time.Since(t) < MaxAcceptanceAwait; time.Sleep(AwaitInterval) {
-		resp, err := clt.GetBlockStateFromTransaction(ctx, outputID.TransactionID())
+		resp, err := clt.GetTransactionMetadata(ctx, outputID.TransactionID())
 		if err != nil {
 			continue
 		}
 
-		if isTransactionStateAtLeastAccepted(resp.TransactionMetadata.TransactionState) {
+		if isTransactionStateAtLeastAccepted(resp.TransactionState) {
 			return nil
 		}
 	}

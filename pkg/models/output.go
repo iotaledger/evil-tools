@@ -82,7 +82,6 @@ type PayloadIssuanceData struct {
 	Type               iotago.PayloadType
 	TransactionBuilder *builder.TransactionBuilder
 	Payload            iotago.Payload
-	TxSigningKeys      []iotago.AddressKeys
 }
 
 type TempOutputID [32]byte

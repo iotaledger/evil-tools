@@ -274,7 +274,7 @@ func (s *Spammer) PrepareAndPostBlock(ctx context.Context, issuanceData *models.
 	case iotago.PayloadTaggedData:
 		blockID, err = s.EvilWallet.PrepareAndPostBlockWithPayload(ctx, clt, issuanceData.Payload, issuerAccount)
 	case iotago.PayloadSignedTransaction:
-		blockID, tx, err = s.EvilWallet.PrepareAndPostBlockWithTxBuildData(ctx, clt, issuanceData.TransactionBuilder, issuanceData.TxSigningKeys, issuerAccount)
+		blockID, tx, err = s.EvilWallet.PrepareAndPostBlockWithTxBuildData(ctx, clt, issuanceData.TransactionBuilder, issuerAccount)
 	default:
 		// unknown payload type
 		s.logError(ErrUnknownPayloadType)

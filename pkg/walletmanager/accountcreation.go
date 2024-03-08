@@ -174,7 +174,7 @@ func (m *Manager) createAccountCreationTransaction(clt models.Client, wallet *Wa
 		return nil, ierrors.Wrap(err, "failed to get address signer")
 	}
 
-	txBuilder := builder.NewTransactionBuilder(apiForSlot)
+	txBuilder := builder.NewTransactionBuilder(apiForSlot, addrSigner)
 	for _, output := range inputs {
 		txBuilder.AddInput(&builder.TxInput{
 			UnlockTarget: output.Address,
@@ -192,7 +192,7 @@ func (m *Manager) createAccountCreationTransaction(clt models.Client, wallet *Wa
 	// allot required mana to the implicit account
 	logMissingMana(m.Logger, txBuilder, congestionResp.ReferenceManaCost, accountID)
 
-	signedTx, err := txBuilder.Build(addrSigner)
+	signedTx, err := txBuilder.Build()
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to build tx")
 	}

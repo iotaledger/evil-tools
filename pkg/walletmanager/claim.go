@@ -98,7 +98,7 @@ func (m *Manager) createClaimingTransaction(input *models.OutputData, rewardsRes
 		return nil, ierrors.Wrap(err, "failed to get address signer")
 	}
 
-	txBuilder := builder.NewTransactionBuilder(apiForSlot)
+	txBuilder := builder.NewTransactionBuilder(apiForSlot, addrSigner)
 	totalMana := iotago.Mana(0)
 	potentialMana, err := iotago.PotentialMana(apiForSlot.ManaDecayProvider(), apiForSlot.StorageScoreStructure(), input.OutputStruct, input.OutputID.Slot(), currentSlot)
 	if err != nil {
@@ -129,7 +129,7 @@ func (m *Manager) createClaimingTransaction(input *models.OutputData, rewardsRes
 		SetCreationSlot(currentSlot).
 		AllotAllMana(txBuilder.CreationSlot(), accountID, 0)
 
-	signedTx, err := txBuilder.Build(addrSigner)
+	signedTx, err := txBuilder.Build()
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to build tx")
 	}

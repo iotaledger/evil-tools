@@ -50,12 +50,11 @@ func ConflictSetCircle(size int) EvilBatch {
 	scenarioAlias := make([]ScenarioAlias, 0)
 	inputStartNum := size
 
-	for i := 0; i < inputStartNum; i++ {
-		in := i
-		in2 := (in + 1) % inputStartNum
+	for i := range inputStartNum {
+		in2 := (i + 1) % inputStartNum
 		scenarioAlias = append(scenarioAlias,
 			ScenarioAlias{
-				Inputs:  []string{strconv.Itoa(in), strconv.Itoa(in2)},
+				Inputs:  []string{strconv.Itoa(i), strconv.Itoa(in2)},
 				Outputs: []string{strconv.Itoa(inputStartNum + i)},
 			})
 	}

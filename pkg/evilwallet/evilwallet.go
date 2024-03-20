@@ -413,16 +413,14 @@ func (e *EvilWallet) useFreshIfInputWalletNotProvided(buildOptions *Options) (*W
 // Thus, they are tracker in address to alias map. If the scenario is used, the outputBatchAliases map is provided
 // that indicates which outputs should be saved to the outputWallet. All other outputs are created with temporary wallet,
 // and their addresses are stored in tempAddresses.
-func (e *EvilWallet) matchOutputsWithAliases(ctx context.Context, buildOptions *Options, tempWallet *Wallet) (outputs []iotago.Output,
-	idAliasMap map[models.TempOutputID]string, tempAddresses map[string]types.Empty, err error,
-) {
-	err = e.updateOutputBalances(ctx, buildOptions)
-	if err != nil {
+func (e *EvilWallet) matchOutputsWithAliases(ctx context.Context, buildOptions *Options, tempWallet *Wallet) ([]iotago.Output, map[models.TempOutputID]string, map[string]types.Empty, error) {
+	if err := e.updateOutputBalances(ctx, buildOptions); err != nil {
 		return nil, nil, nil, err
 	}
 
-	tempAddresses = make(map[string]types.Empty)
-	idAliasMap = make(map[models.TempOutputID]string)
+	outputs := make([]iotago.Output, 0)
+	idAliasMap := make(map[models.TempOutputID]string)
+	tempAddresses := make(map[string]types.Empty)
 	for alias, output := range buildOptions.aliasOutputs {
 		var addr *iotago.Ed25519Address
 		if _, ok := buildOptions.outputBatchAliases[alias]; ok {
@@ -445,7 +443,7 @@ func (e *EvilWallet) matchOutputsWithAliases(ctx context.Context, buildOptions *
 		idAliasMap[tempID] = alias
 	}
 
-	return
+	return outputs, idAliasMap, tempAddresses, nil
 }
 
 func (e *EvilWallet) prepareRemainderOutput(inputs []*models.OutputData, outputs []iotago.Output) (alias string, remainderOutput iotago.Output, added bool) {
@@ -478,11 +476,12 @@ func (e *EvilWallet) prepareRemainderOutput(inputs []*models.OutputData, outputs
 	return
 }
 
-func (e *EvilWallet) updateOutputBalances(ctx context.Context, buildOptions *Options) (err error) {
+func (e *EvilWallet) updateOutputBalances(ctx context.Context, buildOptions *Options) error {
 	// when aliases are not used for outputs, the balance had to be provided in options, nothing to do
 	if buildOptions.areOutputsProvidedWithoutAliases() {
-		return
+		return nil
 	}
+
 	totalBalance := iotago.BaseToken(0)
 	if !buildOptions.isBalanceProvided() {
 		if buildOptions.areInputsProvidedWithoutAliases() {
@@ -496,8 +495,7 @@ func (e *EvilWallet) updateOutputBalances(ctx context.Context, buildOptions *Opt
 			for inputAlias := range buildOptions.aliasInputs {
 				in, ok := e.aliasManager.GetInput(inputAlias)
 				if !ok {
-					err = ierrors.New("could not get input by input alias")
-					return
+					return ierrors.New("could not get input by input alias")
 				}
 				totalBalance += in.OutputStruct.BaseTokenAmount()
 			}
@@ -519,7 +517,7 @@ func (e *EvilWallet) updateOutputBalances(ctx context.Context, buildOptions *Opt
 		}
 	}
 
-	return
+	return nil
 }
 
 func (e *EvilWallet) prepareTransactionBuild(inputs []*models.OutputData, outputs iotago.Outputs[iotago.Output], w *Wallet) *builder.TransactionBuilder {
@@ -576,7 +574,7 @@ func (e *EvilWallet) PrepareAccountSpam(ctx context.Context, scenario *EvilScena
 	return issuanceData, allAliases, err
 }
 
-func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario) (conflictSlice []ConflictSlice, allAliases ScenarioAlias) {
+func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario) ([]ConflictSlice, ScenarioAlias) {
 	genOutputOptions := func(aliases []string) []*OutputOption {
 		outputOptions := make([]*OutputOption, 0)
 		for _, o := range aliases {
@@ -588,7 +586,7 @@ func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario) (co
 
 	// make conflictSlice
 	prefixedBatch, allAliases, batchOutputs := scenario.ConflictBatchWithPrefix()
-	conflictSlice = make([]ConflictSlice, 0)
+	conflictSlice := make([]ConflictSlice, 0)
 	for _, conflictMap := range prefixedBatch {
 		conflicts := make([][]Option, 0)
 		for _, aliases := range conflictMap {
@@ -609,7 +607,7 @@ func (e *EvilWallet) prepareConflictSliceForScenario(scenario *EvilScenario) (co
 		conflictSlice = append(conflictSlice, conflicts)
 	}
 
-	return
+	return conflictSlice, allAliases
 }
 
 func (e *EvilWallet) prepareFlatOptionsForAccountScenario(scenario *EvilScenario) ([]Option, ScenarioAlias) {

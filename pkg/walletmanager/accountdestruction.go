@@ -77,7 +77,6 @@ func (m *Manager) destroyAccount(ctx context.Context, alias string) error {
 				return ierrors.Wrap(err, "failed to await commitment of expiry slot")
 			}
 		}
-
 	}
 	{
 		// next, issue a transaction to destroy the account output
@@ -137,7 +136,7 @@ func (m *Manager) changeExpirySlotTransaction(ctx context.Context, clt models.Cl
 		Input:        accountOutput,
 	})
 	// create an account output with updated expiry slot set to commitment slot + MaxCommittableAge (pastBoundedSlot)
-	// nolint:forcetypeassert // we know that this is an account output
+	//nolint:forcetypeassert // we know that this is an account output
 	accountBuilder := builder.NewAccountOutputBuilderFromPrevious(accountOutput.(*iotago.AccountOutput))
 	accountBuilder.BlockIssuer(accountOutput.FeatureSet().BlockIssuer().BlockIssuerKeys, newExpirySlot)
 	expiredAccountOutput := accountBuilder.MustBuild()

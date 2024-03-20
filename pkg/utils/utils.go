@@ -36,7 +36,6 @@ func GetAccountIssuerKeys(pubKey crypto.PublicKey) (iotago.BlockIssuerKeys, erro
 	blockIssuerKeys := iotago.NewBlockIssuerKeys(iotago.Ed25519PublicKeyHashBlockIssuerKeyFromPublicKey(hiveEd25519.PublicKey(ed25519PubKey)))
 
 	return blockIssuerKeys, nil
-
 }
 
 // SplitBalanceEqually splits the balance equally between `splitNumber` outputs.
@@ -47,7 +46,7 @@ func SplitBalanceEqually[T iotago.BaseToken | iotago.Mana](splitNumber int, bala
 	var totalBalance T
 
 	// input is divided equally among outputs
-	for i := 0; i < splitNumber-1; i++ {
+	for i := range splitNumber - 1 {
 		outputBalances = append(outputBalances, balance/T(splitNumber))
 		totalBalance += outputBalances[i]
 	}

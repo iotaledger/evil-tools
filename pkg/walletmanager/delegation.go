@@ -69,14 +69,13 @@ func (m *Manager) delegateToAccount(ctx context.Context, params *DelegateAccount
 	} else {
 		m.LogInfof("Delegations for alias %s:\n", params.FromAlias)
 		for i, delegation := range delegations {
-			// nolint:forcetypeassert // we know that the output is of type *iotago.DelegationOutput
 			m.LogInfof("Delegation %d: %d tokens delegated to validator %s", i, delegation.Amount, delegation.DelegatedToBechAddress)
 		}
 	}
 
 	if params.CheckPool {
 		// wait for the delegation to start when the start epoch has been committed
-		// nolint:forcetypeassert // we know that the output is of type *iotago.DelegationOutput
+		//nolint:forcetypeassert // we know that the output is of type *iotago.DelegationOutput
 		delegationOutput := output.OutputStruct.(*iotago.DelegationOutput)
 		delegationStartSlot := m.Client.LatestAPI().TimeProvider().EpochStart(delegationOutput.StartEpoch)
 		m.LogInfof("Waiting for slot %d to be committed, when delegation starts", delegationStartSlot)
@@ -104,13 +103,12 @@ func (m *Manager) delegateToAccount(ctx context.Context, params *DelegateAccount
 }
 
 func (m *Manager) prepareToAccount(toAddress string) (*iotago.AccountAddress, error) {
-	//nolint:forcetypeassert // we know that the address is of type *iotago.AccountAddress
 	_, address, err := iotago.ParseBech32(toAddress)
 	if err != nil {
 		return nil, ierrors.Wrap(err, "failed to parse account address")
 	}
 
-	// nolint:forcetypeassert // we know that the address is of type *iotago.AccountAddress
+	//nolint:forcetypeassert // we know that the address is of type *iotago.AccountAddress
 	accountAddress := address.(*iotago.AccountAddress)
 
 	return accountAddress, nil
@@ -121,10 +119,11 @@ func (m *Manager) prepareInputs(ctx context.Context, clt models.Client, wallet *
 		params.FromAlias = GenesisAccountAlias
 	}
 
-	var inputs []*models.OutputData
+	inputs := make([]*models.OutputData, 0, iotago.MaxInputsCount)
 	var totalInputAmount iotago.BaseToken
+
 	// get faucet funds for delegation output
-	for i := 0; i < iotago.MaxInputsCount; i++ {
+	for range iotago.MaxInputsCount {
 		faucetOutput, err := m.getFaucetFundsOutput(ctx, clt, wallet, iotago.AddressEd25519)
 		if err != nil {
 			return nil, ierrors.Wrap(err, "failed to get faucet funds for delegation output")
@@ -227,7 +226,6 @@ func (m *Manager) createDelegationTransaction(wallet *Wallet, params *DelegateAc
 	delegationOutput.OutputID = iotago.OutputIDFromTransactionIDAndIndex(lo.PanicOnErr(signedTx.Transaction.ID()), 0)
 
 	return signedTx, delegationOutput, nil
-
 }
 
 func (m *Manager) delegationStart(apiForSlot iotago.API, issuingSlot iotago.SlotIndex, commitmentSlot iotago.SlotIndex) iotago.EpochIndex {

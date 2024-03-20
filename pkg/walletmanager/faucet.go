@@ -60,10 +60,10 @@ func (m *Manager) RequestManaAndFundsFromTheFaucet(ctx context.Context, w *Walle
 	}
 	numOfRequests := int(math.Max(float64(minManaAmount/m.RequestManaAmount), float64(minTokensAmount/m.RequestTokenAmount)))
 
-	var inputs []*models.OutputData
+	inputs := make([]*models.OutputData, 0, numOfRequests)
 
 	// if there is not enough mana to pay for account creation, request mana from the faucet
-	for i := 0; i < numOfRequests; i++ {
+	for range numOfRequests {
 		faucetOutput, err := m.getFaucetFundsOutput(ctx, m.Client, w, iotago.AddressEd25519)
 		if err != nil {
 			return nil, ierrors.Wrap(err, "failed to get faucet funds for delegation output")

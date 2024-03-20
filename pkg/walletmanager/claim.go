@@ -135,5 +135,4 @@ func (m *Manager) createClaimingTransaction(input *models.OutputData, rewardsRes
 	}
 
 	return signedTx, nil
-
 }

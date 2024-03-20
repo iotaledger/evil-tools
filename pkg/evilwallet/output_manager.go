@@ -218,7 +218,6 @@ func (o *OutputManager) AwaitTransactionsAcceptance(ctx context.Context, txIDs .
 			}
 
 			o.LogDebugf("Tx %s accepted, tx left: %d", txID.ToHex(), txLeft.Load())
-
 		}(ctx, txID, o.connector.GetClient())
 	}
 	wg.Wait()

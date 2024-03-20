@@ -68,7 +68,6 @@ func Run(paramsTools *models.ParametersTool, paramsInfo *ParametersInfo, logger 
 	return nil
 }
 
-//nolint:all,forcetypassert
 func infoSubcommand(ctx context.Context, manager *Manager, cmd Command, params *ParametersInfo) error {
 	switch cmd {
 	case CommandCommittee:

@@ -80,13 +80,13 @@ func accountsSubcommands(ctx context.Context, accManager *walletmanager.Manager,
 	}
 }
 
-//nolint:all,forcetypassert
+//nolint:all,forcetypeassert
 func accountsSubcommand(ctx context.Context, wallets *walletmanager.Manager, subCommand walletmanager.AccountSubcommands) error {
 	Component.LogInfof("Run subcommand: %s, with parameter set: %v", subCommand.Type().String(), subCommand)
 
 	switch subCommand.Type() {
 	case walletmanager.OperationCreateAccount:
-		//nolint:forcetypassert // we can safely assume that the type is correct
+		//nolint:forcetypeassert // we can safely assume that the type is correct
 		accParams := subCommand.(*walletmanager.CreateAccountParams)
 
 		accountID, err := wallets.CreateAccount(ctx, accParams)
@@ -97,7 +97,7 @@ func accountsSubcommand(ctx context.Context, wallets *walletmanager.Manager, sub
 		Component.LogInfof("Created account %s", accountID)
 
 	case walletmanager.OperationDestroyAccount:
-		//nolint:forcetypassert // we can safely assume that the type is correct
+		//nolint:forcetypeassert // we can safely assume that the type is correct
 		accParams := subCommand.(*walletmanager.DestroyAccountParams)
 
 		if err := wallets.DestroyAccount(ctx, accParams); err != nil {
@@ -105,7 +105,7 @@ func accountsSubcommand(ctx context.Context, wallets *walletmanager.Manager, sub
 		}
 
 	case walletmanager.OperationAllotAccount:
-		//nolint:forcetypassert // we can safely assume that the type is correct
+		//nolint:forcetypeassert // we can safely assume that the type is correct
 		accParams := subCommand.(*walletmanager.AllotAccountParams)
 
 		if err := wallets.AllotToAccount(ctx, accParams); err != nil {
@@ -113,7 +113,7 @@ func accountsSubcommand(ctx context.Context, wallets *walletmanager.Manager, sub
 		}
 
 	case walletmanager.OperationDelegate:
-		//nolint:forcetypassert // we can safely assume that the type is correct
+		//nolint:forcetypeassert // we can safely assume that the type is correct
 		accParams := subCommand.(*walletmanager.DelegateAccountParams)
 
 		if err := wallets.DelegateToAccount(ctx, accParams); err != nil {
@@ -121,7 +121,7 @@ func accountsSubcommand(ctx context.Context, wallets *walletmanager.Manager, sub
 		}
 
 	case walletmanager.OperationClaim:
-		//nolint:forcetypassert // we can safely assume that the type is correct
+		//nolint:forcetypeassert // we can safely assume that the type is correct
 		accParams := subCommand.(*walletmanager.ClaimAccountParams)
 
 		if err := wallets.Claim(ctx, accParams); err != nil {

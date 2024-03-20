@@ -31,7 +31,7 @@ type Connector interface {
 	// ServerStatus retrieves the connected server status.
 	ServerStatus(cltIdx int) (status *ServerInfo, err error)
 	// Clients returns list of all clients.
-	Clients(...bool) []Client
+	Clients() []Client
 	// GetClients returns the numOfClt client instances that were used the longest time ago.
 	GetClients(numOfClt int) []Client
 	// AddClient adds a client to WebClients based on provided GoShimmerAPI url.
@@ -99,7 +99,7 @@ func (c *WebClients) ServerStatus(cltIdx int) (status *ServerInfo, err error) {
 }
 
 // Clients returns list of all clients.
-func (c *WebClients) Clients(...bool) []Client {
+func (c *WebClients) Clients() []Client {
 	clients := make([]Client, len(c.clients))
 	for i, c := range c.clients {
 		clients[i] = c

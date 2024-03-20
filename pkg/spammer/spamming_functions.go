@@ -154,7 +154,7 @@ func createBlowBall(ctx context.Context, center iotago.BlockID, s *Spammer) []*i
 	// default to 30, if blowball size is not set
 	size := lo.Max(s.BlowballSize, 30)
 
-	for i := 0; i < size; i++ {
+	for range size {
 		blk := createSideBlock(ctx, center, s)
 		blowBallBlocks = append(blowBallBlocks, blk)
 	}

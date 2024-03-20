@@ -84,5 +84,4 @@ func run() error {
 	Component.Daemon().Run()
 
 	return nil
-
 }

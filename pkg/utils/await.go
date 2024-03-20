@@ -116,7 +116,6 @@ func AwaitBlockWithTransactionToBeAccepted(ctx context.Context, logger log.Logge
 
 			return err
 		}
-
 	}
 
 	return ierrors.Errorf("Transaction %s not accepted in time", txID)

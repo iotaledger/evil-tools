@@ -1,4 +1,4 @@
-module github.com/iotaledger/iota-core/tools/gendoc
+module github.com/iotaledger/evil-tools/tools/gendoc
 
 go 1.22
 
